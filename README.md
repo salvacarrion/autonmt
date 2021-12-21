@@ -26,7 +26,7 @@ pip install -e .
 
 ## Usage
 
-**Generate datasets:** 
+### Dataset generation
 
 The `DatasetBuilder` is the object in charge of generating versions of your dataset from a reference one ("original"). If you don't know how to use it, 
 run this code with `interactive=True` and it will guide you step-by-step to generate the reference dataset.
@@ -50,7 +50,8 @@ tr_datasets = DatasetBuilder(
 ts_datasets = tr_datasets
 ```
 
-**Train & Score:**
+
+### Train & Score
 
 The `Translator` object abstracts the seq2seq pipeline so that you can train and score your custom models effortless. Similarly, 
 you can use other engines such as `fairseq` or `opennmt`.
@@ -72,11 +73,11 @@ for ds in tr_datasets:
     model.make_plots()
 ```
 
-**Custom models:**
+### Custom models
 
-Add `Seq2Seq` to your Pytorch models
+To create your custom pytorch model, you only need inherit from `Seq2Seq` and then include it to the training pipeline with: `model.train(custom_model=Transformer)`
+
 ```python
-
 from autonlp.models import Seq2Seq
 
 class Transformer(Seq2Seq):
