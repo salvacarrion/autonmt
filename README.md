@@ -91,12 +91,68 @@ class Transformer(Seq2Seq):
 ```
 
 
-**Plots & Stats:**
+### Plots & Stats
 
 AutoNLP will automatically generate plots for the split sizes, the sentence length distributions, 
 token frequencies, the evaluated models, etc. All these plots can be found along with either a .json or a .csv 
 containing its data, summary and statistics
 
-![](images/multi30k/vocab_distr_top100__multi30k_original_de-en__word_16000.png)
-![](images/multi30k/sent_distr_test_de__multi30k_original_de-en__word_16000.png)
-![](images/multi30k/split_size_tok__multi30k_original_de-en__word_16000.png)
+![](docs/images/multi30k/vocab_distr_top100__multi30k_original_de-en__word_16000.png)
+![](docs/images/multi30k/sent_distr_test_de__multi30k_original_de-en__word_16000.png)
+![](docs/images/multi30k/split_size_tok__multi30k_original_de-en__word_16000.png)
+
+
+### Layout example
+
+This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt)
+```text
+multi30k/
+.
+├── original
+│   └── de-en
+│       ├── data
+│       │   ├── encoded
+│       │   │   ├── char
+│       │   │   │   └── 16000
+│       │   │   │       ├── test.de
+│       │   │   │       ├── test.en
+│       │   │   │       ├── train.de
+│       │   │   │       ├── train.en
+│       │   │   │       ├── val.de
+│       │   │   │       └── val.en
+│       │   │   ├── unigram
+│       │   │   │   └── 16000
+│       │   │   │       ├── test.de
+│       │   │   │       ├── test.en
+│       │   │   │       ├── train.de
+│       │   │   │       ├── train.en
+│       │   │   │       ├── val.de
+│       │   │   │       └── val.en
+│       │   │   └── word
+│       │   │       └── 16000
+│       │   │           ├── test.de
+│       │   │           ├── test.en
+│       │   │           ├── train.de
+│       │   │           ├── train.en
+│       │   │           ├── val.de
+│       │   │           └── val.en
+│       │   ├── pretokenized
+│       │   │   ├── test.de
+│       │   │   ├── test.en
+│       │   │   ├── train.de
+│       │   │   ├── train.en
+│       │   │   ├── val.de
+│       │   │   └── val.en
+│       │   ├── raw
+│       │   │   ├── data.de
+│       │   │   └── data.en
+│       │   └── splits
+│       │       ├── test.de
+│       │       ├── test.en
+│       │       ├── train.de
+│       │       ├── train.en
+│       │       ├── val.de
+│       │       └── val.en
+│       ├── models
+...
+```
