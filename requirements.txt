@@ -1,0 +1,46 @@
+# conda create --name mltests python=3.8
+
+# Deep learning
+torch==1.10.*
+pytorch-lightning==3.0.*
+tensorflow==2.7.*
+segmentation-models==1.0.*
+
+# Data science
+numpy==1.21.*
+pandas==1.1.*
+scipy==1.7.*
+scikit-learn==1.0.*
+
+# Visualization
+matplotlib==3.5.*
+seaborn==0.11.*
+plotly==5.4.*
+kaleido==0.2.*
+
+# Image
+Pillow==8.4.*
+scikit-image==0.19.*
+opencv-python==4.5.*
+albumentations==1.1.*
+
+# Metrics
+torchmetrics==0.6.*
+bert-score==0.3.*
+unbabel-comet==1.0.*
+sacrebleu==2.0.*
+
+# NLP
+sacremoses==0.0.*
+sentencepiece==0.1.*
+subword-nmt==0.3.*
+torchtext==0.11.*
+spacy==3.2.*
+
+# ONNX
+tf2onnx==1.9.*
+onnx==1.10.*
+
+# Other
+tqdm==4.62.*
+jupyterlab==3.2.*

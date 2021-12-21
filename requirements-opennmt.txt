@@ -1,0 +1,5 @@
+OpenNMT-py
+pyrouge
+#git+git://github.com/NVIDIA/apex.git@700d6825e205732c1d6be511306ca4e595297070
+subword-nmt>=0.3.7
+sentencepiece>=0.1.94
