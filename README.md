@@ -34,7 +34,7 @@ run this code with `interactive=True` and it will guide you step-by-step to gene
 ```python
 from autonlp import DatasetBuilder
 
-# Train datasets
+# Train datasets. This will create: 2*2*2=8 datasets
 tr_datasets = DatasetBuilder(
     base_path="some_folder",
     datasets=[
