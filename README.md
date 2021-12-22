@@ -8,22 +8,22 @@
 
 **AutoNMT** is a Python library that allows you to research seq2seq models by providing two high-level features:
 
-- Automates the grid experimentation: Tokenization, training, scoring, logging, plotting, stats, etc.
-- Toolkit abstraction: Use your models, our models, or other libraries such as Fairseq or OpenNMT, changing a single of code.
+- Automates the grid experimentation: Tokenization, training, scoring, logging, plotting, stats, file management, etc.
+- Toolkit abstraction: Use your models, our models, or different libraries such as Fairseq or OpenNMT, changing a single of code.
 
 
 **Why us?**
 
-We follow an almost-no code approach regarding the pipeline, so that you can remain focused on your research without 
-having to learn the inner workings of another toolkit.
+We follow an **almost-no code** approach so that you can remain focused on your research without wasting time learning 
+the inner workings of another toolkit.
 
 
 **Reproducibility**
 
 Reproducibility is a must in research. Because of that, we only use reference libraries that produce shareable, 
-comparable, and reproducible results such as Sacrebleu, Moses or SentencePiece, with the default configuration (recommended).
+comparable, and reproducible results such as Sacrebleu, Moses or SentencePiece.
 
-Furthermore, we provide two features for reproducibiloty:
+Furthermore, we provide two features for reproducibility:
 
 - All the intermediate steps (raw files, tokenized, binaries, scores,...) are saved in separated folders so that a user can inspect any part of the process (and reuse it in other projects) and, we also output all the commands use to compute
 - We also output the exact commands used for the reference libraries so you can replicate any part of the process for yourself
@@ -57,7 +57,7 @@ from autonmt import DatasetBuilder
 
 # Create datasets for training (2*1*2*3*2 = 24 datasets)
 tr_datasets = DatasetBuilder(
-    base_path="/home/salva/datasets",
+    base_path="/home/datasets",
     datasets=[
         {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
         {"name": "scielo/health", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
