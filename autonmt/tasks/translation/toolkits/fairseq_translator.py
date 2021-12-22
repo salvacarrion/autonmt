@@ -1,9 +1,6 @@
 import os
-import random
 import shutil
 import subprocess
-from abc import ABC
-from pathlib import Path
 
 from autonmt.tasks.translation.base import BaseTranslator
 from autonmt.cmd import cmd_tokenizers
@@ -30,8 +27,8 @@ def _parse_args(**kwargs):
 
 class FairseqTranslator(BaseTranslator):
 
-    def __init__(self, *args, conda_fairseq_env_name=None, **kwargs):
-        super().__init__(*args, engine="fairseq", **kwargs)
+    def __init__(self, conda_fairseq_env_name=None, **kwargs):
+        super().__init__(engine="fairseq", **kwargs)
 
         # Vars
         self.conda_fairseq_env_name = conda_fairseq_env_name
@@ -43,7 +40,7 @@ class FairseqTranslator(BaseTranslator):
             # raise ValueError("'FairseqTranslator' needs the name of the conda environment where it is installed")
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                   trg_vocab_path, *args, **kwargs):
+                   trg_vocab_path, **kwargs):
         # Reformat vocab files for fairseq
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
@@ -56,7 +53,8 @@ class FairseqTranslator(BaseTranslator):
             shutil.copyfile(f"{trg_vocab_path.strip()}.vocabf", new_trg_vocab_path)
             cmd_tokenizers.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
 
-        # Trick for generation. A train path is required
+        # Trick for generation.
+        # Fairseq always requires a train path, but during evaluation there is no need.
         if kwargs.get("external_data"):
             train_path = test_path
 
@@ -86,7 +84,7 @@ class FairseqTranslator(BaseTranslator):
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
         print(f"\t- Command used: {cmd}")
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, *args, **kwargs):
+    def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
         # Write command
         cmd = [f"fairseq-train '{data_bin_path}'"]
         cmd += [f"--save-dir '{checkpoints_path}'"] if checkpoints_path else []
@@ -105,8 +103,7 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- Command used: {cmd}")
 
     def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, src_spm_model_path,
-                   trg_spm_model_path, beam_width, max_gen_length,
-                   *args, **kwargs):
+                   trg_spm_model_path, beam_width, max_gen_length, **kwargs):
         # Write command
         cmd = [f"fairseq-generate {data_path}"]
 

@@ -265,3 +265,15 @@ def parse_split_size(ds_size, max_ds_size):
         return ds_size
     else:
         raise TypeError("'ds_size' can be a tuple(float, int), float or int")
+
+
+def read_file_lines(filename, strip=False, remove_break_lines=True):
+    with open(filename, 'r') as f:
+        lines = [line.strip() for line in f.readlines()] if strip else f.readlines()
+        lines = [line.replace('\n', '') for line in lines] if remove_break_lines else lines
+    return lines
+
+
+def flatten(lst):
+    return [item for sublist in lst for item in sublist]
+

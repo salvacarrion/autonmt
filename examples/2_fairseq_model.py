@@ -1,7 +1,6 @@
-import os
 import autonmt as al
 from autonmt import DatasetBuilder
-from autonmt.tasks.translation.metrics import create_report
+from autonmt.tasks.translation.bundle.metrics import create_report
 
 
 def main(fairseq_args):
@@ -22,7 +21,7 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for train_ds in tr_datasets:
-        model = al.FairseqTranslator(conda_fairseq_env_name="fairseq", conda_env_name="mltests", force_overwrite=False)
+        model = al.FairseqTranslator(conda_fairseq_env_name="fairseq", conda_env_name="mltests")  # Conda envs will be deprecated
         model.fit(train_ds, fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
         scores.append(eval_scores)

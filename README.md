@@ -17,6 +17,12 @@ subword encodings, split sizes...) are:
 
 ## Installation
 
+**Requirements:**
+
+- Python +3.6
+
+**Installation:**
+
 ```
 git clone git@github.com:salvacarrion/autonlp.git
 cd autonlp
@@ -26,10 +32,12 @@ pip install -e .
 
 ## Usage
 
+This is a summary but if you want to see complete examples go [here](examples).
+
 ### Dataset generation
 
-The `DatasetBuilder` is the object in charge of generating versions of your dataset from a reference one ("original"). If you don't know how to use it, 
-run this code with `interactive=True` (default) and it will guide you step-by-step to generate the reference dataset.
+The `DatasetBuilder` is the object in charge of generating datasets from a reference one ("original"). If you don't know how to use it, 
+set `interactive=True` (default) in the `DatasetBuilder` constructor, and it will guide you step-by-step so that you can create reference datasets.
 
 ```python
 from autonmt import DatasetBuilder
@@ -38,8 +46,8 @@ from autonmt import DatasetBuilder
 tr_datasets = DatasetBuilder(
     base_path="/home/salva/datasets",
     datasets=[
-        {"name": "scielo/biological", "languages": ["de-en"], "sizes": [("original", None), ("100k", 100000)]},
-        {"name": "scielo/health", "languages": ["de-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "scielo/health", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
     ],
     subword_models=["word", "unigram", "char"],
     vocab_sizes=[8000, 16000],
@@ -68,15 +76,15 @@ for train_ds in tr_datasets:
 ### Generate a report
 
 ```python
-from autonmt.tasks.translation.metrics import create_report
+from autonmt.tasks.translation.bundle.metrics import create_report
 
 # Train & Score a model for each dataset
 scores = []
 for train_ds in tr_datasets:
-    model = al.Translator()
-    model.fit(train_ds)
-    eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
-    scores.append(eval_scores)
+  model = al.Translator()
+  model.fit(train_ds)
+  eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+  scores.append(eval_scores)
 
 # Make report
 create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs")
@@ -86,29 +94,66 @@ create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".o
 
 #### Custom models
 
-To create your custom pytorch model, you only need inherit from `Seq2Seq` and then pass it as parameter to the `Translator` class.
+To create your custom pytorch model, you only need inherit from `Seq2Seq` and then pass it as parameter to the `Translator` class. 
+The only requirement is that the forward must return a tensor with shape `(batch, length, probabilities)`.
 
 ```python
-from autonmt.tasks.translation import Seq2Seq
+from autonmt.tasks.translation.models import Seq2Seq
 
 
 class Transformer(Seq2Seq):
     def __init__(self, *args, **kwargs):
         super().__init__()
-        # Your model        
+        # do stuff        
 
     def forward(self, X, Y):
         # do stuff
-        return output  # (Batch, Length, probabilities)
+        return  # Tensor with shape: (Batch, Length, probabilities)
 
+# Custom model
+mymodel = Transformer()
 
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
-    model = al.Translator(model=Transformer)
+    model = al.Translator(model=mymodel)
     model.fit(train_ds)
     model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
 ```
 
+**Custom trainer/evaluator**
+
+If you need to write a custom fit or evaluate function, you can either overwrite the methods you want from the `Seq2Seq` class, or simply write
+your own class, like this:
+
+```python
+import torch.nn as nn
+from autonmt.tasks.translation.bundle.dataset import TranslationDataset
+
+
+class CustomSeq2Seq(nn.Module):
+  def __init__(self, src_vocab_size, trg_vocab_size, *args, **kwargs):
+    super().__init__()
+    self.src_vocab_size = src_vocab_size
+    self.trg_vocab_size = trg_vocab_size
+
+  def fit(self, ds_train: TranslationDataset, ds_val: TranslationDataset, *args, **kwargs):
+    pass
+
+  def evaluate(self, *args, **kwargs):
+    pass
+
+
+class CustomModel(CustomSeq2Seq):
+  def __init__(self, *args, **kwargs):
+    super().__init__()
+
+  def forward(self, X, Y, *args, **kwargs):
+    pass
+
+
+# Custom model
+model = al.Translator(model=CustomModel())
+```
 
 #### Fairseq models
 
