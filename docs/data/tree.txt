@@ -1,27 +1,10 @@
 .
-├── original
-│   └── de-en
+├── de-en
+│   └── original
 │       ├── data
 │       │   ├── encoded
-│       │   │   ├── char
-│       │   │   │   └── 16000
-│       │   │   │       ├── test.de
-│       │   │   │       ├── test.en
-│       │   │   │       ├── train.de
-│       │   │   │       ├── train.en
-│       │   │   │       ├── val.de
-│       │   │   │       └── val.en
-│       │   │   ├── unigram
-│       │   │   │   └── 16000
-│       │   │   │       ├── test.de
-│       │   │   │       ├── test.en
-│       │   │   │       ├── train.de
-│       │   │   │       ├── train.en
-│       │   │   │       ├── val.de
-│       │   │   │       └── val.en
 │       │   │   └── word
-│       │   │       ├── 1000
-│       │   │       └── 16000
+│       │   │       └── 8000
 │       │   │           ├── test.de
 │       │   │           ├── test.en
 │       │   │           ├── train.de
@@ -35,9 +18,6 @@
 │       │   │   ├── train.en
 │       │   │   ├── val.de
 │       │   │   └── val.en
-│       │   ├── raw
-│       │   │   ├── data.de
-│       │   │   └── data.en
 │       │   └── splits
 │       │       ├── test.de
 │       │       ├── test.en
@@ -46,91 +26,10 @@
 │       │       ├── val.de
 │       │       └── val.en
 │       ├── models
-│       │   ├── custom
-│       │   │   ├── data-bin
-│       │   │   │   └── word
-│       │   │   │       └── 16000
-│       │   │   │           ├── spm_en.model
-│       │   │   │           ├── test.de
-│       │   │   │           ├── test.en
-│       │   │   │           ├── train.de
-│       │   │   │           ├── train.en
-│       │   │   │           ├── val.de
-│       │   │   │           ├── val.en
-│       │   │   │           ├── vocab.de
-│       │   │   │           ├── vocab_de.model
-│       │   │   │           └── vocab.en
-│       │   │   └── runs
-│       │   │       └── mymodel_word_16000
-│       │   │           ├── checkpoints
-│       │   │           │   └── checkpoint_best.pt
-│       │   │           ├── eval
-│       │   │           │   ├── iwlst16_original_de-en
-│       │   │           │   │   ├── beams
-│       │   │           │   │   │   └── beam_1
-│       │   │           │   │   ├── data
-│       │   │           │   │   │   ├── test.de
-│       │   │           │   │   │   └── test.en
-│       │   │           │   │   └── data-bin
-│       │   │           │   │       ├── spm_de.model
-│       │   │           │   │       ├── spm_en.model
-│       │   │           │   │       ├── test.de
-│       │   │           │   │       ├── test.en
-│       │   │           │   │       ├── vocab.de
-│       │   │           │   │       └── vocab.en
-│       │   │           │   └── multi30k_original_de-en
-│       │   │           │       ├── beams
-│       │   │           │       │   └── beam_1
-│       │   │           │       │       ├── hyp.tok
-│       │   │           │       │       ├── ref.tok
-│       │   │           │       │       └── src.tok
-│       │   │           │       ├── data
-│       │   │           │       │   ├── test.de
-│       │   │           │       │   └── test.en
-│       │   │           │       └── data-bin
-│       │   │           │           ├── spm_de.model
-│       │   │           │           ├── spm_en.model
-│       │   │           │           ├── test.de
-│       │   │           │           └── test.en
-│       │   │           └── logs
 │       │   └── fairseq
 │       │       ├── data-bin
-│       │       │   ├── char
-│       │       │   │   └── 16000
-│       │       │   │       ├── dict.de.txt
-│       │       │   │       ├── dict.en.txt
-│       │       │   │       ├── preprocess.log
-│       │       │   │       ├── test.de-en.de.bin
-│       │       │   │       ├── test.de-en.de.idx
-│       │       │   │       ├── test.de-en.en.bin
-│       │       │   │       ├── test.de-en.en.idx
-│       │       │   │       ├── train.de-en.de.bin
-│       │       │   │       ├── train.de-en.de.idx
-│       │       │   │       ├── train.de-en.en.bin
-│       │       │   │       ├── train.de-en.en.idx
-│       │       │   │       ├── valid.de-en.de.bin
-│       │       │   │       ├── valid.de-en.de.idx
-│       │       │   │       ├── valid.de-en.en.bin
-│       │       │   │       └── valid.de-en.en.idx
-│       │       │   ├── unigram
-│       │       │   │   └── 16000
-│       │       │   │       ├── dict.de.txt
-│       │       │   │       ├── dict.en.txt
-│       │       │   │       ├── preprocess.log
-│       │       │   │       ├── test.de-en.de.bin
-│       │       │   │       ├── test.de-en.de.idx
-│       │       │   │       ├── test.de-en.en.bin
-│       │       │   │       ├── test.de-en.en.idx
-│       │       │   │       ├── train.de-en.de.bin
-│       │       │   │       ├── train.de-en.de.idx
-│       │       │   │       ├── train.de-en.en.bin
-│       │       │   │       ├── train.de-en.en.idx
-│       │       │   │       ├── valid.de-en.de.bin
-│       │       │   │       ├── valid.de-en.de.idx
-│       │       │   │       ├── valid.de-en.en.bin
-│       │       │   │       └── valid.de-en.en.idx
 │       │       │   └── word
-│       │       │       └── 16000
+│       │       │       └── 8000
 │       │       │           ├── dict.de.txt
 │       │       │           ├── dict.en.txt
 │       │       │           ├── preprocess.log
@@ -147,247 +46,14 @@
 │       │       │           ├── valid.de-en.en.bin
 │       │       │           └── valid.de-en.en.idx
 │       │       └── runs
-│       │           ├── mymodel_char_16000
-│       │           │   ├── checkpoints
-│       │           │   │   ├── checkpoint_best.pt
-│       │           │   │   └── checkpoint_last.pt
-│       │           │   ├── eval
-│       │           │   │   ├── iwlst16_original_de-en
-│       │           │   │   │   ├── beams
-│       │           │   │   │   │   ├── beam_1
-│       │           │   │   │   │   │   ├── generate-test.txt
-│       │           │   │   │   │   │   ├── hyp.tok
-│       │           │   │   │   │   │   ├── hyp.txt
-│       │           │   │   │   │   │   ├── ref.tok
-│       │           │   │   │   │   │   ├── ref.txt
-│       │           │   │   │   │   │   ├── scores
-│       │           │   │   │   │   │   │   ├── bert_scores.txt
-│       │           │   │   │   │   │   │   ├── comet_scores.txt
-│       │           │   │   │   │   │   │   └── sacrebleu_scores.json
-│       │           │   │   │   │   │   ├── src.tok
-│       │           │   │   │   │   │   └── src.txt
-│       │           │   │   │   │   └── beam_5
-│       │           │   │   │   │       ├── generate-test.txt
-│       │           │   │   │   │       ├── hyp.tok
-│       │           │   │   │   │       ├── hyp.txt
-│       │           │   │   │   │       ├── ref.tok
-│       │           │   │   │   │       ├── ref.txt
-│       │           │   │   │   │       ├── scores
-│       │           │   │   │   │       │   ├── bert_scores.txt
-│       │           │   │   │   │       │   ├── comet_scores.txt
-│       │           │   │   │   │       │   └── sacrebleu_scores.json
-│       │           │   │   │   │       ├── src.tok
-│       │           │   │   │   │       └── src.txt
-│       │           │   │   │   ├── data
-│       │           │   │   │   │   ├── test.de
-│       │           │   │   │   │   └── test.en
-│       │           │   │   │   └── data-bin
-│       │           │   │   │       ├── dict.de.txt
-│       │           │   │   │       ├── dict.en.txt
-│       │           │   │   │       ├── preprocess.log
-│       │           │   │   │       ├── test.de-en.de.bin
-│       │           │   │   │       ├── test.de-en.de.idx
-│       │           │   │   │       ├── test.de-en.en.bin
-│       │           │   │   │       ├── test.de-en.en.idx
-│       │           │   │   │       ├── train.de-en.de.bin
-│       │           │   │   │       ├── train.de-en.de.idx
-│       │           │   │   │       ├── train.de-en.en.bin
-│       │           │   │   │       └── train.de-en.en.idx
-│       │           │   │   └── multi30k_original_de-en
-│       │           │   │       ├── beams
-│       │           │   │       │   ├── beam_1
-│       │           │   │       │   │   ├── generate-test.txt
-│       │           │   │       │   │   ├── hyp.tok
-│       │           │   │       │   │   ├── hyp.txt
-│       │           │   │       │   │   ├── ref.tok
-│       │           │   │       │   │   ├── ref.txt
-│       │           │   │       │   │   ├── scores
-│       │           │   │       │   │   │   ├── beer_scores.txt
-│       │           │   │       │   │   │   ├── bert_scores.txt
-│       │           │   │       │   │   │   ├── comet_scores.txt
-│       │           │   │       │   │   │   └── sacrebleu_scores.json
-│       │           │   │       │   │   ├── src.tok
-│       │           │   │       │   │   └── src.txt
-│       │           │   │       │   └── beam_5
-│       │           │   │       │       ├── generate-test.txt
-│       │           │   │       │       ├── hyp.tok
-│       │           │   │       │       ├── hyp.txt
-│       │           │   │       │       ├── ref.tok
-│       │           │   │       │       ├── ref.txt
-│       │           │   │       │       ├── scores
-│       │           │   │       │       │   ├── beer_scores.txt
-│       │           │   │       │       │   ├── bert_scores.txt
-│       │           │   │       │       │   ├── comet_scores.txt
-│       │           │   │       │       │   └── sacrebleu_scores.json
-│       │           │   │       │       ├── src.tok
-│       │           │   │       │       └── src.txt
-│       │           │   │       ├── data
-│       │           │   │       │   ├── test.de
-│       │           │   │       │   └── test.en
-│       │           │   │       └── data-bin
-│       │           │   │           ├── dict.de.txt
-│       │           │   │           ├── dict.en.txt
-│       │           │   │           ├── preprocess.log
-│       │           │   │           ├── test.de-en.de.bin
-│       │           │   │           ├── test.de-en.de.idx
-│       │           │   │           ├── test.de-en.en.bin
-│       │           │   │           ├── test.de-en.en.idx
-│       │           │   │           ├── train.de-en.de.bin
-│       │           │   │           ├── train.de-en.de.idx
-│       │           │   │           ├── train.de-en.en.bin
-│       │           │   │           └── train.de-en.en.idx
-│       │           │   └── logs
-│       │           │       ├── train
-│       │           │       │   └── events.out.tfevents.1639681641.salva-desktop.53609.2
-│       │           │       ├── train_inner
-│       │           │       │   └── events.out.tfevents.1639681593.salva-desktop.53609.0
-│       │           │       └── valid
-│       │           │           └── events.out.tfevents.1639681641.salva-desktop.53609.1
-│       │           ├── mymodel_unigram_16000
-│       │           │   ├── checkpoints
-│       │           │   │   ├── checkpoint_best.pt
-│       │           │   │   └── checkpoint_last.pt
-│       │           │   ├── eval
-│       │           │   │   ├── iwlst16_original_de-en
-│       │           │   │   │   ├── beams
-│       │           │   │   │   │   ├── beam_1
-│       │           │   │   │   │   │   ├── generate-test.txt
-│       │           │   │   │   │   │   ├── hyp.tok
-│       │           │   │   │   │   │   ├── hyp.txt
-│       │           │   │   │   │   │   ├── ref.tok
-│       │           │   │   │   │   │   ├── ref.txt
-│       │           │   │   │   │   │   ├── scores
-│       │           │   │   │   │   │   │   ├── bert_scores.txt
-│       │           │   │   │   │   │   │   ├── comet_scores.txt
-│       │           │   │   │   │   │   │   └── sacrebleu_scores.json
-│       │           │   │   │   │   │   ├── src.tok
-│       │           │   │   │   │   │   └── src.txt
-│       │           │   │   │   │   └── beam_5
-│       │           │   │   │   │       ├── generate-test.txt
-│       │           │   │   │   │       ├── hyp.tok
-│       │           │   │   │   │       ├── hyp.txt
-│       │           │   │   │   │       ├── ref.tok
-│       │           │   │   │   │       ├── ref.txt
-│       │           │   │   │   │       ├── scores
-│       │           │   │   │   │       │   ├── bert_scores.txt
-│       │           │   │   │   │       │   ├── comet_scores.txt
-│       │           │   │   │   │       │   └── sacrebleu_scores.json
-│       │           │   │   │   │       ├── src.tok
-│       │           │   │   │   │       └── src.txt
-│       │           │   │   │   ├── data
-│       │           │   │   │   │   ├── test.de
-│       │           │   │   │   │   └── test.en
-│       │           │   │   │   └── data-bin
-│       │           │   │   │       ├── dict.de.txt
-│       │           │   │   │       ├── dict.en.txt
-│       │           │   │   │       ├── preprocess.log
-│       │           │   │   │       ├── test.de-en.de.bin
-│       │           │   │   │       ├── test.de-en.de.idx
-│       │           │   │   │       ├── test.de-en.en.bin
-│       │           │   │   │       ├── test.de-en.en.idx
-│       │           │   │   │       ├── train.de-en.de.bin
-│       │           │   │   │       ├── train.de-en.de.idx
-│       │           │   │   │       ├── train.de-en.en.bin
-│       │           │   │   │       └── train.de-en.en.idx
-│       │           │   │   └── multi30k_original_de-en
-│       │           │   │       ├── beams
-│       │           │   │       │   ├── beam_1
-│       │           │   │       │   │   ├── generate-test.txt
-│       │           │   │       │   │   ├── hyp.tok
-│       │           │   │       │   │   ├── hyp.txt
-│       │           │   │       │   │   ├── ref.tok
-│       │           │   │       │   │   ├── ref.txt
-│       │           │   │       │   │   ├── scores
-│       │           │   │       │   │   │   ├── beer_scores.txt
-│       │           │   │       │   │   │   ├── bert_scores.txt
-│       │           │   │       │   │   │   ├── comet_scores.txt
-│       │           │   │       │   │   │   └── sacrebleu_scores.json
-│       │           │   │       │   │   ├── src.tok
-│       │           │   │       │   │   └── src.txt
-│       │           │   │       │   └── beam_5
-│       │           │   │       │       ├── generate-test.txt
-│       │           │   │       │       ├── hyp.tok
-│       │           │   │       │       ├── hyp.txt
-│       │           │   │       │       ├── ref.tok
-│       │           │   │       │       ├── ref.txt
-│       │           │   │       │       ├── scores
-│       │           │   │       │       │   ├── beer_scores.txt
-│       │           │   │       │       │   ├── bert_scores.txt
-│       │           │   │       │       │   ├── comet_scores.txt
-│       │           │   │       │       │   └── sacrebleu_scores.json
-│       │           │   │       │       ├── src.tok
-│       │           │   │       │       └── src.txt
-│       │           │   │       ├── data
-│       │           │   │       │   ├── test.de
-│       │           │   │       │   └── test.en
-│       │           │   │       └── data-bin
-│       │           │   │           ├── dict.de.txt
-│       │           │   │           ├── dict.en.txt
-│       │           │   │           ├── preprocess.log
-│       │           │   │           ├── test.de-en.de.bin
-│       │           │   │           ├── test.de-en.de.idx
-│       │           │   │           ├── test.de-en.en.bin
-│       │           │   │           ├── test.de-en.en.idx
-│       │           │   │           ├── train.de-en.de.bin
-│       │           │   │           ├── train.de-en.de.idx
-│       │           │   │           ├── train.de-en.en.bin
-│       │           │   │           └── train.de-en.en.idx
-│       │           │   └── logs
-│       │           │       ├── train
-│       │           │       │   └── events.out.tfevents.1639681050.salva-desktop.49703.2
-│       │           │       ├── train_inner
-│       │           │       │   └── events.out.tfevents.1639681040.salva-desktop.49703.0
-│       │           │       └── valid
-│       │           │           └── events.out.tfevents.1639681050.salva-desktop.49703.1
-│       │           └── mymodel_word_16000
+│       │           └── model_word_8000
 │       │               ├── checkpoints
 │       │               │   ├── checkpoint_best.pt
 │       │               │   └── checkpoint_last.pt
 │       │               ├── eval
-│       │               │   ├── iwlst16_original_de-en
-│       │               │   │   ├── beams
-│       │               │   │   │   ├── beam_1
-│       │               │   │   │   │   ├── generate-test.txt
-│       │               │   │   │   │   ├── hyp.tok
-│       │               │   │   │   │   ├── hyp.txt
-│       │               │   │   │   │   ├── ref.tok
-│       │               │   │   │   │   ├── ref.txt
-│       │               │   │   │   │   ├── scores
-│       │               │   │   │   │   │   ├── bert_scores.txt
-│       │               │   │   │   │   │   ├── comet_scores.txt
-│       │               │   │   │   │   │   └── sacrebleu_scores.json
-│       │               │   │   │   │   ├── src.tok
-│       │               │   │   │   │   └── src.txt
-│       │               │   │   │   └── beam_5
-│       │               │   │   │       ├── generate-test.txt
-│       │               │   │   │       ├── hyp.tok
-│       │               │   │   │       ├── hyp.txt
-│       │               │   │   │       ├── ref.tok
-│       │               │   │   │       ├── ref.txt
-│       │               │   │   │       ├── scores
-│       │               │   │   │       │   ├── bert_scores.txt
-│       │               │   │   │       │   ├── comet_scores.txt
-│       │               │   │   │       │   └── sacrebleu_scores.json
-│       │               │   │   │       ├── src.tok
-│       │               │   │   │       └── src.txt
-│       │               │   │   ├── data
-│       │               │   │   │   ├── test.de
-│       │               │   │   │   └── test.en
-│       │               │   │   └── data-bin
-│       │               │   │       ├── dict.de.txt
-│       │               │   │       ├── dict.en.txt
-│       │               │   │       ├── preprocess.log
-│       │               │   │       ├── test.de-en.de.bin
-│       │               │   │       ├── test.de-en.de.idx
-│       │               │   │       ├── test.de-en.en.bin
-│       │               │   │       ├── test.de-en.en.idx
-│       │               │   │       ├── train.de-en.de.bin
-│       │               │   │       ├── train.de-en.de.idx
-│       │               │   │       ├── train.de-en.en.bin
-│       │               │   │       └── train.de-en.en.idx
-│       │               │   └── multi30k_original_de-en
+│       │               │   └── multi30k_de-en_original
 │       │               │       ├── beams
-│       │               │       │   ├── beam_1
+│       │               │       │   ├── beam1
 │       │               │       │   │   ├── generate-test.txt
 │       │               │       │   │   ├── hyp.tok
 │       │               │       │   │   ├── hyp.txt
@@ -395,12 +61,12 @@
 │       │               │       │   │   ├── ref.txt
 │       │               │       │   │   ├── scores
 │       │               │       │   │   │   ├── beer_scores.txt
-│       │               │       │   │   │   ├── bert_scores.txt
+│       │               │       │   │   │   ├── bertscore_scores.txt
 │       │               │       │   │   │   ├── comet_scores.txt
 │       │               │       │   │   │   └── sacrebleu_scores.json
 │       │               │       │   │   ├── src.tok
 │       │               │       │   │   └── src.txt
-│       │               │       │   └── beam_5
+│       │               │       │   └── beam5
 │       │               │       │       ├── generate-test.txt
 │       │               │       │       ├── hyp.tok
 │       │               │       │       ├── hyp.txt
@@ -408,14 +74,15 @@
 │       │               │       │       ├── ref.txt
 │       │               │       │       ├── scores
 │       │               │       │       │   ├── beer_scores.txt
-│       │               │       │       │   ├── bert_scores.txt
+│       │               │       │       │   ├── bertscore_scores.txt
 │       │               │       │       │   ├── comet_scores.txt
 │       │               │       │       │   └── sacrebleu_scores.json
 │       │               │       │       ├── src.tok
 │       │               │       │       └── src.txt
 │       │               │       ├── data
-│       │               │       │   ├── test.de
-│       │               │       │   └── test.en
+│       │               │       │   └── splits
+│       │               │       │       ├── test.de
+│       │               │       │       └── test.en
 │       │               │       └── data-bin
 │       │               │           ├── dict.de.txt
 │       │               │           ├── dict.en.txt
@@ -430,115 +97,46 @@
 │       │               │           └── train.de-en.en.idx
 │       │               └── logs
 │       │                   ├── train
-│       │                   │   ├── events.out.tfevents.1639677461.salva-desktop.36809.2
-│       │                   │   └── events.out.tfevents.1639680511.salva-desktop.45716.2
+│       │                   │   └── events.out.tfevents.1640103798.salva-desktop.31485.2
 │       │                   ├── train_inner
-│       │                   │   ├── events.out.tfevents.1639677453.salva-desktop.36809.0
-│       │                   │   └── events.out.tfevents.1639680503.salva-desktop.45716.0
+│       │                   │   └── events.out.tfevents.1640103792.salva-desktop.31485.0
 │       │                   └── valid
-│       │                       ├── events.out.tfevents.1639677461.salva-desktop.36809.1
-│       │                       └── events.out.tfevents.1639680510.salva-desktop.45716.1
+│       │                       └── events.out.tfevents.1640103798.salva-desktop.31485.1
 │       ├── plots
-│       │   └── data
-│       │       └── encoded
-│       │           ├── char
-│       │           │   └── 16000
-│       │           │       ├── pdf
-│       │           │       │   ├── sent_distr_test_de__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── sent_distr_test_en__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── sent_distr_train_de__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── sent_distr_train_en__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── sent_distr_val_de__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── sent_distr_val_en__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── split_size_sent__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── split_size_tok__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   ├── vocab_distr_top100__multi30k_original_de-en__char_16000.pdf
-│       │           │       │   └── vocab_distr_top150__multi30k_original_de-en__char_16000.pdf
-│       │           │       ├── png
-│       │           │       │   ├── sent_distr_test_de__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── sent_distr_test_en__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── sent_distr_train_de__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── sent_distr_train_en__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── sent_distr_val_de__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── sent_distr_val_en__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── split_size_sent__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── split_size_tok__multi30k_original_de-en__char_16000.png
-│       │           │       │   ├── vocab_distr_top100__multi30k_original_de-en__char_16000.png
-│       │           │       │   └── vocab_distr_top150__multi30k_original_de-en__char_16000.png
-│       │           │       └── stats__multi30k_original_de-en__char_16000.json
-│       │           ├── unigram
-│       │           │   └── 16000
-│       │           │       ├── pdf
-│       │           │       │   ├── sent_distr_test_de__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── sent_distr_test_en__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── sent_distr_train_de__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── sent_distr_train_en__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── sent_distr_val_de__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── sent_distr_val_en__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── split_size_sent__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── split_size_tok__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   ├── vocab_distr_top100__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       │   └── vocab_distr_top150__multi30k_original_de-en__unigram_16000.pdf
-│       │           │       ├── png
-│       │           │       │   ├── sent_distr_test_de__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── sent_distr_test_en__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── sent_distr_train_de__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── sent_distr_train_en__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── sent_distr_val_de__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── sent_distr_val_en__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── split_size_sent__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── split_size_tok__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   ├── vocab_distr_top100__multi30k_original_de-en__unigram_16000.png
-│       │           │       │   └── vocab_distr_top150__multi30k_original_de-en__unigram_16000.png
-│       │           │       └── stats__multi30k_original_de-en__unigram_16000.json
-│       │           └── word
-│       │               └── 16000
-│       │                   ├── pdf
-│       │                   │   ├── sent_distr_test_de__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── sent_distr_test_en__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── sent_distr_train_de__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── sent_distr_train_en__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── sent_distr_val_de__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── sent_distr_val_en__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── split_size_sent__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── split_size_tok__multi30k_original_de-en__word_16000.pdf
-│       │                   │   ├── vocab_distr_top100__multi30k_original_de-en__word_16000.pdf
-│       │                   │   └── vocab_distr_top150__multi30k_original_de-en__word_16000.pdf
-│       │                   ├── png
-│       │                   │   ├── sent_distr_test_de__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── sent_distr_test_en__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── sent_distr_train_de__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── sent_distr_train_en__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── sent_distr_val_de__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── sent_distr_val_en__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── split_size_sent__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── split_size_tok__multi30k_original_de-en__word_16000.png
-│       │                   │   ├── vocab_distr_top100__multi30k_original_de-en__word_16000.png
-│       │                   │   └── vocab_distr_top150__multi30k_original_de-en__word_16000.png
-│       │                   └── stats__multi30k_original_de-en__word_16000.json
+│       │   └── word
+│       │       └── 8000
+│       │           ├── pdf
+│       │           │   ├── sent_distr_test_de__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── sent_distr_test_en__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── sent_distr_train_de__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── sent_distr_train_en__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── sent_distr_val_de__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── sent_distr_val_en__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── split_size_sent__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── split_size_tok__multi30k_original_de-en__word_8000.pdf
+│       │           │   ├── vocab_distr_top100__multi30k_original_de-en__word_8000.pdf
+│       │           │   └── vocab_distr_top150__multi30k_original_de-en__word_8000.pdf
+│       │           ├── png
+│       │           │   ├── sent_distr_test_de__multi30k_original_de-en__word_8000.png
+│       │           │   ├── sent_distr_test_en__multi30k_original_de-en__word_8000.png
+│       │           │   ├── sent_distr_train_de__multi30k_original_de-en__word_8000.png
+│       │           │   ├── sent_distr_train_en__multi30k_original_de-en__word_8000.png
+│       │           │   ├── sent_distr_val_de__multi30k_original_de-en__word_8000.png
+│       │           │   ├── sent_distr_val_en__multi30k_original_de-en__word_8000.png
+│       │           │   ├── split_size_sent__multi30k_original_de-en__word_8000.png
+│       │           │   ├── split_size_tok__multi30k_original_de-en__word_8000.png
+│       │           │   ├── vocab_distr_top100__multi30k_original_de-en__word_8000.png
+│       │           │   └── vocab_distr_top150__multi30k_original_de-en__word_8000.png
+│       │           └── stats__multi30k_original_de-en__word_8000.json
 │       └── vocabs
 │           └── spm
-│               ├── char
-│               │   └── 16000
-│               │       ├── spm_de-en.model
-│               │       ├── spm_de-en.vocab
-│               │       └── spm_de-en.vocabf
 │               ├── _tmp
-│               │   ├── train_pretok.txt
-│               │   └── train_raw.txt
-│               ├── unigram
-│               │   └── 16000
-│               │       ├── spm_de-en.model
-│               │       ├── spm_de-en.vocab
-│               │       └── spm_de-en.vocabf
+│               │   └── train_pretok.txt
 │               └── word
-│                   ├── 1000
-│                   │   ├── spm_de-en.model
-│                   │   └── spm_de-en.vocab
-│                   └── 16000
+│                   └── 8000
 │                       ├── spm_de-en.model
 │                       ├── spm_de-en.vocab
 │                       └── spm_de-en.vocabf
 └── tree.txt
 
-137 directories, 404 files
+40 directories, 99 files

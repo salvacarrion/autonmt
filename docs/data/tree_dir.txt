@@ -1,0 +1,43 @@
+.
+└── de-en
+    └── original
+        ├── data
+        │   ├── encoded
+        │   │   └── word
+        │   │       └── 8000
+        │   ├── pretokenized
+        │   └── splits
+        ├── models
+        │   └── fairseq
+        │       ├── data-bin
+        │       │   └── word
+        │       │       └── 8000
+        │       └── runs
+        │           └── model_word_8000
+        │               ├── checkpoints
+        │               ├── eval
+        │               │   └── multi30k_de-en_original
+        │               │       ├── beams
+        │               │       │   ├── beam1
+        │               │       │   │   └── scores
+        │               │       │   └── beam5
+        │               │       │       └── scores
+        │               │       ├── data
+        │               │       │   └── splits
+        │               │       └── data-bin
+        │               └── logs
+        │                   ├── train
+        │                   ├── train_inner
+        │                   └── valid
+        ├── plots
+        │   └── word
+        │       └── 8000
+        │           ├── pdf
+        │           └── png
+        └── vocabs
+            └── spm
+                ├── _tmp
+                └── word
+                    └── 8000
+
+40 directories

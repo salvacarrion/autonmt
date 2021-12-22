@@ -34,19 +34,18 @@ run this code with `interactive=True` and it will guide you step-by-step to gene
 ```python
 from autonlp import DatasetBuilder
 
-# Train datasets. This will create: 2*2*2=8 datasets
+# Create datasets for training (2*1*2*3*2 = 24 datasets)
 tr_datasets = DatasetBuilder(
-    base_path="some_folder",
+    base_path="/home/salva/datasets",
     datasets=[
-        {"name": "europarl", "languages": ["de-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "scielo/biological", "languages": ["de-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "scielo/health", "languages": ["de-en"], "sizes": [("original", None), ("100k", 100000)]},
     ],
-    subword_models=["word", "unigram"],
+    subword_models=["word", "unigram", "char"],
     vocab_sizes=[8000, 16000],
-    force_overwrite=False,
-    interactive=True,
 ).build(make_plots=True, safe=True)
 
-# Test datasets
+# Create datasets for testing
 ts_datasets = tr_datasets
 ```
 
@@ -59,26 +58,38 @@ you can use other engines such as `fairseq` or `opennmt`.
 ```python
 import autonlp as al
 
-for ds in tr_datasets:
-    # Define translator
-    model = al.Translator(ds, engine="fairseq")
-
-    # Train & Score
-    model.preprocess()
-    model.train()
-    model.evaluate(eval_datasets=tr_datasets, beams=[1, 5])
-    model.score(eval_datasets=ts_datasets, metrics={"bleu", "chrf", "ter" "bertscore", "comet", "beer"})
-    
-    # Make plots
-    model.make_plots()
+# Train & Score a model for each dataset
+for train_ds in tr_datasets:
+    model = al.Translator()
+    model.fit(train_ds)
+    model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
 ```
 
-### Custom models
-
-To create your custom pytorch model, you only need inherit from `Seq2Seq` and then include it to the training pipeline with: `model.train(custom_model=Transformer)`
+### Generate a report
 
 ```python
-from autonlp.models import Seq2Seq
+from autonlp.tasks.translation.metrics import create_report
+
+# Train & Score a model for each dataset
+scores = {}
+for train_ds in tr_datasets:
+    model = al.Translator()
+    model.fit(train_ds)
+    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+    scores[str(train_ds)] = m_scores
+
+# Make report
+create_report(metrics=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs")
+```
+
+### Toolkit abstraction
+
+#### Custom models
+
+To create your custom pytorch model, you only need inherit from `Seq2Seq` and then pass it as parameter to the `Translator` class.
+
+```python
+from autonlp.tasks.translation import Seq2Seq
 
 class Transformer(Seq2Seq):
     def __init__(self, *args, **kwargs):
@@ -86,9 +97,40 @@ class Transformer(Seq2Seq):
         # Your model        
 
     def forward(self, X, Y):
-        # Stuff
-        return output  # (B, L, probs)
+        return output  # (Batch, Length, probabilities)
+
+    
+# Train & Score a model for each dataset
+for train_ds in tr_datasets:
+    model = al.Translator(model=Transformer)
+    model.fit(train_ds)
+    model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
 ```
+
+
+#### Fairseq models
+
+```text
+fairseq_args = [
+    "--arch transformer",
+    "--encoder-embed-dim 256",
+    "--decoder-embed-dim 256",
+    "--encoder-layers 3",
+    "--decoder-layers 3",
+    "--encoder-attention-heads 8",
+    "--decoder-attention-heads 8",
+    "--encoder-ffn-embed-dim 512",
+    "--decoder-ffn-embed-dim 512",
+    "--dropout 0.1",
+]
+
+# Train fairseq models
+for train_ds in tr_datasets:
+    model = al.FairseqTranslator(conda_env_name="fairseq")
+    model.fit(train_ds, fairseq_args=fairseq_args)
+    model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5])
+```
+
 
 
 ### Plots & Stats
