@@ -1,12 +1,12 @@
 import os.path
 import shutil
-from autonlp.utils import *
+from autonmt.utils import *
 
 from abc import ABC, abstractmethod
-from autonlp.cmd import tokenizers_entry
-from autonlp.datasets import Dataset, DatasetBuilder
-from autonlp.tasks.translation import metrics
-from autonlp import utils
+from autonmt.cmd import cmd_tokenizers, cmd_metrics
+from autonmt.datasets import Dataset, DatasetBuilder
+from autonmt.tasks.translation import metrics
+from autonmt import utils
 
 import pandas as pd
 
@@ -184,26 +184,25 @@ class BaseTranslator(ABC):
         # Checks: Make sure the directory exist, and it is empty
         is_empty = self._make_empty_path(path=model_eval_data_bin_path, safe_seconds=self.safe_seconds)
         if not is_empty:
-            print("\t- [Translate]: Skipped. The output directory for the translation data is not empty")
-            return
+            print("\t- [Translate]: Skipped preprocessing. The output directory for the preprocessing data is not empty")
+        else:
+            # [Encode extern data]: Encode test data using the subword model of the trained model
+            for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
+                ori_filename = eval_ds.get_split_path(ts_fname)
+                new_filename = train_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
 
-        # [Encode extern data]: Encode test data using the subword model of the trained model
-        for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
-            ori_filename = eval_ds.get_split_path(ts_fname)
-            new_filename = train_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
+                # Check if the file exists
+                if self.force_overwrite or not os.path.exists(new_filename):
+                    assert src_spm_model_path == trg_spm_model_path
+                    cmd_tokenizers.spm_encode(spm_model_path=src_spm_model_path, input_file=ori_filename, output_file=new_filename, conda_env_name=self.conda_env_name)
 
-            # Check if the file exists
-            if self.force_overwrite or not os.path.exists(new_filename):
-                assert src_spm_model_path == trg_spm_model_path
-                tokenizers_entry.spm_encode(spm_model_path=src_spm_model_path, input_file=ori_filename, output_file=new_filename, conda_env_name=self.conda_env_name)
-
-        # Preprocess external data
-        test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
-        self._preprocess(src_lang=train_ds.src_lang, trg_lang=train_ds.trg_lang,
-                        output_path=model_eval_data_bin_path,
-                        train_path=None, val_path=None, test_path=test_path,
-                        src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path, external_data=True,
-                        **kwargs)
+            # Preprocess external data
+            test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
+            self._preprocess(src_lang=train_ds.src_lang, trg_lang=train_ds.trg_lang,
+                            output_path=model_eval_data_bin_path,
+                            train_path=None, val_path=None, test_path=test_path,
+                            src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path, external_data=True,
+                            **kwargs)
 
         # Iterate over beams
         for beam in beams:
@@ -271,25 +270,25 @@ class BaseTranslator(ABC):
             if metrics.intersection({"bleu", "chr", "ter"}):
                 output_file = os.path.join(scores_path, "sacrebleu_scores.json")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    tokenizers_entry.cmd_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, conda_env_name=self.conda_env_name)
+                    cmd_metrics.cmd_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, conda_env_name=self.conda_env_name)
 
             # Score: bertscore
             if metrics.intersection({"bertscore"}):
                 output_file = os.path.join(scores_path, "bertscore_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    tokenizers_entry.cmd_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=train_ds.trg_lang, conda_env_name=self.conda_env_name)
+                    cmd_metrics.cmd_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=train_ds.trg_lang, conda_env_name=self.conda_env_name)
 
             # Score: comet
             if metrics.intersection({"comet"}):
                 output_file = os.path.join(scores_path, "comet_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    tokenizers_entry.cmd_cometscore(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
+                    cmd_metrics.cmd_cometscore(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
 
             # Score: beer
             if metrics.intersection({"beer"}):
                 output_file = os.path.join(scores_path, "beer_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    tokenizers_entry.cmd_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
+                    cmd_metrics.cmd_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
 
     def parse_metrics(self, train_ds, eval_ds, beams=None, metrics=None, **kwargs):
         # Check datasets

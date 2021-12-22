@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from autonlp import utils
+from autonmt import utils
 
 # Sort of incompatible with plotly
 import matplotlib

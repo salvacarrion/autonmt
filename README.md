@@ -32,7 +32,7 @@ The `DatasetBuilder` is the object in charge of generating versions of your data
 run this code with `interactive=True` and it will guide you step-by-step to generate the reference dataset.
 
 ```python
-from autonlp import DatasetBuilder
+from autonmt import DatasetBuilder
 
 # Create datasets for training (2*1*2*3*2 = 24 datasets)
 tr_datasets = DatasetBuilder(
@@ -56,7 +56,7 @@ The `Translator` object abstracts the seq2seq pipeline so that you can train and
 you can use other engines such as `fairseq` or `opennmt`.
 
 ```python
-import autonlp as al
+import autonmt as al
 
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
@@ -68,7 +68,7 @@ for train_ds in tr_datasets:
 ### Generate a report
 
 ```python
-from autonlp.tasks.translation.metrics import create_report
+from autonmt.tasks.translation.metrics import create_report
 
 # Train & Score a model for each dataset
 scores = {}
@@ -89,7 +89,8 @@ create_report(metrics=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".
 To create your custom pytorch model, you only need inherit from `Seq2Seq` and then pass it as parameter to the `Translator` class.
 
 ```python
-from autonlp.tasks.translation import Seq2Seq
+from autonmt.tasks.translation import Seq2Seq
+
 
 class Transformer(Seq2Seq):
     def __init__(self, *args, **kwargs):
@@ -99,7 +100,7 @@ class Transformer(Seq2Seq):
     def forward(self, X, Y):
         return output  # (Batch, Length, probabilities)
 
-    
+
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
     model = al.Translator(model=Transformer)
@@ -131,6 +132,19 @@ for train_ds in tr_datasets:
     model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5])
 ```
 
+### Replicability
+
+If you use AutoNMT as command-line interface, it will gives you all the commands it is using under the hood. For example, this is a typical output when working in the command-line mode:
+
+```bash
+...
+- Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
+- Command used: spm_decode --model=/home/salva/datasets/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
+- Command used: spm_decode --model=/home/salva/datasets/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
+- Command used: spm_decode --model=/home/salva/datasets/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
+- Command used: sacrebleu /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
+...
+```
 
 
 ### Plots & Stats

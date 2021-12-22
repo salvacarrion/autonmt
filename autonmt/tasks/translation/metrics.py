@@ -1,10 +1,6 @@
-import os
-import json
-import re
-
 import pandas as pd
-from autonlp.utils import *
-from autonlp import plots
+from autonmt.utils import *
+from autonmt import plots
 
 
 def parse_sacrebleu(text):

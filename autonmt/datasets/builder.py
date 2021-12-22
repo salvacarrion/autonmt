@@ -7,10 +7,10 @@ import tqdm
 
 random.seed(123)
 
-from autonlp.utils import *
-from autonlp import plots, utils
-from autonlp.datasets.dataset import Dataset
-from autonlp.cmd import tokenizers_entry
+from autonmt.utils import *
+from autonmt import plots, utils
+from autonmt.datasets.dataset import Dataset
+from autonmt.cmd import cmd_tokenizers
 
 
 class DatasetBuilder:
@@ -246,7 +246,7 @@ class DatasetBuilder:
 
                     # Tokenize
                     if self.force_overwrite or not os.path.exists(new_filename):
-                        tokenizers_entry.moses_tokenizer(input_file=ori_filename, output_file=new_filename, lang=lang)
+                        cmd_tokenizers.moses_tokenizer(input_file=ori_filename, output_file=new_filename, lang=lang)
                         print(f"\t\t- Pretokenized file: {fname}")
 
             # Concatenate train files
@@ -284,7 +284,7 @@ class DatasetBuilder:
             # Train model
             model_prefix = ds.get_src_trg_vocab_path()
             if self.force_overwrite or not os.path.exists(f"{model_prefix}.model"):
-                tokenizers_entry.spm_train(input_file=new_filename, model_prefix=model_prefix, vocab_size=ds.vocab_size,
+                cmd_tokenizers.spm_train(input_file=new_filename, model_prefix=model_prefix, vocab_size=ds.vocab_size,
                                            character_coverage=character_coverage, subword_model=ds.subword_model)
 
     def _encode_datasets(self, export_frequencies=True, force_pretok=False):
@@ -307,7 +307,7 @@ class DatasetBuilder:
 
                 # Encode
                 if self.force_overwrite or not os.path.exists(new_filename):
-                    tokenizers_entry.spm_encode(spm_model_path=ds.get_src_trg_vocab_path()+".model",
+                    cmd_tokenizers.spm_encode(spm_model_path=ds.get_src_trg_vocab_path()+".model",
                                                 input_file=ori_filename, output_file=new_filename)
                     print(f"\t\t - Encoded file: {fname}")
 

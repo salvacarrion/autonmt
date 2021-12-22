@@ -1,1 +1,0 @@
-from autonlp.tasks.translation.toolkits.fairseq_translator import FairseqTranslator

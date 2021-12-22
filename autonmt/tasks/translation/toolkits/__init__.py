@@ -1,0 +1,1 @@
+from autonmt.tasks.translation.toolkits.fairseq_translator import FairseqTranslator

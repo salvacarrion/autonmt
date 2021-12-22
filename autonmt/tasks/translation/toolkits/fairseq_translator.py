@@ -5,8 +5,8 @@ import subprocess
 from abc import ABC
 from pathlib import Path
 
-from autonlp.tasks.translation.base import BaseTranslator
-from autonlp.cmd import tokenizers_entry
+from autonmt.tasks.translation.base import BaseTranslator
+from autonmt.cmd import cmd_tokenizers
 
 
 def _parse_args(**kwargs):
@@ -50,11 +50,11 @@ class FairseqTranslator(BaseTranslator):
         if src_vocab_path:
             new_src_vocab_path = os.path.join(output_path, f"dict.{src_lang}.txt")
             shutil.copyfile(f"{src_vocab_path.strip()}.vocabf", new_src_vocab_path)
-            tokenizers_entry.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
+            cmd_tokenizers.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
         if trg_vocab_path:
             new_trg_vocab_path = os.path.join(output_path, f"dict.{trg_lang}.txt")
             shutil.copyfile(f"{trg_vocab_path.strip()}.vocabf", new_trg_vocab_path)
-            tokenizers_entry.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
+            cmd_tokenizers.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
 
         # Trick for generation. A train path is required
         if kwargs.get("external_data"):
@@ -84,6 +84,7 @@ class FairseqTranslator(BaseTranslator):
         cmd = " ".join([] + cmd)
         env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
+        print(f"\t- Command used: {cmd}")
 
     def _train(self, data_bin_path, checkpoints_path, logs_path, *args, **kwargs):
         # Write command
@@ -101,6 +102,7 @@ class FairseqTranslator(BaseTranslator):
         cmd = " ".join([num_gpus] + cmd)
         env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
+        print(f"\t- Command used: {cmd}")
 
     def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, src_spm_model_path,
                    trg_spm_model_path, beam_width, max_gen_length,
@@ -132,6 +134,7 @@ class FairseqTranslator(BaseTranslator):
         cmd = " ".join([num_gpus] + cmd)
         env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
+        print(f"\t- Command used: {cmd}")
 
         # Extract sentences from generate-test.txt
         gen_test_path = os.path.join(output_path, "generate-test.txt")
@@ -143,12 +146,12 @@ class FairseqTranslator(BaseTranslator):
         subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | cut -f3- > {hyp_tok_path}"])
 
         # Replace "<<unk>>" with "<unk>" in ref.tok
-        tokenizers_entry.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
+        cmd_tokenizers.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
 
         # Detokenize
         src_txt_path = os.path.join(output_path, "src.txt")
         ref_txt_path = os.path.join(output_path, "ref.txt")
         hyp_txt_path = os.path.join(output_path, "hyp.txt")
-        tokenizers_entry.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, conda_env_name=self.conda_env_name)
-        tokenizers_entry.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, conda_env_name=self.conda_env_name)
-        tokenizers_entry.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, conda_env_name=self.conda_env_name)
+        cmd_tokenizers.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, conda_env_name=self.conda_env_name)
+        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, conda_env_name=self.conda_env_name)
+        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, conda_env_name=self.conda_env_name)
