@@ -29,7 +29,7 @@ pip install -e .
 ### Dataset generation
 
 The `DatasetBuilder` is the object in charge of generating versions of your dataset from a reference one ("original"). If you don't know how to use it, 
-run this code with `interactive=True` and it will guide you step-by-step to generate the reference dataset.
+run this code with `interactive=True` (default) and it will guide you step-by-step to generate the reference dataset.
 
 ```python
 from autonmt import DatasetBuilder
@@ -43,7 +43,7 @@ tr_datasets = DatasetBuilder(
     ],
     subword_models=["word", "unigram", "char"],
     vocab_sizes=[8000, 16000],
-).build(make_plots=True, safe=True)
+).build(make_plots=True)
 
 # Create datasets for testing
 ts_datasets = tr_datasets
@@ -71,15 +71,15 @@ for train_ds in tr_datasets:
 from autonmt.tasks.translation.metrics import create_report
 
 # Train & Score a model for each dataset
-scores = {}
+scores = []
 for train_ds in tr_datasets:
     model = al.Translator()
     model.fit(train_ds)
-    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
-    scores[str(train_ds)] = m_scores
+    eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+    scores.append(eval_scores)
 
 # Make report
-create_report(metrics=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs")
+create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs")
 ```
 
 ### Toolkit abstraction

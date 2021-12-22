@@ -38,40 +38,40 @@ def parse_beer(text):
     return result
 
 
-def create_report(metrics, metric_id, output_path, save_figures=True, show_figures=False):
+def create_report(scores, metric_id, output_path, save_figures=True, show_figures=False):
     # Create logs path
-    metrics_path = os.path.join(output_path, "metrics")
+    scores_path = os.path.join(output_path, "scores")
     plots_path = os.path.join(output_path, "plots")
-    make_dir([metrics_path, plots_path])
+    make_dir([scores_path, plots_path])
 
     # Save scores
-    df_metrics = save_metrics(output_path=metrics_path, metrics=metrics)
+    df_metrics = save_scores(output_path=scores_path, scores=scores)
 
     # Plot metrics
     plots.plot_metrics(output_path=plots_path, df_metrics=df_metrics, metric_id=metric_id, save_figures=save_figures,
                        show_figures=show_figures)
 
 
-def save_metrics(output_path, metrics):
+def save_scores(output_path, scores):
     # Save json metrics
-    json_metrics_path = os.path.join(output_path, "metrics.json")
-    save_json(metrics, json_metrics_path)
+    json_metrics_path = os.path.join(output_path, "scores.json")
+    save_json(scores, json_metrics_path)
 
     # Convert to pandas
     rows = []
-    for ds_train_name, ds_train_evals in metrics.items():
-        for ds_eval_name, ds_eval_scores in ds_train_evals.items():
-            scores = dict(ds_eval_scores)  # Copy
-            beams_unrolled = {f"{beam_width}__{k}": v for beam_width in ds_eval_scores["beams"].keys() for k, v in
-                              scores["beams"][beam_width].items()}
-            scores.pop("beams")
-            scores.update(beams_unrolled)
-            rows.append(scores)
+    for model_scores in scores:
+        for eval_scores in model_scores:
+            eval_scores = dict(eval_scores)  # Copy
+            beams_unrolled = {f"{beam_width}__{k}": v for beam_width in eval_scores["beams"].keys() for k, v in
+                              eval_scores["beams"][beam_width].items()}
+            eval_scores.pop("beams")
+            eval_scores.update(beams_unrolled)
+            rows.append(eval_scores)
 
     # Convert to pandas
     df = pd.DataFrame(rows)
-    csv_metrics_path = os.path.join(output_path, "metrics.csv")
-    df.to_csv(csv_metrics_path, index=False)
+    csv_scores_path = os.path.join(output_path, "scores.csv")
+    df.to_csv(csv_scores_path, index=False)
     return df
 
 

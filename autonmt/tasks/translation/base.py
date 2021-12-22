@@ -82,13 +82,13 @@ class BaseTranslator(ABC):
             metrics = {"bleu"}
 
         # Iterate over the evaluation datasets
-        eval_scores = {}
+        eval_scores = []
         eval_datasets = eval_datasets if isinstance(eval_datasets, DatasetBuilder) else [eval_datasets]
         for eval_ds in eval_datasets:
             self.translate(train_ds=self.train_ds, eval_ds=eval_ds, beams=beams, **kwargs)
             self.score(train_ds=self.train_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
-            scores = self.parse_metrics(train_ds=self.train_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
-            eval_scores[str(eval_ds)] = scores
+            model_scores = self.parse_metrics(train_ds=self.train_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
+            eval_scores.append(model_scores)
         return eval_scores
 
     @abstractmethod

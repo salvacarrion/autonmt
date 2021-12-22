@@ -20,15 +20,15 @@ def main(fairseq_args):
     ts_datasets = tr_datasets
 
     # Train & Score a model for each dataset
-    scores = {}
+    scores = []
     for train_ds in tr_datasets:
         model = al.FairseqTranslator(conda_fairseq_env_name="fairseq", conda_env_name="mltests", force_overwrite=False)
         model.fit(train_ds, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
-        scores[str(train_ds)] = m_scores
+        eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
+        scores.append(eval_scores)
 
     # Make report
-    create_report(metrics=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs", save_figures=True, show_figures=False)
+    create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs", save_figures=True, show_figures=False)
 
 
 if __name__ == "__main__":
