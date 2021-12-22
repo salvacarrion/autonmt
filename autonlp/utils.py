@@ -44,12 +44,11 @@ def make_dir(path, parents=True, exist_ok=True, base_path=""):
         p = os.path.join(base_path, p)  # Add base path (if needed)
         if not os.path.exists(p):
             Path(p).mkdir(parents=parents, exist_ok=exist_ok)
-            print(f"Directory created: {p}")
+            # print(f"Directory created: {p}")
 
 
 def get_split_files(split_names, langs):
     return [f"{fname}.{ext}" for fname in split_names for ext in langs]
-
 
 
 def get_translation_files(src_lang, trg_lang):
@@ -133,6 +132,10 @@ def human_format(num, decimals=2):
             num /= 1000.0
 
         return template % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
+
+
+def human_format_int(x, *args, **kwargs):
+    return human_format(int(x), decimals=0)
 
 
 def load_json(filename):

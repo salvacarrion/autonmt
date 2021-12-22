@@ -17,7 +17,8 @@ class Dataset:
         self.dataset_lang_pair = dataset_lang_pair.strip().lower()
         self.dataset_size_name = dataset_size_name.strip()
         self.dataset_lines = dataset_lines
-        self.src_lang, self.trg_lang = self.dataset_lang_pair.split("-")
+        self.langs = self.dataset_lang_pair.split("-")
+        self.src_lang, self.trg_lang = self.langs
 
         # Dataset versions
         self.subword_model = subword_model
@@ -29,6 +30,7 @@ class Dataset:
         self.val_name = val_name
         self.test_name = test_name
         self.split_names = (self.train_name, self.val_name, self.test_name)
+        self.split_names_lang = [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
 
         # Add default paths
         self.data_raw_path = raw_path
@@ -45,6 +47,9 @@ class Dataset:
         self.models_scores_path = models_scores_path
         self.vocab_path = vocab_path
         self.plots_path = plots_path
+
+    def __str__(self):
+        return '_'.join(self.id())
 
     def id(self):
         return self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
@@ -64,38 +69,43 @@ class Dataset:
     def get_encoded_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_encoded_path, self.subword_model, self.vocab_size, fname)
 
-    def get_vocab_path(self, base=False):
+    def get_vocab_path(self, base=False, fname=""):
         extra = (self.subword_model, self.vocab_size) if not base else ()
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, *extra)
+        return os.path.join(self.base_path, *self.id(), self.vocab_path, *extra, fname)
 
     def get_src_vocab_path(self):
         return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.trg_lang}")
 
-    def get_trg_vocab_path(self):
+    def get_trg_vocab_path(self):  # del
         return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.src_lang}")
 
-    def get_src_trg_vocab_path(self):
+    def get_src_trg_vocab_path(self):  # del
         return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.src_lang}-{self.trg_lang}")
 
-    def get_model_data_bin(self, toolkit):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, self.subword_model, self.vocab_size)
+    def get_model_data_bin(self, toolkit, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, self.subword_model, self.vocab_size, fname)
 
     def get_model_eval_path(self, toolkit, run_name, eval_name):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name)
 
-    def get_model_beam_path(self, toolkit, run_name, beam):
-        extra = f"beam{str(beam)}" if beam else ""
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_beam_path, extra)
+    def get_model_eval_data_path(self, toolkit, run_name, eval_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_splits_path, fname)
 
-    def get_model_scores_path(self, toolkit, run_name, beam):
-        path = self.get_model_beam_path(toolkit, run_name, beam)
-        return os.path.join(path, self.models_scores_path)
+    def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_data_bin_path, fname)
 
-    def get_model_logs_path(self, toolkit, run_name, eval_name):
+    def get_model_beam_path(self, toolkit, run_name, eval_name, beam=""):
+        beam_n = f"beam{str(beam)}" if beam else ""
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_beam_path, beam_n)
+
+    def get_model_scores_path(self, toolkit, run_name, eval_name, beam):
+        return os.path.join(self.get_model_beam_path(toolkit, run_name, eval_name, beam), self.models_scores_path)
+
+    def get_model_logs_path(self, toolkit, run_name):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.model_logs_path)
 
-    def get_model_checkpoints_path(self, toolkit, run_name, eval_name):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_checkpoints_path)
+    def get_model_checkpoints_path(self, toolkit, run_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_checkpoints_path, fname)
 
     def get_plots_path(self):
         return os.path.join(self.base_path, *self.id(), self.plots_path, self.subword_model, self.vocab_size)

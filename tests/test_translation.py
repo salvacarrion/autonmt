@@ -1,38 +1,37 @@
 import os
 import autonlp as al
 from autonlp import DatasetBuilder
+from autonlp.tasks.translation.base import BaseTranslator
+from autonlp.tasks.translation.toolkits.constants import FAIRSEQ_1
+from autonlp.tasks.translation.metrics import create_report
 
 
 def main():
-    base_path = "/home/salva/Downloads"
 
-    # Create splits
-
-    # Define builder and create datasets
-    datasets = DatasetBuilder(
-        base_path=base_path,
+    # Create datasets for training
+    tr_datasets = DatasetBuilder(
+        base_path="/home/salva/datasets",
         datasets=[
-            {"name": "ccaligned", "languages": ["lg-en"], "sizes": [("original", None), ("10k", 10000)]},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["word", "unigram"],
+        subword_models=["word"],
         vocab_sizes=[8000],
-        force_overwrite=False,
-        interactive=True,
     ).build(make_plots=True, safe=True)
 
-    # Train models
-    for ds in datasets:
-        # Define translator
-        model = al.Translator(ds, engine="fairseq")
+    # Create datasets for testing
+    ts_datasets = tr_datasets
 
-        # Train & Score
-        model.preprocess()
-        model.train()
-        model.evaluate(eval_datasets=datasets, beams=[1, 5])
-        model.score(eval_datasets=datasets, metrics={"bleu", "chrf", "ter" "bertscore", "comet", "beer"})
+    # Train & Score a model for each dataset
+    scores = {}
+    for train_ds in tr_datasets:
+        model = al.FairseqTranslator(conda_fairseq_env_name="fairseq", conda_env_name="mltests", force_overwrite=False)
+        model.fit(train_ds, fairseq_args=FAIRSEQ_1)
+        m_scores = model.predict(ts_datasets, metrics=BaseTranslator.METRICS_SUPPORTED, beams=[5])
+        scores[str(train_ds)] = m_scores
 
-        # Make plots
-        model.make_plots()
+    # Make report
+    create_report(metrics=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs", save_figures=True, show_figures=False)
+    asdsa = 3
 
 
 if __name__ == "__main__":

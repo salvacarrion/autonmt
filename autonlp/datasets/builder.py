@@ -14,7 +14,7 @@ from autonlp.cmd import tokenizers_entry
 
 
 class DatasetBuilder:
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, force_overwrite=True, interactive=False):
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, force_overwrite=False, interactive=True):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = subword_models
@@ -70,7 +70,7 @@ class DatasetBuilder:
 
     def build(self, encode=True, val_size=(0.1, 5000), test_size=(0.1, 5000), shuffle=True,
               make_plots=False, safe=True):
-        print(f"=> Building started...")
+        print(f"=> Building datasets...")
         print(f"\t- base_path={self.base_path}")
 
         # Create splits
@@ -98,13 +98,12 @@ class DatasetBuilder:
     def _create_splits(self, val_size, test_size, shuffle, safe=True, safe_seconds=3):
         print("=> Creating splits...")
         if self.force_overwrite and safe:
-            print(f"\t[INFO]: No splits will be overwritten despide the flag 'force_overwrite.\n"
+            print(f"\t[INFO]: No splits will be overwritten despite the flag 'force_overwrite.\n"
                   f"\t        If you want to overwrite the splits, add the flag 'safe=False")
 
         # Create reduce splits
         for ds in self.iter_main():  # Dataset
             # Ignore if this is NOT a reference dataset
-            ds_ref = ds.id()[0], ds.id()[1], self.ref_size_name
             if ds.id()[2] != self.ref_size_name:
                 continue
 
@@ -235,11 +234,11 @@ class DatasetBuilder:
             concat_path = os.path.join(ds.get_vocab_path(base=True), "_tmp")
             pretokenize_path = ds.get_pretok_path()
             make_dir([vocab_path, concat_path, pretokenize_path])
-            print(f"\t=> Building vocabulary: {vocab_path}")
+            print(f"\t- Building vocabulary: {vocab_path}")
 
             # Pretokenize all (if needed)
             if pretok_flag:
-                print(f"\t=> Pretokenizing splits because 'subword_model'='{ds.subword_model}'")
+                print(f"\t- Pretokenizing splits because 'subword_model'='{ds.subword_model}'")
                 for fname in ds.get_split_files():
                     ori_filename = ds.get_split_path(fname)
                     new_filename = ds.get_pretok_path(fname)
@@ -248,7 +247,7 @@ class DatasetBuilder:
                     # Tokenize
                     if self.force_overwrite or not os.path.exists(new_filename):
                         tokenizers_entry.moses_tokenizer(input_file=ori_filename, output_file=new_filename, lang=lang)
-                        print(f"\t\t - Pretokenized file: {fname}")
+                        print(f"\t\t- Pretokenized file: {fname}")
 
             # Concatenate train files
             if not merge_vocabs:
@@ -298,7 +297,7 @@ class DatasetBuilder:
             # Create paths
             encoded_path = ds.get_encoded_path()
             make_dir([encoded_path])
-            print(f"\t=> Encoding dataset: {encoded_path}")
+            print(f"\t- Encoding dataset: {encoded_path}")
 
             # Encode files
             for fname in ds.get_split_files():
@@ -365,7 +364,7 @@ class DatasetBuilder:
             # Set base path
             ds_title = f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
             suffix_fname = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}_{ds.vocab_size}"
-            print(f"\t=> Creating plots for: {suffix_fname}")
+            print(f"\t- Creating plots for: {suffix_fname}")
 
             # Set paths and create dirs
             vocab_path = ds.get_vocab_path()
@@ -373,7 +372,7 @@ class DatasetBuilder:
             plots_encoded_path = ds.get_plots_path()
             make_dir(plots_encoded_path)
 
-            print(f"\t\t=> Creating 'Sentence length distribution' plots...")
+            print(f"\t\t- Creating 'Sentence length distribution' plots...")
             split_stats = {}
             for fname in ds.get_split_files():
                 split_name, split_lang = fname.split('.')
@@ -414,7 +413,7 @@ class DatasetBuilder:
             # df.to_csv(os.path.join(plots_encoded_path, f"stats__{base_fname}.csv"), index=False)
 
             # Plot split size (by its sentence number): 1
-            print(f"\t\t=> Creating 'Split sizes' plots...")
+            print(f"\t\t- Creating 'Split sizes' plots...")
             title = f"Split sizes (by sentences)"
             title = title if not add_dataset_title else f"{ds_title}: {title}"
             p_fname = f"split_size_sent__{suffix_fname}"
@@ -434,7 +433,7 @@ class DatasetBuilder:
                           save_fig=save_figures, show_fig=show_figures, overwrite=self.force_overwrite)
 
             # Plot vocabulary frequency: 1
-            print(f"\t\t=> Creating 'Vocabulary distribution' plots...")
+            print(f"\t\t- Creating 'Vocabulary distribution' plots...")
 
             # Load vocabulary
             vocab_freq_path = os.path.join(vocab_path, f"spm_{src_lang}-{trg_lang}.vocabf")

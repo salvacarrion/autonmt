@@ -1,3 +1,11 @@
+# Output path
+.outputs/
+
+# Development
+.idea/
+.DS_Store
+*logs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

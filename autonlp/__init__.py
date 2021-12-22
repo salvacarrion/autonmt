@@ -1,2 +1,3 @@
-from autonlp.tasks.translation import Translator
-from autonlp.datasets.builder import DatasetBuilder
+from autonlp.datasets import Dataset
+from autonlp.datasets import DatasetBuilder
+from autonlp.tasks.translation.toolkits import FairseqTranslator

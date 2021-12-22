@@ -1,14 +1,14 @@
 import os
 from pathlib import Path
 
+from autonlp import utils
+
 # Sort of incompatible with plotly
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 sns.set()
-
-from autonlp import utils
 
 
 def set_non_gui_backend():
@@ -24,7 +24,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
 
     # Check if the figures exists
     if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
-        print(f"\t\t\t- Skipping catplot as it already exists ({fname})")
+        print(f"\t\t\t- Skipped catplot as it already exists ({fname})")
         return False
 
     # Create subplot
@@ -40,7 +40,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
     # g.set_xticklabels(g.get_xticklabels(), rotation=90)
     # g.tick_params(axis='x', which='major', labelsize=8*size)
     # g.tick_params(axis='y', which='major', labelsize=8*size)
-    g.axes.flat[0].yaxis.set_major_formatter(_fn_human_format)  # only for catplot
+    g.axes.flat[0].yaxis.set_major_formatter(utils.human_format_int)  # only for catplot
 
     # Add values
     if show_values:
@@ -66,7 +66,7 @@ def barplot(data, x, y, output_dir, fname, title="", xlabel="x", ylabel="y", asp
 
     # Check if the figures exists
     if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
-        print(f"\t\t\t- Skipping barplot as it already exists ({fname})")
+        print(f"\t\t\t- Skipped barplot as it already exists ({fname})")
         return False
 
     # Create subplot
@@ -81,7 +81,7 @@ def barplot(data, x, y, output_dir, fname, title="", xlabel="x", ylabel="y", asp
     g.set_xticklabels(g.get_xticklabels(), rotation=90)
     g.tick_params(axis='x', which='major', labelsize=8)  # *size  => because of the vocabulary distribution
     g.tick_params(axis='y', which='major', labelsize=8)  # *size  => because of the vocabulary distribution
-    g.yaxis.set_major_formatter(_fn_human_format)
+    g.yaxis.set_major_formatter(utils.human_format_int)
 
     # properties
     plt.title(title)
@@ -112,7 +112,7 @@ def histogram(data, x, output_dir, fname, title="", xlabel="x", ylabel="y", bins
     # g.set_xticklabels(g.get_xticklabels(), rotation=90)
     g.tick_params(axis='x', which='major', labelsize=8 * size)
     g.tick_params(axis='y', which='major', labelsize=8 * size)
-    g.yaxis.set_major_formatter(_fn_human_format)
+    g.yaxis.set_major_formatter(utils.human_format_int)
 
     # properties
     plt.title(title)
@@ -154,9 +154,29 @@ def do_all_figs_exists(output_dir, fname, formats):
     return False
 
 
-def _fn_human_format(x, idx=None):
-    return utils.human_format(int(x), decimals=0)
+def plot_metrics(output_path, df_metrics, metric_id, save_figures, show_figures):
+    # Set backend
+    if save_figures:
+        set_non_gui_backend()
+        if show_figures:
+            raise ValueError("'save_fig' is incompatible with 'show_fig'")
 
+    print(f"=> Plotting metrics...")
+    print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
+
+    metric_name = metric_id.split('_')[-1].upper()
+    p_fname = f"metrics__{metric_name}"
+
+    # Check if the metric id is in the dataframe
+    if metric_id not in df_metrics.columns:
+        raise ValueError(f"Metric '{metric_id}' was not found in the given dataframe")
+
+    # Plot data
+    catplot(data=df_metrics, x="run_name", y=metric_id, hue="eval_dataset",
+                  title=f"Model comparison", xlabel="Models", ylabel=metric_name, leyend_title=None,
+                  output_dir=output_path, fname=p_fname, aspect_ratio=(8, 4), size=1.0,
+                  save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
+    
 # def histogram(data, output_dir, fname, title="", legend_title=None, labels=None, nbins=20, bargap=0.2,
 #                show_fig=False, save_fig=True, formats=None):
 #     import plotly.express as px
