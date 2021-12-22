@@ -2,6 +2,8 @@
 
 ![AutoNMT Logo](https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo.png)
 
+ *Scikit-learn but for Seq2Seq tasks*
+
 --------------------------------------------------------------------------------
 
 ![GitHub](https://img.shields.io/github/license/salvacarrion/autonmt)
@@ -203,7 +205,7 @@ for train_ds in tr_datasets:
 ```
 
 
-### Replicability
+### Reproducibility
 
 If you use AutoNMT as command-line interface, it will gives you all the commands it is using under the hood. For example, this is a typical output when working in the command-line mode:
 
