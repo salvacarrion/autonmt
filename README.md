@@ -1,43 +1,56 @@
-# AutoNLP
+# AutoNMT
 
-AutoNLP is a library to build seq2seq models with almost no-code, so that you can remain focused on your research.
+![AutoNMT Logo](https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo.png)
 
-**What do we offer?**
-- Toolkit abstraction
-- Automatic and replicable experimentation in grid
-  - Automatic dataset preprocessing
-  - Automatic training, fine-tuning, postprocessing and scoring
-  - Automatic logging, reporting, plotting and statistics of the datasets and models
+--------------------------------------------------------------------------------
 
-Despite our "almost no-code" approach, all the control remains in the user since all the intermediate steps (pretokenization, 
-subword encodings, split sizes...) are:
-- Saved in separated folders so that a user can inspect any part of the process (and reuse it)
-- Produced using standard libraries (moses, sentencepiece, sacrebleu,...) so that you can replicate them via the command line.
+![GitHub](https://img.shields.io/github/license/salvacarrion/autonmt)
+
+**AutoNMT** is a Python library that allows you to research seq2seq models by providing two high-level features:
+
+- Automates the grid experimentation: Tokenization, training, scoring, logging, plotting, stats, etc.
+- Toolkit abstraction: Use your models, our models, or other libraries such as Fairseq or OpenNMT, changing a single of code.
+
+
+**Why us?**
+
+We follow an almost-no code approach regarding the pipeline, so that you can remain focused on your research without 
+having to learn the inner workings of another toolkit.
+
+
+**Reproducibility**
+
+Reproducibility is a must in research. Because of that, we only use reference libraries that produce shareable, 
+comparable, and reproducible results such as Sacrebleu, Moses or SentencePiece, with the default configuration (recommended).
+
+Furthermore, we provide two features for reproducibiloty:
+
+- All the intermediate steps (raw files, tokenized, binaries, scores,...) are saved in separated folders so that a user can inspect any part of the process (and reuse it in other projects) and, we also output all the commands use to compute
+- We also output the exact commands used for the reference libraries so you can replicate any part of the process for yourself
 
 
 ## Installation
 
-**Requirements:**
-
-- Python +3.6
-
-**Installation:**
+Requires Python +3.6
 
 ```
-git clone git@github.com:salvacarrion/autonlp.git
-cd autonlp
-pip install -e .
+pip install autonmt
 ```
 
 
 ## Usage
 
-This is a summary but if you want to see complete examples go [here](examples).
+You check full examples [here](examples).
 
 ### Dataset generation
 
-The `DatasetBuilder` is the object in charge of generating datasets from a reference one ("original"). If you don't know how to use it, 
-set `interactive=True` (default) in the `DatasetBuilder` constructor, and it will guide you step-by-step so that you can create reference datasets.
+The `DatasetBuilder` is the object in charge of generating variants of your datasets ("original"). In other words, it 
+creates versions of your original dataset, with different training sizes to test ideas faster, multiple vocabularies
+lengths and variations (words, unigram, bpe, char, bytes), etc.
+
+If you don't know how to use it, don't worry. Run the following code with the `interactive=True` argument enabled, 
+and it will guide you step-by-step so that you can create a new dataset.
+
 
 ```python
 from autonmt import DatasetBuilder
@@ -51,12 +64,21 @@ tr_datasets = DatasetBuilder(
     ],
     subword_models=["word", "unigram", "char"],
     vocab_sizes=[8000, 16000],
+    interactive=True
 ).build(make_plots=True)
 
 # Create datasets for testing
 ts_datasets = tr_datasets
 ```
 
+#### Format
+
+Once you've run the above code, the program will tell you where to put your files. Nevertheless, it expects that all 
+files contain one sample per line and their language code as their extension. 
+
+For instance, there are two ways to create a dataset: 
+- From raw files: `data.es` and `data.en` => `train.es`, `train.en`, `val.es`, `val.en`, `test.es` and `test.en`.
+- From split files: `train.es`, `train.en`, `val.es`, `val.en`, `test.es` and `test.en`.
 
 ### Train & Score
 
@@ -198,7 +220,7 @@ If you use AutoNMT as command-line interface, it will gives you all the commands
 
 ### Plots & Stats
 
-AutoNLP will automatically generate plots for the split sizes, the sentence length distributions, 
+AutoNMT will automatically generate plots for the split sizes, the sentence length distributions, 
 token frequencies, the evaluated models, etc. All these plots can be found along with either a .json or a .csv 
 containing its data, summary and statistics
 
