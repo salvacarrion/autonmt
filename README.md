@@ -4,15 +4,15 @@ AutoNLP is a library to build seq2seq models with almost no-code, so that you ca
 
 **What do we offer?**
 - Toolkit abstraction
-- Automatic and replicable experimentation in grid for seq2seq models.
+- Automatic and replicable experimentation in grid
   - Automatic dataset preprocessing
-  - Automatic training, fine-tuning and scoring
+  - Automatic training, fine-tuning, postprocessing and scoring
   - Automatic logging, reporting, plotting and statistics of the datasets and models
 
-Despite our no-code approach, all the control remains in the user since all the intermediate steps (pretokenization, 
+Despite our "almost no-code" approach, all the control remains in the user since all the intermediate steps (pretokenization, 
 subword encodings, split sizes...) are:
-- Saved in separated folders so that the user can inspect any part of the process (and reuse it)
-- Produced using standard libraries (moses, sentencepiece, sacrebleu,...) that you can replicate via the command line.
+- Saved in separated folders so that a user can inspect any part of the process (and reuse it)
+- Produced using standard libraries (moses, sentencepiece, sacrebleu,...) so that you can replicate them via the command line.
 
 
 ## Installation
@@ -98,6 +98,7 @@ class Transformer(Seq2Seq):
         # Your model        
 
     def forward(self, X, Y):
+        # do stuff
         return output  # (Batch, Length, probabilities)
 
 
@@ -110,6 +111,8 @@ for train_ds in tr_datasets:
 
 
 #### Fairseq models
+
+When using a Fairseq model, you can use it through the fairseq command-line tools:
 
 ```text
 fairseq_args = [
@@ -131,6 +134,7 @@ for train_ds in tr_datasets:
     model.fit(train_ds, fairseq_args=fairseq_args)
     model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5])
 ```
+
 
 ### Replicability
 
