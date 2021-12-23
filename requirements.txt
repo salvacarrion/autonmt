@@ -7,7 +7,7 @@ tensorflow==2.7.*
 segmentation-models==1.0.*
 
 # Data science
-numpy==1.21.*
+numpy~=1.19.5
 pandas==1.1.*
 scipy==1.7.*
 scikit-learn==1.0.*
@@ -29,6 +29,7 @@ torchmetrics==0.6.*
 bert-score==0.3.*
 unbabel-comet==1.0.*
 sacrebleu==2.0.*
+datasets==1.17.*
 
 # NLP
 sacremoses==0.0.*
@@ -44,3 +45,4 @@ onnx==1.10.*
 # Other
 tqdm==4.62.*
 jupyterlab==3.2.*
+

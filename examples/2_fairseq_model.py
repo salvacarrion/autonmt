@@ -1,6 +1,6 @@
 import autonmt as al
 from autonmt import DatasetBuilder
-from autonmt.tasks.translation.bundle.metrics import create_report
+from autonmt.tasks.translation.bundle.report import generate_report
 
 
 def main(fairseq_args):
@@ -12,6 +12,10 @@ def main(fairseq_args):
         ],
         subword_models=["word"],
         vocab_sizes=[8000],
+        force_overwrite=False,
+        interactive=True,
+        use_cmd=True,
+        conda_env_name=None,
     ).build(make_plots=True, safe=True)
 
     # Create datasets for testing
@@ -20,14 +24,18 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = al.FairseqTranslator(model_ds=ds, safe_seconds=2, force_overwrite=True, interactive=True,
-                                     conda_fairseq_env_name="fairseq", conda_env_name="mltests")  # Conda envs will soon be deprecated
-        model.fit(fairseq_args=fairseq_args)
-        eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
+        model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
+                                     force_overwrite=False, interactive=True,
+                                     use_cmd=True,
+                                     conda_env_name="mltests",
+                                     conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
+        # model.fit(fairseq_args=fairseq_args)
+        eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
 
     # Make report
-    create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)
+    generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq",
+                    save_figures=True, show_figures=False)
 
 
 if __name__ == "__main__":
@@ -48,7 +56,7 @@ if __name__ == "__main__":
         "--optimizer adam",
         "--criterion cross_entropy",
         "--max-tokens 4096",
-        "--max-epoch 10",
+        "--max-epoch 5",
         "--clip-norm 1.0",
         "--update-freq 1",
         "--patience 10",

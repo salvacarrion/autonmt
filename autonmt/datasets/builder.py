@@ -5,23 +5,25 @@ import numpy as np
 import pandas as pd
 import tqdm
 
-random.seed(123)
-
 from autonmt.utils import *
 from autonmt import plots, utils
 from autonmt.datasets.dataset import Dataset
-from autonmt.cmd import cmd_tokenizers
+
+from autonmt import py_cmd_api
 
 
 class DatasetBuilder:
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, force_overwrite=False, interactive=True):
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, force_overwrite=False, interactive=True,
+                 use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = subword_models
         self.vocab_sizes = vocab_sizes
         self.force_overwrite = force_overwrite
         self.interactive = interactive
-        
+        self.use_cmd = use_cmd
+        self.conda_env_name = conda_env_name
+
         self.ref_size_name = "original"
         
         # Other
@@ -222,7 +224,7 @@ class DatasetBuilder:
                         fout.writelines(lines)
                         print(f"\t\t=> Creating split file: {fname}")
 
-    def _build_vocab(self, character_coverage=1.0, force_pretok=False, merge_vocabs=True):
+    def _build_vocab(self, force_pretok=False, merge_vocabs=True, input_sentence_size=1000000):
         print(f"=> Building vocabularies...")
 
         for ds in self:  # Dataset
@@ -246,7 +248,8 @@ class DatasetBuilder:
 
                     # Tokenize
                     if self.force_overwrite or not os.path.exists(new_filename):
-                        cmd_tokenizers.moses_tokenizer(input_file=ori_filename, output_file=new_filename, lang=lang)
+                        py_cmd_api.moses_tokenizer(input_file=ori_filename, output_file=new_filename, lang=lang,
+                                                   use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
                         print(f"\t\t- Pretokenized file: {fname}")
 
             # Concatenate train files
@@ -284,8 +287,9 @@ class DatasetBuilder:
             # Train model
             model_prefix = ds.get_src_trg_vocab_path()
             if self.force_overwrite or not os.path.exists(f"{model_prefix}.model"):
-                cmd_tokenizers.spm_train(input_file=new_filename, model_prefix=model_prefix, vocab_size=ds.vocab_size,
-                                           character_coverage=character_coverage, subword_model=ds.subword_model)
+                py_cmd_api.spm_train(input_file=new_filename, model_prefix=model_prefix, subword_model=ds.subword_model,
+                                     vocab_size=ds.vocab_size, input_sentence_size=input_sentence_size,
+                                     use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
     def _encode_datasets(self, export_frequencies=True, force_pretok=False):
         print(f"=> Building datasets...")
@@ -307,8 +311,9 @@ class DatasetBuilder:
 
                 # Encode
                 if self.force_overwrite or not os.path.exists(new_filename):
-                    cmd_tokenizers.spm_encode(spm_model_path=ds.get_src_trg_vocab_path()+".model",
-                                                input_file=ori_filename, output_file=new_filename)
+                    py_cmd_api.spm_encode(spm_model_path=ds.get_src_trg_vocab_path()+".model",
+                                          input_file=ori_filename, output_file=new_filename,
+                                          use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
                     print(f"\t\t - Encoded file: {fname}")
 
             # Export vocab frequencies

@@ -28,7 +28,7 @@ comparable, and reproducible results such as Sacrebleu, Moses or SentencePiece.
 Furthermore, we provide two features for reproducibility:
 
 - All the intermediate steps (raw files, tokenized, binaries, scores,...) are saved in separated folders so that a user can inspect any part of the process (and reuse it in other projects) and, we also output all the commands use to compute
-- We also output the exact commands used for the reference libraries so you can replicate any part of the process for yourself
+- We also output the exact commands used for the reference libraries, so you can replicate any part of the process for yourself
 
 
 ## Installation

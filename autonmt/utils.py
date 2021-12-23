@@ -143,9 +143,12 @@ def load_json(filename):
         return json.load(f)
 
 
-def save_json(d, savepath):
-    with open(savepath, 'w') as f:
-        json.dump(d, f)
+def save_json(d, savepath, ignore_empty=True):
+    if d or not ignore_empty:
+        with open(savepath, 'w') as f:
+            json.dump(d, f)
+    else:
+        print(f"\t- [INFO]: Ignoring empty json. Not saved: {savepath}")
 
 
 def create_logger(logs_path, log_level=logging.INFO):
@@ -211,7 +214,56 @@ def logged_task(logger, row, fn_name, fn, **kwargs):
     return result
 
 
-def parse_sacrebleu(text):
+
+def count_datasets(datasets):
+    counter = 0
+    for ds in datasets:  # Training dataset
+        for ds_size_name, ds_max_lines in ds["sizes"]:  # Training lengths
+            for lang_pair in ds["languages"]:
+                counter += 1
+    return counter
+
+
+def parse_split_size(ds_size, max_ds_size):
+    # Check size type
+    if isinstance(ds_size, tuple):
+        return int(min(float(ds_size[0]) * max_ds_size, ds_size[1]))
+    elif isinstance(ds_size, float):
+        return float(ds_size) * max_ds_size
+    elif isinstance(ds_size, int):
+        return ds_size
+    else:
+        raise TypeError("'ds_size' can be a tuple(float, int), float or int")
+
+
+def read_file_lines(filename, strip=False, remove_break_lines=True):
+    with open(filename, 'r') as f:
+        lines = [line.strip() for line in f.readlines()] if strip else f.readlines()
+        lines = [line.replace('\n', '') for line in lines] if remove_break_lines else lines
+    return lines
+
+
+def write_file_lines(filename, lines):
+    with open(filename, 'w') as f:
+        lines = [line.strip() + '\n' for line in lines]
+        f.writelines(lines)
+
+
+def replace_in_file(search_string, replace_string, filename):
+    # Read file
+    with open(filename, 'r') as f:
+        lines = [line.replace(search_string, replace_string) for line in f.readlines()]
+
+    # Write file
+    with open(filename, 'w') as f:
+        f.writelines(lines)
+
+
+def flatten(lst):
+    return [item for sublist in lst for item in sublist]
+
+
+def parse_json_metrics(text):
     result = {}
     metrics = json.loads("".join(text))
     metrics = [metrics] if isinstance(metrics, dict) else metrics
@@ -244,36 +296,3 @@ def parse_beer(text):
     groups = re.search(pattern, line).groups()
     result = {"score": float(groups[0])}
     return result
-
-
-def count_datasets(datasets):
-    counter = 0
-    for ds in datasets:  # Training dataset
-        for ds_size_name, ds_max_lines in ds["sizes"]:  # Training lengths
-            for lang_pair in ds["languages"]:
-                counter += 1
-    return counter
-
-
-def parse_split_size(ds_size, max_ds_size):
-    # Check size type
-    if isinstance(ds_size, tuple):
-        return int(min(float(ds_size[0]) * max_ds_size, ds_size[1]))
-    elif isinstance(ds_size, float):
-        return float(ds_size) * max_ds_size
-    elif isinstance(ds_size, int):
-        return ds_size
-    else:
-        raise TypeError("'ds_size' can be a tuple(float, int), float or int")
-
-
-def read_file_lines(filename, strip=False, remove_break_lines=True):
-    with open(filename, 'r') as f:
-        lines = [line.strip() for line in f.readlines()] if strip else f.readlines()
-        lines = [line.replace('\n', '') for line in lines] if remove_break_lines else lines
-    return lines
-
-
-def flatten(lst):
-    return [item for sublist in lst for item in sublist]
-

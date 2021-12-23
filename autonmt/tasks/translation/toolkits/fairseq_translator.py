@@ -3,7 +3,8 @@ import shutil
 import subprocess
 
 from autonmt.tasks.translation.base import BaseTranslator
-from autonmt.cmd import cmd_tokenizers
+from autonmt import utils
+from autonmt.cmd import NO_CONDA_MSG
 
 
 def _parse_args(**kwargs):
@@ -55,7 +56,7 @@ def _postprocess_output(output_path):
     subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | cut -f3- > {hyp_tok_path}"])
 
     # Replace "<<unk>>" with "<unk>" in ref.tok
-    cmd_tokenizers.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
+    utils.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
 
 
 class FairseqTranslator(BaseTranslator):
@@ -80,11 +81,11 @@ class FairseqTranslator(BaseTranslator):
         if src_vocab_path:
             new_src_vocab_path = os.path.join(output_path, f"dict.{src_lang}.txt")
             shutil.copyfile(f"{src_vocab_path.strip()}.vocabf", new_src_vocab_path)
-            cmd_tokenizers.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
+            utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
         if trg_vocab_path:
             new_trg_vocab_path = os.path.join(output_path, f"dict.{trg_lang}.txt")
             shutil.copyfile(f"{trg_vocab_path.strip()}.vocabf", new_trg_vocab_path)
-            cmd_tokenizers.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
+            utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
 
         # Trick for generation.
         # Fairseq always requires a train path, but during evaluation there is no need.
@@ -113,9 +114,9 @@ class FairseqTranslator(BaseTranslator):
 
         # Run command
         cmd = " ".join([] + cmd)
-        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
+        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else NO_CONDA_MSG
+        print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-        print(f"\t- Command used: {cmd}")
 
     def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
         # Write command
@@ -127,13 +128,14 @@ class FairseqTranslator(BaseTranslator):
         cmd += _parse_args(**kwargs)
 
         # Parse gpu flag
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(self.num_gpus)])}" if self.num_gpus else ""
+        num_gpus = kwargs.get('num_gpus')
+        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if num_gpus else ""
 
         # Run command
         cmd = " ".join([num_gpus] + cmd)
-        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
+        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else NO_CONDA_MSG
+        print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-        print(f"\t- Command used: {cmd}")
 
     def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, src_spm_model_path,
                    trg_spm_model_path, beam_width, max_gen_length, **kwargs):
@@ -158,13 +160,14 @@ class FairseqTranslator(BaseTranslator):
         # cmd += _parse_args(**kwargs)
 
         # Parse gpu flag
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(self.num_gpus)])}" if self.num_gpus else ""
+        num_gpus = kwargs.get('num_gpus')
+        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if num_gpus else ""
 
         # Run command
         cmd = " ".join([num_gpus] + cmd)
-        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else "echo \"No conda env. Using '/bin/bash'\""
+        env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else NO_CONDA_MSG
+        print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-        print(f"\t- Command used: {cmd}")
 
         # Prepare output files (from fairseq to tokenized form)
         _postprocess_output(output_path=output_path)

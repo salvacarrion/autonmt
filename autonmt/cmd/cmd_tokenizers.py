@@ -1,43 +1,49 @@
 import subprocess
+from autonmt.cmd import NO_CONDA_MSG
 
 
-def spm_encode(spm_model_path, input_file, output_file, conda_env_name=None):
-    env = f"conda activate {conda_env_name}" if conda_env_name else "echo \"No conda env. Using '/bin/bash'\""
-    cmd = f"spm_encode --model={spm_model_path} --output_format=piece < {input_file} > {output_file}"  # --vocabulary={spm_model_path}.vocab --vocabulary_threshold={min_vocab_frequency}
+def cmd_spm_encode(model_path, input_file, output_file, conda_env_name=None):
+    print("\t- [INFO]: Using 'SentencePiece' from the command line.")
+
+    env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
+    cmd = f"spm_encode --model={model_path} --output_format=piece < {input_file} > {output_file}"  # --vocabulary={model_path}.vocab --vocabulary_threshold={min_vocab_frequency}
     subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-    print(f"\t- Command used: {cmd}")
+    return cmd
 
 
-def spm_decode(spm_model_path, input_file, output_file, conda_env_name=None):
-    env = f"conda activate {conda_env_name}" if conda_env_name else "echo \"No conda env. Using '/bin/bash'\""
-    cmd = f"spm_decode --model={spm_model_path} --input_format=piece < {input_file} > {output_file}"
+def cmd_spm_decode(model_path, input_file, output_file, conda_env_name=None):
+    print("\t- [INFO]: Using 'SentencePiece' from the command line.")
+
+    env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
+    cmd = f"spm_decode --model={model_path} --input_format=piece < {input_file} > {output_file}"
     subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-    print(f"\t- Command used: {cmd}")
+    return cmd
 
 
-def spm_train(input_file, model_prefix, vocab_size, character_coverage, subword_model, input_sentence_size=1000000, conda_env_name=None):
+def cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, conda_env_name=None):
+    print("\t- [INFO]: Using 'SentencePiece' from the command line.")
+
     # https://github.com/google/sentencepiece/blob/master/doc/options.md
-    env = f"conda activate {conda_env_name}" if conda_env_name else "echo \"No conda env. Using '/bin/bash'\""
-    cmd = f"spm_train --input={input_file} --model_prefix={model_prefix} --vocab_size={vocab_size} --character_coverage={character_coverage} --model_type={subword_model} --input_sentence_size={input_sentence_size} --pad_id=3"
+    env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
+    cmd = f"spm_train --input={input_file} --model_prefix={model_prefix} --vocab_size={vocab_size} --model_type={subword_model} --input_sentence_size={input_sentence_size} --pad_id=3"
     subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-    print(f"\t- Command used: {cmd}")
+    return cmd
 
 
-def moses_tokenizer(lang, input_file, output_file, conda_env_name=None):
-    env = f"conda activate {conda_env_name}" if conda_env_name else "echo \"No conda env. Using '/bin/bash'\""
+def cmd_moses_tokenizer(lang, input_file, output_file, conda_env_name=None):
+    print("\t- [INFO]: Using 'Sacremoses' from the command line.")
+
+    env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
     cmd = f"sacremoses -l {lang} -j$(nproc) tokenize < {input_file} > {output_file}"
     subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-    print(f"\t- Command used: {cmd}")
+    return cmd
 
 
-def moses_detokenizer(lang, input_file, output_file, conda_env_name=None):
-    env = f"conda activate {conda_env_name}" if conda_env_name else "echo \"No conda env. Using '/bin/bash'\""
+def cmd_moses_detokenizer(lang, input_file, output_file, conda_env_name=None):
+    print("\t- [INFO]: Using 'Sacremoses' from the command line.")
+
+    env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
     cmd = f"sacremoses -l {lang} -j$(nproc) detokenize < {input_file} > {output_file}"
     subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
-    print(f"\t- Command used: {cmd}")
+    return cmd
 
-
-def replace_in_file(search_string, replace_string, filename):
-    cmd = f"sed -i 's/{search_string}/{replace_string}/' {filename}"
-    subprocess.call(['/bin/bash', '-i', '-c', f"{cmd}"])
-    print(f"\t- Command used: {cmd}")

@@ -5,7 +5,6 @@ from autonmt.tasks.translation.models import Seq2Seq
 from autonmt.tasks.translation.base import BaseTranslator
 from autonmt.tasks.translation.bundle.search_algorithms import greedy_search
 from autonmt.utils import *
-from autonmt.cmd import cmd_tokenizers
 
 from typing import Type
 

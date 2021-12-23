@@ -6,9 +6,8 @@ from typing import List, Set, Iterable
 from autonmt.utils import *
 
 from abc import ABC, abstractmethod
-from autonmt.cmd import cmd_tokenizers, cmd_metrics
 from autonmt.datasets import Dataset, DatasetBuilder
-from autonmt.tasks.translation.bundle import metrics
+from autonmt import py_cmd_api
 
 
 def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
@@ -29,31 +28,44 @@ def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
                          f"\t- test_lang_pair=({eval_ds.dataset_lang_pair})\n")
 
 
+def _check_supported_metrics(metrics, metrics_supported):
+    # Check supported metrics
+    metrics = set(metrics)
+    metrics_diff = metrics.difference(metrics_supported)
+    metrics_diff = {x for x in metrics_diff if not x.startswith("hg_")}  # Ignore huggingface metrics
+    if metrics_diff:
+        print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")
+        if metrics == metrics_diff:
+            print("\t- [Score]: Skipped. No valid metrics were found.")
+            return False
+    return True
+
+
 class BaseTranslator(ABC):
 
     # Global variables
     total_runs = 0
-    METRICS_SUPPORTED = {"bleu", "chrf", "ter", "bertscore", "comet", "beer"}
-    METRIC_PARSERS = {"sacrebleu": ("sacrebleu_scores.json", metrics.parse_sacrebleu),
-                      "bertscore": ("bert_scores.txt", metrics.parse_bertscore),
-                      "comet": ("comet_scores.txt", metrics.parse_comet),
-                      "beer": ("beer_scores.txt", metrics.parse_beer)}
+    METRICS_SUPPORTED = {"bleu", "chrf", "ter", "bertscore", "comet", "beer", "sacrebleu"}
+    METRIC_PARSERS = {"sacrebleu": ("sacrebleu_scores.json", parse_json_metrics),
+                      "bertscore": ("bert_scores.txt", parse_bertscore),
+                      "comet": ("comet_scores.txt", parse_comet),
+                      "beer": ("beer_scores.txt", parse_beer),
+                      "hg": ("huggingface_scores.json", parse_json_metrics),
+                      }
 
-    def __init__(self, engine, run_prefix="model", num_gpus=None, conda_env_name=None, 
-                 force_overwrite=False, interactive=True, model_ds=None, safe_seconds=2, **kwargs):
+    def __init__(self, engine, run_prefix="model", model_ds=None, safe_seconds=2, force_overwrite=False,
+                 interactive=True, use_cmd=False, conda_env_name=None, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
         self.force_overwrite = force_overwrite
         self.interactive = interactive
+        self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
 
         # Add train_ds
         self.model_ds = model_ds
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
-
-        # Parse gpu flag
-        self.num_gpus = None if not num_gpus or num_gpus.strip().lower() == "all" else num_gpus
 
         # Other
         self.safe_seconds = safe_seconds
@@ -116,10 +128,15 @@ class BaseTranslator(ABC):
         # Set default values
         if beams is None:
             beams = [5]
+        else:
+            beams = list(set(beams))
+            beams.sort(reverse=True)
 
         # Default metrics
         if metrics is None:
             metrics = {"bleu"}
+        else:
+            metrics = set(metrics)
 
         # Iterate over the evaluation datasets
         eval_scores = []
@@ -128,7 +145,8 @@ class BaseTranslator(ABC):
             self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
                            batch_size=batch_size, max_tokens=max_tokens, **kwargs)
             self.score(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
-            model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
+            model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
+                                              engine=self.engine, **kwargs)
             eval_scores.append(model_scores)
         return eval_scores
 
@@ -235,7 +253,9 @@ class BaseTranslator(ABC):
                 # Check if the file exists
                 if self.force_overwrite or not os.path.exists(new_filename):
                     assert src_spm_model_path == trg_spm_model_path
-                    cmd_tokenizers.spm_encode(spm_model_path=src_spm_model_path, input_file=ori_filename, output_file=new_filename, conda_env_name=self.conda_env_name)
+                    py_cmd_api.spm_encode(spm_model_path=src_spm_model_path,
+                                          input_file=ori_filename, output_file=new_filename,
+                                          use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # Preprocess external data
             test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
@@ -246,8 +266,6 @@ class BaseTranslator(ABC):
                              **kwargs)
 
         # Iterate over beams
-        beams = list(set(beams))
-        beams.sort(reverse=True)
         for beam in beams:
             # Create output path (if needed)
             output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
@@ -281,10 +299,9 @@ class BaseTranslator(ABC):
         hyp_txt_path = os.path.join(output_path, "hyp.txt")
 
         # Detokenize
-        cmd_tokenizers.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, conda_env_name=self.conda_env_name)
-        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, conda_env_name=self.conda_env_name)
-        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, conda_env_name=self.conda_env_name)
-
+        py_cmd_api.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        py_cmd_api.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        py_cmd_api.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
@@ -293,21 +310,15 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
-        metrics = set(metrics)
-        metrics_diff = metrics.difference(self.METRICS_SUPPORTED)
-        if metrics_diff:
-            print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")
-            if metrics == metrics_diff:
-                print("\t- [Score]: Skipped. No valid metrics were found.")
-                return
+        something_supported = _check_supported_metrics(metrics, self.METRICS_SUPPORTED)
+        if not something_supported:
+            return
 
         # Set run names
         run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
         eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
 
         # Iterate over beams
-        beams = list(set(beams))
-        beams.sort(reverse=True)
         for beam in beams:
             # Paths
             beam_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
@@ -321,29 +332,37 @@ class BaseTranslator(ABC):
             ref_file_path = os.path.join(beam_path, "ref.txt")
             hyp_file_path = os.path.join(beam_path, "hyp.txt")
 
-            # Score: bleu, chrf and ter
-            if metrics.intersection({"bleu", "chr", "ter"}):
+            # Hugginface metrics
+            hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}
+            output_file = os.path.join(scores_path, "huggingface_scores.json")
+            if self.force_overwrite or not os.path.exists(output_file):
+                py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
+                                               output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
+                                               use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+
+            # [CMD] Score: bleu, chrf and ter
+            if metrics.intersection({"sacrebleu", "bleu", "chr", "ter"}):
                 output_file = os.path.join(scores_path, "sacrebleu_scores.json")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    cmd_metrics.cmd_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-            # Score: bertscore
+            # [CMD] Score: bertscore
             if metrics.intersection({"bertscore"}):
                 output_file = os.path.join(scores_path, "bertscore_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    cmd_metrics.cmd_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-            # Score: comet
+            # [CMD] Score: comet
             if metrics.intersection({"comet"}):
                 output_file = os.path.join(scores_path, "comet_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    cmd_metrics.cmd_cometscore(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-            # Score: beer
+            # [CMD] Score: beer
             if metrics.intersection({"beer"}):
                 output_file = os.path.join(scores_path, "beer_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    cmd_metrics.cmd_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Parsing]: Started.")
@@ -352,13 +371,9 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
-        metrics = set(metrics)
-        metrics_diff = metrics.difference(self.METRICS_SUPPORTED)
-        if metrics_diff:
-            print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")
-            if metrics == metrics_diff:
-                print("\t- [Score]: Skipped. No valid metrics were found.")
-                return
+        something_supported = _check_supported_metrics(metrics, self.METRICS_SUPPORTED)
+        if not something_supported:
+            return
 
         # Set run names
         run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
@@ -371,6 +386,7 @@ class BaseTranslator(ABC):
             "eval_dataset": str(eval_ds), "eval_lines": eval_ds.dataset_lines,
             "eval_lang_pair": eval_ds.dataset_lang_pair,
             "run_name": run_name, "subword_model": model_ds.subword_model, "vocab_size": model_ds.vocab_size,
+            "engine": kwargs.get("engine"),
             "beams": {}
         }
 
