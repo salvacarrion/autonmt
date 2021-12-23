@@ -1,11 +1,32 @@
 import os.path
 import shutil
+
+from typing import List, Set, Iterable
+
 from autonmt.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.cmd import cmd_tokenizers, cmd_metrics
 from autonmt.datasets import Dataset, DatasetBuilder
 from autonmt.tasks.translation.bundle import metrics
+
+
+def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
+    # Check that train_ds is a Dataset
+    if train_ds and not isinstance(train_ds, Dataset):
+        raise TypeError("'train_ds' must be an instance of 'Dataset' so that we can know the layout of the trained "
+                        "model (e.g. checkpoints available, subword model, vocabularies, etc")
+
+    # Check that train_ds is a Dataset
+    if eval_ds and not isinstance(eval_ds, Dataset):
+        raise TypeError("'eval_ds' must be an instance of 'Dataset' so that we can know the layout of the dataset "
+                        "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
+
+    # Check that the datasets are compatible
+    if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang) or (train_ds.trg_lang != eval_ds.trg_lang)):
+        raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
+                         f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
+                         f"\t- test_lang_pair=({eval_ds.dataset_lang_pair})\n")
 
 
 class BaseTranslator(ABC):
@@ -29,7 +50,7 @@ class BaseTranslator(ABC):
 
         # Add train_ds
         self.model_ds = model_ds
-        self._check_datasets(train_ds=self.model_ds) if self.model_ds else None
+        _check_datasets(train_ds=self.model_ds) if self.model_ds else None
 
         # Parse gpu flag
         self.num_gpus = None if not num_gpus or num_gpus.strip().lower() == "all" else num_gpus
@@ -39,9 +60,10 @@ class BaseTranslator(ABC):
 
     def _make_empty_path(self, path, safe_seconds=0):
         # Check if the directory and can be delete it
-        if self.force_overwrite and os.path.exists(path):
+        is_empty = os.listdir(path) == []
+        if self.force_overwrite and os.path.exists(path) and not is_empty:
             print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
-            res = ask_yes_or_no(question="Do you want to continue? [y/N]", interactive=self.interactive)
+            res = ask_yes_or_no(question="Do you want to continue?", interactive=self.interactive)
             if res:
                 if safe_seconds:
                     print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
@@ -54,24 +76,9 @@ class BaseTranslator(ABC):
         is_empty = os.listdir(path) == []
         return is_empty
 
-    def _check_datasets(self, train_ds=None, eval_ds=None):
-        # Check that train_ds is a Dataset
-        if train_ds and not isinstance(train_ds, Dataset):
-            raise TypeError("'train_ds' must be an instance of 'Dataset' so that we can know the layout of the trained "
-                            "model (e.g. checkpoints available, subword model, vocabularies, etc")
-
-        # Check that train_ds is a Dataset
-        if eval_ds and not isinstance(eval_ds, Dataset):
-            raise TypeError("'eval_ds' must be an instance of 'Dataset' so that we can know the layout of the dataset "
-                            "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
-
-        # Check that the datasets are compatible
-        if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang) or (train_ds.trg_lang != eval_ds.trg_lang)):
-            raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
-                             f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
-                             f"\t- test_lang_pair=({eval_ds.dataset_lang_pair})\n")
-
-    def fit(self, train_ds=None, **kwargs):
+    def fit(self, train_ds: Dataset = None, batch_size=128, max_tokens=None, max_epochs=5, learning_rate=1e-3,
+            weight_decay=0, clip_norm=1.0, patience=10, criterion="cross_entropy", optimizer="adam",
+            checkpoints_path=None, logs_path=None, **kwargs):
         print("=> [Fit]: Started.")
 
         # Get train_ds
@@ -87,9 +94,12 @@ class BaseTranslator(ABC):
 
         # Train and preprocess
         self.preprocess(train_ds, **kwargs)
-        self.train(train_ds, **kwargs)
+        self.train(train_ds, batch_size=batch_size, max_tokens=max_tokens, max_epochs=max_epochs,
+                   learning_rate=learning_rate, weight_decay=weight_decay, clip_norm=clip_norm, patience=patience,
+                   criterion=criterion, optimizer=optimizer, **kwargs)
 
-    def predict(self, eval_datasets, beams=None, metrics=None, model_ds=None, **kwargs):
+    def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
+                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, **kwargs):
         print("=> [Predict]: Started.")
 
         # Get train_ds
@@ -103,6 +113,10 @@ class BaseTranslator(ABC):
             print("\t- [INFO]: Setting the 'model_ds' as the 'model_ds")
             self.model_ds = model_ds
 
+        # Set default values
+        if beams is None:
+            beams = [5]
+
         # Default metrics
         if metrics is None:
             metrics = {"bleu"}
@@ -111,9 +125,10 @@ class BaseTranslator(ABC):
         eval_scores = []
         eval_datasets = eval_datasets if isinstance(eval_datasets, DatasetBuilder) else [eval_datasets]
         for eval_ds in eval_datasets:
-            self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, **kwargs)
-            self.score(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics)
-            model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics)
+            self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
+                           batch_size=batch_size, max_tokens=max_tokens, **kwargs)
+            self.score(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
+            model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
             eval_scores.append(model_scores)
         return eval_scores
 
@@ -121,22 +136,21 @@ class BaseTranslator(ABC):
     def _preprocess(self, *args, **kwargs):
         pass
 
-    def preprocess(self, ds, **kwargs):
+    def preprocess(self, ds: Dataset, **kwargs):
         print("=> [Preprocess]: Started.")
-
-        # Check datasets
-        if ds and not isinstance(ds, Dataset):
-            raise TypeError("'ds' is not an instance of 'Dataset'")
 
         # Set vars
         src_lang = ds.src_lang
         trg_lang = ds.trg_lang
-        model_data_bin_path = ds.get_model_data_bin(toolkit=self.engine)
-        model_src_vocab_path = ds.get_src_trg_vocab_path()
-        model_trg_vocab_path = ds.get_src_trg_vocab_path()
         train_path = os.path.join(ds.get_encoded_path(), ds.train_name)
         val_path = os.path.join(ds.get_encoded_path(), ds.val_name)
         test_path = os.path.join(ds.get_encoded_path(), ds.test_name)
+        model_src_vocab_path = ds.get_src_trg_vocab_path()
+        model_trg_vocab_path = ds.get_src_trg_vocab_path()
+        model_data_bin_path = ds.get_model_data_bin(toolkit=self.engine)
+
+        # Create dirs
+        make_dir([model_data_bin_path])
 
         # Checks: Make sure the directory exist, and it is empty
         is_empty = self._make_empty_path(path=model_data_bin_path, safe_seconds=self.safe_seconds)
@@ -152,11 +166,11 @@ class BaseTranslator(ABC):
     def _train(self, *args, **kwargs):
         pass
 
-    def train(self, train_ds, **kwargs):
+    def train(self, train_ds: Dataset, **kwargs):
         print("=> [Train]: Started.")
 
         # Check datasets
-        self._check_datasets(train_ds=train_ds)
+        _check_datasets(train_ds=train_ds)
 
         # Set run name
         run_name = f"{self.run_prefix}_{train_ds.subword_model}_{train_ds.vocab_size}"
@@ -165,6 +179,9 @@ class BaseTranslator(ABC):
         data_bin_path = train_ds.get_model_data_bin(toolkit=self.engine)
         checkpoints_path = train_ds.get_model_checkpoints_path(toolkit=self.engine, run_name=run_name)
         logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=run_name)
+
+        # Create dirs
+        make_dir([data_bin_path, checkpoints_path, logs_path])
 
         # Checks: Make sure the directory exist, and it is empty
         # is_empty = os.listdir(checkpoints_path) == []  # Too dangerous to allow overwrite
@@ -179,15 +196,11 @@ class BaseTranslator(ABC):
     def _translate(self, *args, **kwargs):
         pass
 
-    def translate(self, model_ds, eval_ds, beams, max_gen_length=150, **kwargs):
+    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], **kwargs):
         print("=> [Translate]: Started.")
 
         # Check datasets
-        self._check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-
-        # Check beams type
-        if not isinstance(beams, list):
-            raise ValueError("'beams' must be a list of integers")
+        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Set run names
         run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
@@ -201,6 +214,8 @@ class BaseTranslator(ABC):
         model_trg_vocab_path = model_ds.get_src_trg_vocab_path()
         model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
         model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+
+        # Create dirs
         make_dir([model_eval_data_path, model_eval_data_bin_path])
 
         # [Trained model]: SPM model path
@@ -231,6 +246,8 @@ class BaseTranslator(ABC):
                              **kwargs)
 
         # Iterate over beams
+        beams = list(set(beams))
+        beams.sort(reverse=True)
         for beam in beams:
             # Create output path (if needed)
             output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
@@ -243,27 +260,40 @@ class BaseTranslator(ABC):
                 return
 
             # Translate
-            self._translate(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+            self._translate(beam_width=beam, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                             data_path=model_eval_data_bin_path, output_path=output_path,
                             checkpoint_path=checkpoint_path,
-                            src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path,
-                            beam_width=beam, max_gen_length=max_gen_length, **kwargs)
+                            src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path, **kwargs)
 
-    def score(self, model_ds, eval_ds, beams=None, metrics=None):
+            # Postprocess tokenized files
+            self.postprocess_tok_files(output_path=output_path,
+                                       src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path)
+
+    def postprocess_tok_files(self, output_path, src_spm_model_path, trg_spm_model_path):
+        # Input files
+        src_tok_path = os.path.join(output_path, "src.tok")
+        ref_tok_path = os.path.join(output_path, "ref.tok")
+        hyp_tok_path = os.path.join(output_path, "hyp.tok")
+
+        # Output files
+        src_txt_path = os.path.join(output_path, "src.txt")
+        ref_txt_path = os.path.join(output_path, "ref.txt")
+        hyp_txt_path = os.path.join(output_path, "hyp.txt")
+
+        # Detokenize
+        cmd_tokenizers.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, conda_env_name=self.conda_env_name)
+        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, conda_env_name=self.conda_env_name)
+        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, conda_env_name=self.conda_env_name)
+
+
+    def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
 
         # Check datasets
-        self._check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-
-        # Check beams type
-        if not isinstance(beams, list):
-            raise ValueError("'beams' must be a list of integers")
-
-        # Check metrics type
-        if not (isinstance(metrics, list) or isinstance(metrics, dict) or isinstance(metrics, set)):
-            raise ValueError("'beams' must be a list, dict or set")
+        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
+        metrics = set(metrics)
         metrics_diff = metrics.difference(self.METRICS_SUPPORTED)
         if metrics_diff:
             print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")
@@ -276,18 +306,15 @@ class BaseTranslator(ABC):
         eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
 
         # Iterate over beams
+        beams = list(set(beams))
+        beams.sort(reverse=True)
         for beam in beams:
             # Paths
             beam_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
             scores_path = model_ds.get_model_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
-            make_dir([scores_path])
 
-            # Disable checks
-            # # Checks: Make sure the directory exist, and it is empty
-            # is_empty = self._make_empty_path(path=scores_path, safe_seconds=self.safe_seconds)
-            # if not is_empty:
-            #     print("\t- [Score]: Skipped. The output directory is not empty")
-            #     continue
+            # Create dirs
+            make_dir([scores_path])
 
             # Set input files (results)
             src_file_path = os.path.join(beam_path, "src.txt")
@@ -318,21 +345,14 @@ class BaseTranslator(ABC):
                 if self.force_overwrite or not os.path.exists(output_file):
                     cmd_metrics.cmd_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, conda_env_name=self.conda_env_name)
 
-    def parse_metrics(self, model_ds, eval_ds, beams=None, metrics=None):
+    def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Parsing]: Started.")
 
         # Check datasets
-        self._check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-
-        # Check beams type
-        if not isinstance(beams, list):
-            raise ValueError("'beams' must be a list of integers")
-
-        # Check metrics type
-        if not (isinstance(metrics, list) or isinstance(metrics, dict) or isinstance(metrics, set)):
-            raise ValueError("'beams' must be a list, dict or set")
+        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
+        metrics = set(metrics)
         metrics_diff = metrics.difference(self.METRICS_SUPPORTED)
         if metrics_diff:
             print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")

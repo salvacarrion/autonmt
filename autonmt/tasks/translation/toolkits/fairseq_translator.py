@@ -25,6 +25,20 @@ def _parse_args(**kwargs):
     return cmd
 
 
+def _postprocess_output(output_path):
+    # Extract sentences from generate-test.txt
+    gen_test_path = os.path.join(output_path, "generate-test.txt")
+    src_tok_path = os.path.join(output_path, "src.tok")
+    ref_tok_path = os.path.join(output_path, "ref.tok")
+    hyp_tok_path = os.path.join(output_path, "hyp.tok")
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^S {gen_test_path} | cut -f2- > {src_tok_path}"])
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^T {gen_test_path} | cut -f2- > {ref_tok_path}"])
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | cut -f3- > {hyp_tok_path}"])
+
+    # Replace "<<unk>>" with "<unk>" in ref.tok
+    cmd_tokenizers.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
+
+
 class FairseqTranslator(BaseTranslator):
 
     def __init__(self, conda_fairseq_env_name=None, **kwargs):
@@ -40,7 +54,7 @@ class FairseqTranslator(BaseTranslator):
             # raise ValueError("'FairseqTranslator' needs the name of the conda environment where it is installed")
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                   trg_vocab_path, **kwargs):
+                    trg_vocab_path, **kwargs):
         # Reformat vocab files for fairseq
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
@@ -133,22 +147,6 @@ class FairseqTranslator(BaseTranslator):
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
         print(f"\t- Command used: {cmd}")
 
-        # Extract sentences from generate-test.txt
-        gen_test_path = os.path.join(output_path, "generate-test.txt")
-        src_tok_path = os.path.join(output_path, "src.tok")
-        ref_tok_path = os.path.join(output_path, "ref.tok")
-        hyp_tok_path = os.path.join(output_path, "hyp.tok")
-        subprocess.call(['/bin/bash', '-i', '-c', f"grep ^S {gen_test_path} | cut -f2- > {src_tok_path}"])
-        subprocess.call(['/bin/bash', '-i', '-c', f"grep ^T {gen_test_path} | cut -f2- > {ref_tok_path}"])
-        subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | cut -f3- > {hyp_tok_path}"])
+        # Prepare output files (from fairseq to tokenized form)
+        _postprocess_output(output_path=output_path)
 
-        # Replace "<<unk>>" with "<unk>" in ref.tok
-        cmd_tokenizers.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
-
-        # Detokenize
-        src_txt_path = os.path.join(output_path, "src.txt")
-        ref_txt_path = os.path.join(output_path, "ref.txt")
-        hyp_txt_path = os.path.join(output_path, "hyp.txt")
-        cmd_tokenizers.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, conda_env_name=self.conda_env_name)
-        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, conda_env_name=self.conda_env_name)
-        cmd_tokenizers.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, conda_env_name=self.conda_env_name)

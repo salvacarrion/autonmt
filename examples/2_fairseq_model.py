@@ -4,7 +4,6 @@ from autonmt.tasks.translation.bundle.metrics import create_report
 
 
 def main(fairseq_args):
-
     # Create datasets for training
     tr_datasets = DatasetBuilder(
         base_path="/home/salva/datasets",
@@ -20,14 +19,15 @@ def main(fairseq_args):
 
     # Train & Score a model for each dataset
     scores = []
-    for train_ds in tr_datasets:
-        model = al.FairseqTranslator(conda_fairseq_env_name="fairseq", conda_env_name="mltests")  # Conda envs will be deprecated
-        model.fit(train_ds, fairseq_args=fairseq_args)
+    for ds in tr_datasets:
+        model = al.FairseqTranslator(model_ds=ds, safe_seconds=2, force_overwrite=True, interactive=True,
+                                     conda_fairseq_env_name="fairseq", conda_env_name="mltests")  # Conda envs will soon be deprecated
+        model.fit(fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
         scores.append(eval_scores)
 
     # Make report
-    create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs", save_figures=True, show_figures=False)
+    create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)
 
 
 if __name__ == "__main__":

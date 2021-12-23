@@ -95,7 +95,7 @@ class Seq2Seq(nn.Module, ABC):
             # predictions, log_probabilities = seq2seq.beam_search(model, X_new)
             # output = [target_index.tensor2text(p) for p in predictions]
 
-    def evaluate(self, eval_ds, batch_size=128, max_tokens=None, criterion="cross_entropy", prefix="eval", **kwargs):
+    def evaluate(self, eval_ds, batch_size=128, max_tokens=None, prefix="eval", **kwargs):
         self.eval()
         device = next(self.parameters()).device  # Get device
 

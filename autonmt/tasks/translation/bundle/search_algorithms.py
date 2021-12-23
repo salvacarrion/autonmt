@@ -3,13 +3,13 @@ import torch.utils.data as tud
 import tqdm
 
 
-def greedy_search(model, ds, sos_id, eos_id, batch_size, max_tokens, max_length, **kwargs):
+def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_length, **kwargs):
     model.eval()
     device = next(model.parameters()).device
 
     # Create dataloader
-    collate_fn = lambda x: ds.collate_fn(x, max_tokens=max_tokens)
-    eval_dataloader = tud.DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    collate_fn = lambda x: dataset.collate_fn(x, max_tokens=max_tokens)
+    eval_dataloader = tud.DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
     idxs = []
     probabilities = []
@@ -25,7 +25,7 @@ def greedy_search(model, ds, sos_id, eos_id, batch_size, max_tokens, max_length,
 
             # Iterative decoder
             all_eos = False
-            while not all_eos and dec_idxs.shape[1] <= max_length:
+            while not all_eos and dec_idxs.shape[1] <= max_gen_length:
                 # Get next token (probs + idx)
                 next_probabilities = model.forward(x, dec_idxs)[:, -1].log_softmax(-1)
                 next_max_probabilities, next_max_idxs = next_probabilities.max(-1)
