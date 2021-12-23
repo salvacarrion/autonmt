@@ -87,7 +87,7 @@ def py_spm_decode(spm_model_path, input_file, output_file):
 
     # Decode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
-    lines = [s.decode_pieces(lines[0].split(' ')) for line in tqdm(lines, total=len(lines))]
+    lines = [s.decode_pieces(line.split(' ')) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(output_file, lines)
@@ -105,7 +105,8 @@ def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sent
     # Train model
     spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
                                    model_type=subword_model, vocab_size=vocab_size,
-                                   input_sentence_size=input_sentence_size)
+                                   input_sentence_size=input_sentence_size,
+                                   pad_id=3)
 
 
 def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, conda_env_name):

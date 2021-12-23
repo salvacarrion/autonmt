@@ -6,7 +6,7 @@ from autonmt.tasks.translation.bundle.report import generate_report
 def main(fairseq_args):
     # Create datasets for training
     tr_datasets = DatasetBuilder(
-        base_path="/home/salva/datasets",
+        base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
@@ -16,7 +16,7 @@ def main(fairseq_args):
         interactive=True,
         use_cmd=False,
         conda_env_name=None,
-    ).build(make_plots=True, safe=True)
+    ).build(make_plots=False, safe=True)
 
     # Create datasets for testing
     ts_datasets = tr_datasets
@@ -34,8 +34,7 @@ def main(fairseq_args):
         scores.append(eval_scores)
 
     # Make report
-    generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq",
-                    save_figures=True, show_figures=False)
+    # generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)
 
 
 if __name__ == "__main__":
