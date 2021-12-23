@@ -14,7 +14,7 @@ def main(fairseq_args):
         vocab_sizes=[8000],
         force_overwrite=False,
         interactive=True,
-        use_cmd=True,
+        use_cmd=False,
         conda_env_name=None,
     ).build(make_plots=True, safe=True)
 
@@ -26,10 +26,10 @@ def main(fairseq_args):
     for ds in tr_datasets:
         model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
                                      force_overwrite=False, interactive=True,
-                                     use_cmd=True,
+                                     use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-        # model.fit(fairseq_args=fairseq_args)
+        model.fit(fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
 

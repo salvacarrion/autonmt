@@ -6,6 +6,8 @@ from autonmt import utils
 from autonmt.cmd.cmd_tokenizers import *
 from autonmt.cmd.cmd_metrics import *
 
+from tqdm import tqdm
+
 import sacrebleu
 import bert_score
 from datasets import load_metric
@@ -25,7 +27,7 @@ def py_moses_tokenizer(lang, input_file, output_file):
 
     # Tokenize
     mt = MosesTokenizer(lang=lang)
-    lines = [mt.tokenize(line, return_str=True) for line in lines]
+    lines = [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(output_file, lines)
@@ -45,7 +47,7 @@ def py_moses_detokenizer(lang, input_file, output_file):
 
     # Detokenize
     mt = MosesDetokenizer(lang=lang)
-    lines = [mt.detokenize(line, return_str=True) for line in lines]
+    lines = [mt.detokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(output_file, lines)
@@ -65,7 +67,7 @@ def py_spm_encode(spm_model_path, input_file, output_file):
 
     # Encode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
-    lines = [s.encode(s) for line in lines]
+    lines = [' '.join(s.encode(line, out_type=str)) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(output_file, lines)
@@ -85,7 +87,7 @@ def py_spm_decode(spm_model_path, input_file, output_file):
 
     # Decode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
-    lines = [s.decode(s) for line in lines]
+    lines = [s.decode_pieces(lines[0].split(' ')) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(output_file, lines)
@@ -100,13 +102,10 @@ def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentenc
 
 
 def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size):
-    # Read lines
-    lines = utils.read_file_lines(input_file)
-
-    # Decode
-    s = spm.SentencePieceTrainer.train(input='test/botchan.txt', model_prefix=model_prefix,
-                                       subword_model=subword_model, vocab_size=vocab_size,)
-    saas = 3
+    # Train model
+    spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
+                                   model_type=subword_model, vocab_size=vocab_size,
+                                   input_sentence_size=input_sentence_size)
 
 
 def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, conda_env_name):
