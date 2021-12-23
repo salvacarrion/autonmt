@@ -1,5 +1,35 @@
 import subprocess
 
+from autonmt import utils
+from sacrebleu.metrics import BLEU, CHRF, TER
+
+
+def sacrebleu_scores(ref_file, hyp_file, output_file, metrics):
+    ref_lines = utils.read_file_lines(ref_file)
+    hyp_lines = utils.read_file_lines(hyp_file)
+
+    scores = []
+    if "bleu" in metrics:
+        bleu = BLEU()
+        d = bleu.corpus_score(hyp_lines, [ref_lines]).__dict__
+        d["signature"] = str(bleu.get_signature())
+        scores.append(d)
+
+    if "chrf" in metrics:
+        chrf = CHRF()
+        d = chrf.corpus_score(hyp_lines, [ref_lines]).__dict__
+        d["signature"] = str(chrf.get_signature())
+        scores.append(d)
+
+    if "ter" in metrics:
+        ter = TER()
+        d = ter.corpus_score(hyp_lines, [ref_lines]).__dict__
+        d["signature"] = str(ter.get_signature())
+        scores.append(d)
+
+    # Save json
+    utils.save_json(scores, output_file)
+
 
 def cmd_sacrebleu(ref_file, hyp_file, output_file, metrics, conda_env_name=None):
     # The max ngram (max_ngram_order:) is default to 4 as the it was found to be the highest correlation with monolingual human judgements

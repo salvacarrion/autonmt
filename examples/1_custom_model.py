@@ -24,7 +24,7 @@ def main():
     for ds in tr_datasets:
         model = al.Translator(model=Transformer, model_ds=ds, safe_seconds=2, force_overwrite=True, interactive=True)
         # model.fit()
-        eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+        eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[5])
         scores.append(eval_scores)
 
     # Make report
