@@ -204,6 +204,11 @@ for train_ds in tr_datasets:
     model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5])
 ```
 
+> **Note:** 'fairseq_args' always has preference over the 'autonmt' parameters in case of a collision. This is because
+> in order to provide framework compatibility using the same set parameters, we had to define a translation table of
+> parameters between tookits (i.e. "max_epochs" (autonmt) => "--max-epoch" (fairseq). So if a user sets "max_epochs=10" 
+> (autonmt) in the fit, and "--max-epoch 15" (fairseq) in the 'fairseq_args', we will consider the later.
+
 
 ### Reproducibility
 

@@ -8,10 +8,12 @@ from autonmt.cmd import cmd_tokenizers
 
 def _parse_args(**kwargs):
     cmd = []
-    reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate",
-                     "--save-dir", "--tensorboard-logdir"}
 
-    # Add args
+    # Set reserved args
+    reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate", "--save-dir", "--tensorboard-logdir"}
+    # reserved_args.update(autonmt2fairseq.keys())
+
+    # Check fairseq args
     fairseq_args = kwargs.get("fairseq_args")
     if not fairseq_args or not isinstance(fairseq_args, list):
         raise ValueError("No fairseq args were provided.\n"
@@ -20,8 +22,25 @@ def _parse_args(**kwargs):
     else:
         if any([x in fairseq_args for x in reserved_args]):
             raise ValueError(f"A reserved fairseq arg was used. List of reserved args: {str(reserved_args)}")
-        else:  # Add args
-            cmd = fairseq_args
+
+    # Convert AutoNLP args to Fairseq
+    autonmt2fairseq = {'batch_size': "--batch-size", 'max_tokens': "--max-tokens", 'max_epochs': "--max-epoch",
+                       'learning_rate': "--lr", 'clip_norm': "--clip-norm", 'patience': "--patience",
+                       'criterion': "--criterion", 'optimizer': "--optimizer"}
+    proposed_args = []
+    for autonmt_arg_name, autonmt_arg_value in kwargs.items():
+        faisreq_arg_name = autonmt2fairseq.get(autonmt_arg_name)
+        if autonmt_arg_value is not None and faisreq_arg_name:
+            proposed_args.append(f"{faisreq_arg_name} {str(autonmt_arg_value)}")
+
+    # Add params: Fairseq params have preference over the autonmt params, but autonmt params have preference over
+    # the default fairseq params
+    proposed_fairseq_keys = [arg.split(' ')[0] for arg in proposed_args]
+    fairseq_keys = set([arg.split(' ')[0] for arg in fairseq_args])
+    for autonmt_arg, autonmt_key in zip(proposed_args, proposed_fairseq_keys):
+        if autonmt_key not in fairseq_keys:
+            cmd += [autonmt_arg]
+    cmd += fairseq_args
     return cmd
 
 
