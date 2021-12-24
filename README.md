@@ -36,7 +36,8 @@ Furthermore, we provide two features for reproducibility:
 Requires Python +3.6
 
 ```
-pip install autonmt
+git clone git@github.com:salvacarrion/autonmt.git
+pip install -e autonmt/
 ```
 
 

@@ -6,7 +6,7 @@ from autonmt.tasks.translation.bundle.report import generate_report
 def main(fairseq_args):
     # Create datasets for training
     tr_datasets = DatasetBuilder(
-        base_path="/home/scarrion/datasets/nn/translation",
+        base_path="/home/salva/datasets",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],

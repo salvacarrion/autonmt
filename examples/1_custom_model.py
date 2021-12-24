@@ -16,9 +16,9 @@ def main():
         vocab_sizes=[8000],
         force_overwrite=False,
         interactive=True,
-        use_cmd=True,
+        use_cmd=False,
         conda_env_name=None,
-    ).build(make_plots=True, safe=True)
+    ).build(make_plots=False, safe=True)
 
     # Create datasets for testing
     ts_datasets = tr_datasets
@@ -29,15 +29,14 @@ def main():
         model = al.Translator(model=Transformer,
                               model_ds=ds, safe_seconds=2,
                               force_overwrite=False, interactive=True,
-                              use_cmd=True,
+                              use_cmd=False,
                               conda_env_name="mltests")  # Conda envs will soon be deprecated
         model.fit(max_epochs=5)
-        eval_scores = model.predict(ts_datasets, metrics={"sdfsd", "bleu", "chrf", "ter", "bertscore", "comet", "beer",
-                                                          "hg_bleu", "hg_sacrebleu", "hg_chrf", "hg_ter"}, beams=[5])
+        eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
 
     # Make report
-    generate_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs/autonmt",
+    generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/autonmt",
                     save_figures=True, show_figures=False)
 
 
