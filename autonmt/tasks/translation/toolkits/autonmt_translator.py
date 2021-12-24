@@ -32,7 +32,18 @@ class Translator(BaseTranslator):
 
         # Create and train model
         model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, **kwargs).to(device)
+
+        # Count parameters
+        trainable_params, non_trainable_params = self._count_model_parameters(model)
+        print(f"\t - [INFO]: Total trainable parameters: {trainable_params}")
+        print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params}")
         return model
+
+
+    def _count_model_parameters(self, model):
+        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        non_trainable_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
+        return trainable_params, non_trainable_params
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
                     trg_vocab_path, **kwargs):

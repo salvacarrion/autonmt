@@ -20,8 +20,8 @@ class Seq2Seq(nn.Module, ABC):
         pass
 
     def fit(self, ds_train: TranslationDataset, ds_val: TranslationDataset,
-            batch_size=128, max_tokens=None, max_epochs=5, learning_rate=1e-3, weight_decay=0, clip_norm=1.0,
-            patience=10, criterion="cross_entropy", optimizer="adam", checkpoints_path=None, logs_path=None, **kwargs):
+            batch_size, max_tokens, max_epochs, learning_rate, weight_decay, clip_norm,
+            patience, checkpoints_path, logs_path, **kwargs):
 
         # Checks: checkpoints_path
         if not checkpoints_path:
@@ -79,7 +79,7 @@ class Seq2Seq(nn.Module, ABC):
 
             # Validation
             val_loss, val_acc = self.evaluate(ds_val, batch_size=batch_size, max_tokens=max_tokens,
-                                              criterion=criterion, device=device, prefix="val")
+                                              device=device, prefix="val")
 
             # Save model
             if checkpoints_path is not None:

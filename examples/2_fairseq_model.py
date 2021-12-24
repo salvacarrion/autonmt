@@ -25,7 +25,7 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
-                                     force_overwrite=False, interactive=True,
+                                     force_overwrite=True, interactive=False,
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         "--lr 0.001",
         "--optimizer adam",
         "--criterion cross_entropy",
-        "--max-tokens 4096",
+        # "--max-tokens 4096",
         "--max-epoch 5",
         "--clip-norm 1.0",
         "--update-freq 1",

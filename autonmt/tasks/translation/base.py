@@ -176,9 +176,11 @@ class BaseTranslator(ABC):
             print("\t- [Preprocess]: Skipped. The output directory is not empty")
             return
 
+        start_time = time.time()
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path, **kwargs)
+        print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
     def _train(self, *args, **kwargs):
@@ -208,7 +210,10 @@ class BaseTranslator(ABC):
             print("\t- [Train]: Skipped. The checkpoints directory is not empty")
             return
 
+        start_time = time.time()
         self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path, **kwargs)
+        print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
+
 
     @abstractmethod
     def _translate(self, *args, **kwargs):
@@ -267,6 +272,7 @@ class BaseTranslator(ABC):
 
         # Iterate over beams
         for beam in beams:
+            start_time = time.time()
             # Create output path (if needed)
             output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
             make_dir(output_path)
@@ -286,6 +292,7 @@ class BaseTranslator(ABC):
             # Postprocess tokenized files
             self.postprocess_tok_files(output_path=output_path,
                                        src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path)
+            print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def postprocess_tok_files(self, output_path, src_spm_model_path, trg_spm_model_path):
         # Input files
@@ -320,6 +327,8 @@ class BaseTranslator(ABC):
 
         # Iterate over beams
         for beam in beams:
+            start_time = time.time()
+
             # Paths
             beam_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
             scores_path = model_ds.get_model_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
@@ -363,6 +372,7 @@ class BaseTranslator(ABC):
                 output_file = os.path.join(scores_path, "beer_scores.txt")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Parsing]: Started.")

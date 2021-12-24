@@ -28,7 +28,7 @@ def main():
     for ds in tr_datasets:
         model = al.Translator(model=Transformer,
                               model_ds=ds, safe_seconds=2,
-                              force_overwrite=False, interactive=True,
+                              force_overwrite=True, interactive=False,
                               use_cmd=False,
                               conda_env_name="mltests")  # Conda envs will soon be deprecated
         model.fit(max_epochs=5)
