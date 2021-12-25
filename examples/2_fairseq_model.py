@@ -6,12 +6,12 @@ from autonmt.tasks.translation.bundle.report import generate_report
 def main(fairseq_args):
     # Create datasets for training
     tr_datasets = DatasetBuilder(
-        base_path="/home/salva/datasets",
+        base_path="/home/scarrion/datasets/nn/translation/",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[8000],
+        vocab_sizes=[16000],
         force_overwrite=False,
         interactive=True,
         use_cmd=False,
@@ -29,9 +29,10 @@ def main(fairseq_args):
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-        model.fit(fairseq_args=fairseq_args)
+        model.fit(fairseq_args=fairseq_args, num_gpus=1)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
+    print(scores)
 
     # Make report
     # generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)

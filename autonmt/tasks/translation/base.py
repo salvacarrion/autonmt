@@ -257,6 +257,17 @@ class BaseTranslator(ABC):
 
                 # Check if the file exists
                 if self.force_overwrite or not os.path.exists(new_filename):
+                    # Apply pretokenization (if needed)
+                    if model_ds.pretok_flag:
+                        print("\t- [INFO] Applying pre-tokenization due to word encoding")
+                        py_cmd_api.moses_tokenizer(input_file=ori_filename, output_file=new_filename,
+                                                   lang=model_ds.trg_lang,
+                                                   use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+
+                        # Update ori_filename for the spm encoding (overwrite)
+                        ori_filename = new_filename
+
+                    # Apply SPM
                     assert src_spm_model_path == trg_spm_model_path
                     py_cmd_api.spm_encode(spm_model_path=src_spm_model_path,
                                           input_file=ori_filename, output_file=new_filename,
@@ -340,6 +351,10 @@ class BaseTranslator(ABC):
             src_file_path = os.path.join(beam_path, "src.txt")
             ref_file_path = os.path.join(beam_path, "ref.txt")
             hyp_file_path = os.path.join(beam_path, "hyp.txt")
+
+            # Check that the paths exists
+            if not all([os.path.exists(p) for p in [src_file_path, ref_file_path, hyp_file_path]]):
+                raise IOError("Missing files to compute scores")
 
             # Hugginface metrics
             hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}

@@ -8,12 +8,12 @@ from autonmt.tasks.translation.bundle.report import generate_report
 def main():
     # Create datasets for training
     tr_datasets = DatasetBuilder(
-        base_path="/home/salva/datasets",
+        base_path="/home/scarrion/datasets/nn/translation/",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[8000],
+        vocab_sizes=[16000],
         force_overwrite=False,
         interactive=True,
         use_cmd=False,
@@ -28,12 +28,13 @@ def main():
     for ds in tr_datasets:
         model = al.Translator(model=Transformer,
                               model_ds=ds, safe_seconds=2,
-                              force_overwrite=True, interactive=False,
+                              force_overwrite=False, interactive=False,
                               use_cmd=False,
                               conda_env_name="mltests")  # Conda envs will soon be deprecated
-        model.fit(max_epochs=5)
+        model.fit(max_epochs=5, num_gpus=1, learning_rate=0.001)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
+    print(scores)
 
     # Make report
     generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/autonmt",

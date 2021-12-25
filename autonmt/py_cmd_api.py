@@ -13,15 +13,15 @@ import bert_score
 from datasets import load_metric
 
 
-def moses_tokenizer(lang, input_file, output_file, use_cmd, conda_env_name):
+def moses_tokenizer(input_file, output_file, lang, use_cmd, conda_env_name):
     if use_cmd:
-        cmd = cmd_moses_tokenizer(lang, input_file, output_file, conda_env_name)
+        cmd = cmd_moses_tokenizer(input_file, output_file, lang, conda_env_name)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
-        py_moses_tokenizer(lang, input_file, output_file)
+        py_moses_tokenizer(input_file, output_file, lang)
 
 
-def py_moses_tokenizer(lang, input_file, output_file):
+def py_moses_tokenizer(input_file, output_file, lang):
     # Read lines
     lines = utils.read_file_lines(input_file)
 
@@ -170,6 +170,10 @@ def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     hyp_lines = utils.read_file_lines(hyp_file)
     ref_lines = utils.read_file_lines(ref_file)
 
+    # Check if files have content
+    if not hyp_lines or not ref_lines:
+        raise ValueError("Files empty (hyp/ref)")
+
     scores = []
     if "bleu" in metrics:
         bleu = sacrebleu.metrics.BLEU()
@@ -206,6 +210,10 @@ def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
     ref_lines = utils.read_file_lines(ref_file)
     hyp_lines = utils.read_file_lines(hyp_file)
 
+    # Check if files have content
+    if not hyp_lines or not ref_lines:
+        raise ValueError("Files empty (hyp/ref)")
+    
     # Score
     precision, recall, f1 = bert_score.score(hyp_lines, ref_lines, lang=trg_lang)
 

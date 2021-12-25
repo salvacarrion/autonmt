@@ -89,7 +89,7 @@ class Dataset:
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name)
 
     def get_model_eval_data_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_splits_path, fname)
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_encoded_path, fname)
 
     def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_data_bin_path, fname)

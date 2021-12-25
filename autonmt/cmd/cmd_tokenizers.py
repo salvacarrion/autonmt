@@ -30,7 +30,7 @@ def cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sen
     return cmd
 
 
-def cmd_moses_tokenizer(lang, input_file, output_file, conda_env_name=None):
+def cmd_moses_tokenizer(input_file, output_file, lang, conda_env_name=None):
     print("\t- [INFO]: Using 'Sacremoses' from the command line.")
 
     env = f"conda activate {conda_env_name}" if conda_env_name else NO_CONDA_MSG
