@@ -2,6 +2,7 @@
 .outputs/
 
 # Development
+*.json
 .idea/
 .DS_Store
 *logs/

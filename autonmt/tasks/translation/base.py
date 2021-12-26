@@ -29,29 +29,41 @@ def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
 
 
 def _check_supported_metrics(metrics, metrics_supported):
-    # Check supported metrics
+    # Check
     metrics = set(metrics)
-    metrics_diff = metrics.difference(metrics_supported)
-    metrics_diff = {x for x in metrics_diff if not x.startswith("hg_")}  # Ignore huggingface metrics
-    if metrics_diff:
-        print(f"=> [WARNING] These metrics are not supported: {str(metrics_diff)}")
-        if metrics == metrics_diff:
+    metrics_supported = set(metrics_supported)
+
+    # Get valid metrics
+    metrics_valid = list(metrics.intersection(metrics_supported))
+    metrics_valid += [x for x in metrics if x.startswith("hg_")]  # Ignore huggingface metrics
+    metrics_valid = set(metrics_valid)
+    metrics_non_valid = metrics.difference(metrics_valid)
+
+    if metrics_non_valid:
+        print(f"=> [WARNING] These metrics are not supported: {str(metrics_non_valid)}")
+        if metrics == metrics_non_valid:
             print("\t- [Score]: Skipped. No valid metrics were found.")
-            return False
-    return True
+
+    return metrics_valid
 
 
 class BaseTranslator(ABC):
 
     # Global variables
     total_runs = 0
-    METRICS_SUPPORTED = {"bleu", "chrf", "ter", "bertscore", "comet", "beer", "sacrebleu"}
-    METRIC_PARSERS = {"sacrebleu": ("sacrebleu_scores.json", parse_json_metrics),
-                      "bertscore": ("bert_scores.txt", parse_bertscore),
-                      "comet": ("comet_scores.txt", parse_comet),
-                      "beer": ("beer_scores.txt", parse_beer),
-                      "hg": ("huggingface_scores.json", parse_json_metrics),
-                      }
+    TOOL_PARSERS = {"sacrebleu": {"filename": "sacrebleu_scores", "py": (parse_sacrebleu_json, "json"), "cmd": (parse_sacrebleu_json, "json")},
+                      "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json"), "cmd": (parse_bertscore_txt, "txt")},
+                      "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json"), "cmd": (parse_comet_txt, "txt")},
+                      "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json"), "cmd": (parse_beer_txt, "txt")},
+                      "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json"), "cmd": (parse_huggingface_json, "json")},
+                    }
+    TOOL2METRICS = {"sacrebleu": {"bleu", "chrf", "ter"},
+                    "bertscore": {"bertscore"},
+                    "comet": {"comet"},
+                    "beer": {"beer"},
+                    # "huggingface": "huggingface",
+                    }
+    METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
     def __init__(self, engine, run_prefix="model", model_ds=None, safe_seconds=2, force_overwrite=False,
                  interactive=True, use_cmd=False, conda_env_name=None, **kwargs):
@@ -87,6 +99,19 @@ class BaseTranslator(ABC):
         make_dir(path)
         is_empty = os.listdir(path) == []
         return is_empty
+
+    def get_metrics_tool(self, metrics):
+        tools = set()
+        for m in metrics:
+            if m.startswith("hg_"):
+                m_tool = "huggingface"
+            else:
+                m_tool = self.METRICS2TOOL.get(m)
+
+            # Add tools
+            if m_tool:
+                tools.add(m_tool)
+        return tools
 
     def fit(self, train_ds: Dataset = None, batch_size=128, max_tokens=None, max_epochs=5, learning_rate=1e-3,
             weight_decay=0, clip_norm=1.0, patience=10, criterion="cross_entropy", optimizer="adam",
@@ -214,7 +239,6 @@ class BaseTranslator(ABC):
         self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
-
     @abstractmethod
     def _translate(self, *args, **kwargs):
         pass
@@ -328,8 +352,8 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
-        something_supported = _check_supported_metrics(metrics, self.METRICS_SUPPORTED)
-        if not something_supported:
+        metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
+        if not metrics_valid:
             return
 
         # Set run names
@@ -356,35 +380,41 @@ class BaseTranslator(ABC):
             if not all([os.path.exists(p) for p in [src_file_path, ref_file_path, hyp_file_path]]):
                 raise IOError("Missing files to compute scores")
 
-            # Hugginface metrics
+            # Huggingface metrics
             hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}
-            output_file = os.path.join(scores_path, "huggingface_scores.json")
-            if self.force_overwrite or not os.path.exists(output_file):
-                py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
-                                               output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
-                                               use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            if hg_metrics:
+                ext = "json" if self.use_cmd else "json"
+                output_file = os.path.join(scores_path, f"huggingface_scores.{ext}")
+                if self.force_overwrite or not os.path.exists(output_file):
+                    py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
+                                                   output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
+                                                   use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # [CMD] Score: bleu, chrf and ter
-            if metrics.intersection({"sacrebleu", "bleu", "chr", "ter"}):
-                output_file = os.path.join(scores_path, "sacrebleu_scores.json")
+            if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
+                ext = "json" if self.use_cmd else "json"
+                output_file = os.path.join(scores_path, f"sacrebleu_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # [CMD] Score: bertscore
-            if metrics.intersection({"bertscore"}):
-                output_file = os.path.join(scores_path, "bertscore_scores.txt")
+            if self.TOOL2METRICS["bertscore"].intersection(metrics):
+                ext = "txt" if self.use_cmd else "json"
+                output_file = os.path.join(scores_path, f"bertscore_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # [CMD] Score: comet
-            if metrics.intersection({"comet"}):
-                output_file = os.path.join(scores_path, "comet_scores.txt")
+            if self.TOOL2METRICS["comet"].intersection(metrics):
+                ext = "txt" if self.use_cmd else "json"
+                output_file = os.path.join(scores_path, f"comet_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # [CMD] Score: beer
-            if metrics.intersection({"beer"}):
-                output_file = os.path.join(scores_path, "beer_scores.txt")
+            if self.TOOL2METRICS["beer"].intersection(metrics):
+                ext = "txt" if self.use_cmd else "json"
+                output_file = os.path.join(scores_path, f"beer_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
@@ -396,9 +426,12 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Check supported metrics
-        something_supported = _check_supported_metrics(metrics, self.METRICS_SUPPORTED)
-        if not something_supported:
+        metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
+        if not metrics_valid:
             return
+
+        # Metrics to retrieve
+        metric_tools = self.get_metrics_tool(metrics)
 
         # Set run names
         run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
@@ -423,20 +456,27 @@ class BaseTranslator(ABC):
 
             # Walk through metric files
             beam_scores = {}
-            for m_tool, (m_fname, m_parser) in self.METRIC_PARSERS.items():
+            for m_tool in metric_tools:
+                values = self.TOOL_PARSERS[m_tool]
+                m_parser, ext = values["cmd"] if self.use_cmd else values["py"]
+                m_fname = f"{values['filename']}.{ext}"
 
                 # Read file
                 filename = os.path.join(scores_path, m_fname)
                 if os.path.exists(filename):
-                    with open(filename, 'r') as f:
-                        m_scores = m_parser(text=f.readlines())
-                        for key, value in m_scores.items():
-                            m_name = f"{m_tool}_{key}".lower().strip()
-                            beam_scores[m_name] = value
+                    try:
+                        with open(filename, 'r') as f:
+                            m_scores = m_parser(text=f.readlines())
+                            for m_name, m_values in m_scores.items():  # [bleu_score, chrf_score, ter_score], [bertscore_precision]
+                                for score_name, score_value in m_values.items():
+                                    m_name_full = f"{m_tool}_{m_name}_{score_name}".lower().strip()
+                                    beam_scores[m_name_full] = score_value
+                    except Exception as e:
+                        print(f"\t- [PARSING ERROR]: ({m_fname}) {str(e)}")
                 else:
-                    logging.info(f"There are no metrics for '{m_tool}'")
+                    print(f"\t- [WARNING]: There are no metrics from '{m_tool}'")
 
             # Add beam scores
-            scores["beams"].update({f"beam_{str(beam)}": beam_scores})
+            scores["beams"].update({f"beam{str(beam)}": beam_scores})
         return scores
 

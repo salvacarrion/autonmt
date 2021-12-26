@@ -32,7 +32,7 @@ def main(fairseq_args):
         model.fit(fairseq_args=fairseq_args, num_gpus=1)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
-    print(scores)
+    print(scores[0][0]['beams']['beam1'])
 
     # Make report
     # generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)

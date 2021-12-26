@@ -32,8 +32,7 @@ def save_scores_as_pandas(output_path, scores):
     for model_scores in scores:
         for eval_scores in model_scores:
             eval_scores = dict(eval_scores)  # Copy
-            beams_unrolled = {f"{beam_width}__{k}": v for beam_width in eval_scores["beams"].keys() for k, v in
-                              eval_scores["beams"][beam_width].items()}
+            beams_unrolled = {f"{beam_width}__{m_name_full}": score for beam_width in eval_scores["beams"].keys() for m_name_full, score in eval_scores["beams"][beam_width].items()}
             eval_scores.pop("beams")
             eval_scores.update(beams_unrolled)
             rows.append(eval_scores)

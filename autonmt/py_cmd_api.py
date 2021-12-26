@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 import sacrebleu
 import bert_score
+import comet
 from datasets import load_metric
 
 
@@ -125,6 +126,7 @@ def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
     # Read files
     hyp_lines = utils.read_file_lines(hyp_file)
     ref_lines = utils.read_file_lines(ref_file)
+    assert len(ref_lines) == len(hyp_lines)
 
     # Load metric
     for metric in metrics:
@@ -169,6 +171,7 @@ def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     # Read files
     hyp_lines = utils.read_file_lines(hyp_file)
     ref_lines = utils.read_file_lines(ref_file)
+    assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
     if not hyp_lines or not ref_lines:
@@ -209,6 +212,7 @@ def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
     # Read file
     ref_lines = utils.read_file_lines(ref_file)
     hyp_lines = utils.read_file_lines(hyp_file)
+    assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
     if not hyp_lines or not ref_lines:
@@ -234,7 +238,38 @@ def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, conda_env_
         cmd = cmd_cometscore(src_file, ref_file, hyp_file, output_file, conda_env_name)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
-        print("\t- [INFO]: No python interface for 'Comet'. Command-line version only ('use_cmd=True').")
+        py_comet(src_file, ref_file, hyp_file, output_file)
+
+
+def py_comet(src_file, ref_file, hyp_file, output_file):
+    # Read file
+    src_lines = utils.read_file_lines(src_file)
+    ref_lines = utils.read_file_lines(ref_file)
+    hyp_lines = utils.read_file_lines(hyp_file)
+    assert len(ref_lines) == len(hyp_lines) == len(src_lines)
+
+    # Check if files have content
+    if not hyp_lines or not ref_lines or not src_file:
+        raise ValueError("Files empty (hyp/ref/src)")
+
+    # Get model
+    model_path = comet.download_model("wmt20-comet-da")
+    model = comet.load_from_checkpoint(model_path)
+
+    # Score
+    data = {"src": src_lines, "mt": hyp_lines, "ref": ref_lines}
+    data = [dict(zip(data, t)) for t in zip(*data.values())]
+    seg_scores, sys_score = model.predict(data)
+
+    scores = [
+        {"name": "comet",
+         # "seg_scores": seg_scores,
+         "score": sys_score,
+         }
+    ]
+
+    # Save json
+    utils.save_json(scores, output_file)
 
 
 def compute_beer(ref_file, hyp_file, output_file, use_cmd, conda_env_name):

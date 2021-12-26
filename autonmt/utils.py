@@ -263,36 +263,66 @@ def flatten(lst):
     return [item for sublist in lst for item in sublist]
 
 
-def parse_json_metrics(text):
+def parse_json_metrics(text, fields):
     result = {}
     metrics = json.loads("".join(text))
     metrics = [metrics] if isinstance(metrics, dict) else metrics
 
     for m_dict in metrics:
-        m_name = m_dict['name'].lower().strip()
-        result[m_name] = float(m_dict["score"])
+        m_name = m_dict['name'].lower().strip()  # bleu, chrf,...
+        result[m_name] = {}
+        for score_name in fields:  # score, precision, recall, f1,...
+            result[m_name][score_name] = float(m_dict[score_name])
     return result
 
 
-def parse_bertscore(text):
+def parse_huggingface_json(text):
+    return parse_json_metrics(text, fields={"score"})
+
+
+def parse_huggingface_txt(text):
+    raise NotImplementedError("'Huggingface' is only available through the text file")
+
+
+def parse_sacrebleu_json(text):
+    return parse_json_metrics(text, fields={"score"})
+
+
+def parse_sacrebleu_txt(text):
+    raise NotImplementedError("'Sacrebleu' is only available through the text file")
+
+
+def parse_bertscore_json(text):
+    return parse_json_metrics(text, fields={"precision", "recall", "f1"})
+
+
+def parse_bertscore_txt(text):
     pattern = r"P: ([01]\.\d*) R: ([01]\.\d*) F1: ([01]\.\d*)"
     line = text[-1].strip()
     groups = re.search(pattern, line).groups()
-    result = {"precision": float(groups[0]), "recall": float(groups[1]), "f1": float(groups[2])}
+    result = {"bertscore": {"precision": float(groups[0]), "recall": float(groups[1]), "f1": float(groups[2])}}
     return result
 
 
-def parse_comet(text):
+def parse_comet_json(text):
+    return parse_json_metrics(text, fields={"score"})
+
+
+def parse_comet_txt(text):
     pattern = r"score: (-?[01]\.\d*)"
     line = text[-1].strip()
     groups = re.search(pattern, line).groups()
-    result = {"score": float(groups[0])}
+    result = {"comet": {"score": float(groups[0])}}
     return result
 
 
-def parse_beer(text):
+def parse_beer_json(text):
+    raise NotImplementedError("'Beer' is only available through the text file")
+
+
+def parse_beer_txt(text):
     pattern = r"total BEER ([01]\.\d*)"
     line = text[-1].strip()
     groups = re.search(pattern, line).groups()
-    result = {"score": float(groups[0])}
+    result = {"beer": {"score": float(groups[0])}}
     return result

@@ -1,3 +1,4 @@
+import math
 import torch.nn as nn
 from autonmt.tasks.translation.models import Seq2Seq
 from autonmt.modules.layers import PositionalEmbedding
@@ -36,6 +37,9 @@ class Transformer(Seq2Seq):
                                           dropout=dropout,
                                           activation=activation_fn)
         self.output_layer = nn.Linear(encoder_embed_dim, src_vocab_size)
+        self.input_dropout = nn.Dropout(dropout)
+        # self.src_scale = math.sqrt(encoder_embed_dim)
+        # self.trg_scale = math.sqrt(decoder_embed_dim)
 
         # Checks
         assert encoder_embed_dim == decoder_embed_dim
@@ -50,11 +54,15 @@ class Transformer(Seq2Seq):
         x_pos = self.src_pos_embeddings(x)
         x_emb = self.src_embeddings(x)
         x_emb = (x_emb + x_pos).transpose(0, 1)
+        # x_emb = (x_emb + x_pos*self.src_scale).transpose(0, 1)
+        # x_emb = self.input_dropout(x_emb)
 
         # Encode trg
         y_pos = self.trg_pos_embeddings(y)
         y_emb = self.trg_embeddings(y)
         y_emb = (y_emb + y_pos).transpose(0, 1)
+        # y_emb = (y_emb + y_pos*self.trg_scale).transpose(0, 1)
+        # y_emb = self.input_dropout(y_emb)
 
         # Make trg mask
         mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
