@@ -259,11 +259,11 @@ class BaseTranslator(ABC):
         # [Trained model]: Create eval folder
         model_src_vocab_path = model_ds.get_src_trg_vocab_path()
         model_trg_vocab_path = model_ds.get_src_trg_vocab_path()
-        model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        model_eval_data_encoded_path = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
         model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
 
         # Create dirs
-        make_dir([model_eval_data_path, model_eval_data_bin_path])
+        make_dir([model_eval_data_encoded_path, model_eval_data_bin_path])
 
         # [Trained model]: SPM model path
         src_spm_model_path = model_ds.get_src_trg_vocab_path() + ".model"
@@ -277,19 +277,20 @@ class BaseTranslator(ABC):
             # [Encode extern data]: Encode test data using the subword model of the trained model
             for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
                 ori_filename = eval_ds.get_split_path(ts_fname)
-                new_filename = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
+                new_filename = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
 
-                # Check if the file exists
-                if self.force_overwrite or not os.path.exists(new_filename):
-                    # Apply pretokenization (if needed)
-                    if model_ds.pretok_flag:
-                        print("\t- [INFO] Applying pre-tokenization due to word encoding")
-                        py_cmd_api.moses_tokenizer(input_file=ori_filename, output_file=new_filename,
+                # Apply pretokenization (if needed)
+                if model_ds.pretok_flag:
+                    # Check if the file exists
+                    pretok_filename = new_filename + ".tok"
+                    ori_filename = pretok_filename
+                    if self.force_overwrite or not os.path.exists(pretok_filename):
+                        print("\t- [INFO]: Applying pre-tokenization due to word encoding")
+                        py_cmd_api.moses_tokenizer(input_file=ori_filename, output_file=pretok_filename,
                                                    lang=model_ds.trg_lang,
                                                    use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
                         # Update ori_filename for the spm encoding (overwrite)
-                        ori_filename = new_filename
 
                     # Apply SPM
                     assert src_spm_model_path == trg_spm_model_path
@@ -298,7 +299,7 @@ class BaseTranslator(ABC):
                                           use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # Preprocess external data
-            test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
+            test_path = os.path.join(model_eval_data_encoded_path, eval_ds.test_name)
             self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                              output_path=model_eval_data_bin_path,
                              train_path=None, val_path=None, test_path=test_path,

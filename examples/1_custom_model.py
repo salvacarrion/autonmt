@@ -36,7 +36,7 @@ def main():
         scores.append(eval_scores)
 
     # Show results
-    d = scores[0][0]['beams']['beam1']
+    d = scores[0][0]['beams']
     print(d)
 
     # Make report

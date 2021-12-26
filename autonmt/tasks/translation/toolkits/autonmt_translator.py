@@ -3,7 +3,7 @@ import torch
 from autonmt.tasks.translation.bundle.dataset import TranslationDataset
 from autonmt.tasks.translation.models import Seq2Seq
 from autonmt.tasks.translation.base import BaseTranslator
-from autonmt.tasks.translation.bundle.search_algorithms import greedy_search
+from autonmt.tasks.translation.bundle.search_algorithms import greedy_search, beam_search
 from autonmt.utils import *
 
 from typing import Type
@@ -41,7 +41,6 @@ class Translator(BaseTranslator):
         print(f"\t - [INFO]: Total trainable parameters: {trainable_params}")
         print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params}")
         return model
-
 
     def _count_model_parameters(self, model):
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
