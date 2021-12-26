@@ -6,14 +6,14 @@ from autonmt.tasks.translation.bundle.report import generate_report
 def main(fairseq_args):
     # Create datasets for training
     tr_datasets = DatasetBuilder(
-        base_path="/home/scarrion/datasets/nn/translation/",
+        base_path="/home/salva/datasets/",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
         subword_models=["word"],
         vocab_sizes=[16000],
-        force_overwrite=False,
-        interactive=True,
+        force_overwrite=True,
+        interactive=False,
         use_cmd=False,
         conda_env_name=None,
     ).build(make_plots=False, safe=True)

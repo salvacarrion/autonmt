@@ -31,7 +31,10 @@ class Translator(BaseTranslator):
         print(f'Using {device} device')
 
         # Create and train model
-        model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, **kwargs).to(device)
+        padding_idx = dts.src_vocab.pad_id
+        assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
+        model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, padding_idx=padding_idx,
+                           **kwargs).to(device)
 
         # Count parameters
         trainable_params, non_trainable_params = self._count_model_parameters(model)
