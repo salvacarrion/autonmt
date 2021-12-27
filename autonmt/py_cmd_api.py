@@ -31,7 +31,7 @@ def py_moses_tokenizer(input_file, output_file, lang):
     lines = [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(output_file, lines)
+    utils.write_file_lines(lines=lines, filename=output_file)
 
 
 def moses_detokenizer(lang, input_file, output_file, use_cmd, conda_env_name):
@@ -51,7 +51,7 @@ def py_moses_detokenizer(lang, input_file, output_file):
     lines = [mt.detokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(output_file, lines)
+    utils.write_file_lines(lines=lines, filename=output_file)
 
 
 def spm_encode(spm_model_path, input_file, output_file, use_cmd, conda_env_name):
@@ -71,7 +71,7 @@ def py_spm_encode(spm_model_path, input_file, output_file):
     lines = [' '.join(s.encode(line, out_type=str)) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(output_file, lines)
+    utils.write_file_lines(lines=lines, filename=output_file)
 
 
 def spm_decode(spm_model_path, input_file, output_file, use_cmd, conda_env_name):
@@ -91,7 +91,7 @@ def py_spm_decode(spm_model_path, input_file, output_file):
     lines = [s.decode_pieces(line.split(' ')) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(output_file, lines)
+    utils.write_file_lines(lines=lines, filename=output_file)
 
 
 def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, conda_env_name):

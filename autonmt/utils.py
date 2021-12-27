@@ -59,7 +59,7 @@ def get_translation_files(src_lang, trg_lang):
     return files
 
 
-def preprocess_text(text):
+def preprocess_text(text, normalization="NFKC"):
     try:
         p_whitespace = re.compile(" +")
 
@@ -67,7 +67,7 @@ def preprocess_text(text):
         text = p_whitespace.sub(' ', text)
 
         # Normalization Form Compatibility Composition
-        text = unicodedata.normalize("NFKC", text)
+        text = unicodedata.normalize(normalization, text)
 
         # Strip whitespace
         text = text.strip()
@@ -113,10 +113,13 @@ def get_frequencies(filename):
     return vocab_frequencies
 
 
-def get_tokens_by_sentence(filename):
+def get_tokens_by_sentence(filename, split_fn=None):
+    if split_fn is None:
+        split_fn = lambda x: x.strip().split(' ')
+
     with open(filename, 'r') as f:
         lines = f.readlines()
-        token_sizes = [len(line.strip().split(' ')) for line in lines]
+        token_sizes = [len(split_fn(line)) for line in lines]
     return token_sizes
 
 
@@ -215,15 +218,6 @@ def logged_task(logger, row, fn_name, fn, **kwargs):
 
 
 
-def count_datasets(datasets):
-    counter = 0
-    for ds in datasets:  # Training dataset
-        for ds_size_name, ds_max_lines in ds["sizes"]:  # Training lengths
-            for lang_pair in ds["languages"]:
-                counter += 1
-    return counter
-
-
 def parse_split_size(ds_size, max_ds_size):
     # Check size type
     if isinstance(ds_size, tuple):
@@ -243,8 +237,8 @@ def read_file_lines(filename, strip=False, remove_break_lines=True):
     return lines
 
 
-def write_file_lines(filename, lines):
-    with open(filename, 'w') as f:
+def write_file_lines(lines, filename, encoding="utf8"):
+    with open(filename, 'w', encoding=encoding) as f:
         lines = [line.strip() + '\n' for line in lines]
         f.writelines(lines)
 

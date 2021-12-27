@@ -5,6 +5,7 @@ from autonmt.modules.nn import Transformer
 from autonmt.tasks.translation.bundle.report import generate_report
 from autonmt import utils
 
+
 def main():
     # Create datasets for training
     tr_datasets = DatasetBuilder(
@@ -12,13 +13,14 @@ def main():
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["word"],
+        subword_models=["none", "bytes", "word"],
         vocab_sizes=[16000],
+        merge_vocabs=True,
         force_overwrite=False,
         interactive=True,
         use_cmd=False,
         conda_env_name=None,
-    ).build(make_plots=False, safe=True)
+    ).build(make_plots=True, safe=True)
 
     # Create datasets for testing
     ts_datasets = tr_datasets

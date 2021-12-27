@@ -8,24 +8,33 @@ import tqdm
 from autonmt.utils import *
 from autonmt import plots, utils
 from autonmt.datasets.dataset import Dataset
+from collections import Counter
 
 from autonmt import py_cmd_api
 
 
 class DatasetBuilder:
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, force_overwrite=False, interactive=True,
-                 use_cmd=False, conda_env_name=None):
+    SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "bpe", "unigram", "bytes"}
+
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, force_overwrite=False,
+                 interactive=True, use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
-        self.subword_models = subword_models
+        self.subword_models = [x.strip().lower() for x in subword_models]
         self.vocab_sizes = vocab_sizes
+        self.merge_vocabs = merge_vocabs
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
 
         self.ref_size_name = "original"
-        
+
+        # Check subword models
+        sw_diff = set(self.subword_models).difference(self.SUPPORTED_SUBWORD_MODELS)
+        if sw_diff:
+            raise ValueError(f"These subword models are not supported: {str(sw_diff)}")
+
         # Other
         self.ds_list = self._unroll_datasets(include_variants=True)  # includes subwords, vocabs,...
         self.ds_list_main = self._unroll_datasets(include_variants=False)  # main datasets only
@@ -54,16 +63,31 @@ class DatasetBuilder:
             for lang_pair in ds["languages"]:  # Languages
                 # LEVEL 2: Sizes
                 for ds_size_name, ds_max_lines in ds["sizes"]:  # Lengths
-                    params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
+                    base_params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
                                   dataset_size_name=ds_size_name, dataset_lines=ds_max_lines)
 
                     if include_variants:
                         for subword_model in self.subword_models:  # unigram, bpe, char, or word
-                            for vocab_size in self.vocab_sizes:
+                            # To avoid modifying the base params
+                            params = dict(base_params)
+
+                            # Set subword model config
+                            if subword_model in {None, "none"}:
+                                print(f"\t- [INFO]: Overriding vocabulary for none (None)")
+                                vocab_sizes = [None]
+                                params["encoded_path"] = os.path.join("data", "splits")
+                            elif subword_model in {"bytes"}:
+                                print(f"\t- [INFO]: Overriding vocabulary for bytes (256)")
+                                vocab_sizes = [256]
+                            else:
+                                vocab_sizes = self.vocab_sizes
+
+                            # Create Datasets
+                            for vocab_size in vocab_sizes:
                                 _ds = Dataset(subword_model=subword_model, vocab_size=vocab_size, **params)
                                 ds_list_tmp.append(_ds)
                     else:
-                        _ds = Dataset(**params)
+                        _ds = Dataset(**base_params)
                         ds_list_tmp.append(_ds)
         return ds_list_tmp
 
@@ -87,6 +111,7 @@ class DatasetBuilder:
         # Encode datasets
         if encode:
             self._encode_datasets()
+            self._export_vocab_frequencies()
 
         # Make plot
         if make_plots:
@@ -224,7 +249,7 @@ class DatasetBuilder:
                         fout.writelines(lines)
                         print(f"\t\t=> Creating split file: {fname}")
 
-    def _build_vocab(self, force_pretok=False, merge_vocabs=True, input_sentence_size=1000000):
+    def _build_vocab(self, force_pretok=False, input_sentence_size=1000000):
         print(f"=> Building vocabularies...")
 
         for ds in self:  # Dataset
@@ -237,6 +262,10 @@ class DatasetBuilder:
             pretokenize_path = ds.get_pretok_path()
             make_dir([vocab_path, concat_path, pretokenize_path])
             print(f"\t- Building vocabulary: {vocab_path}")
+
+            # Ignore dataset
+            if ds.subword_model in {None, "none", "bytes"}:
+                continue
 
             # Pretokenize all (if needed)
             if pretok_flag:
@@ -253,7 +282,7 @@ class DatasetBuilder:
                         print(f"\t\t- Pretokenized file: {fname}")
 
             # Concatenate train files
-            if not merge_vocabs:
+            if not self.merge_vocabs:
                 raise NotImplementedError("Only merge vocabs is allowed")
             else:
                 # Concat training sets
@@ -291,12 +320,16 @@ class DatasetBuilder:
                                      vocab_size=ds.vocab_size, input_sentence_size=input_sentence_size,
                                      use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-    def _encode_datasets(self, export_frequencies=True, force_pretok=False):
+    def _encode_datasets(self, force_pretok=False):
         print(f"=> Building datasets...")
 
         for ds in self:  # Dataset
             src_lang, trg_lang = ds.id()[1].split("-")
             pretok_flag = ds.pretok_flag or force_pretok
+
+            # Ignore dataset
+            if ds.subword_model in {None, "none"}:
+                continue
 
             # Create paths
             encoded_path = ds.get_encoded_path()
@@ -311,46 +344,62 @@ class DatasetBuilder:
 
                 # Encode
                 if self.force_overwrite or not os.path.exists(new_filename):
-                    py_cmd_api.spm_encode(spm_model_path=ds.get_src_trg_vocab_path()+".model",
-                                          input_file=ori_filename, output_file=new_filename,
-                                          use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    if ds.subword_model == "bytes":
+                        # Save file as UTF8 and make sure everything uses NFKC
+                        lines = read_file_lines(ori_filename)
+                        lines = [preprocess_text(line, normalization="NFKC") for line in lines]
+                        write_file_lines(lines=lines, filename=new_filename, encoding="utf8")
+                    else:
+                        py_cmd_api.spm_encode(spm_model_path=ds.get_src_trg_vocab_path() + ".model",
+                                              input_file=ori_filename, output_file=new_filename,
+                                              use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
                     print(f"\t\t - Encoded file: {fname}")
 
-            # Export vocab frequencies
-            if export_frequencies:
-                self._export_vocab_frequencies(ds)
+    def _export_vocab_frequencies(self):
+        for ds in self:  # Dataset
+            src_lang, trg_lang = ds.id()[1].split("-")
 
-    def _export_vocab_frequencies(self, ds):
-        src_lang, trg_lang = ds.id()[1].split("-")
+            # Select split function
+            if ds.subword_model in {"word", "unigram", "bpe", "char"}:
+                split_fn = lambda x: x.split(' ')
+            elif ds.subword_model in {"bytes"}:
+                split_fn = lambda x: [x for x in x.encode("utf8")]
+            else:
+                continue
 
-        # Get vocab paths
-        spm_vocab_path = ds.get_src_trg_vocab_path() + ".vocab"
-        spm_vocab_freq_path = ds.get_src_trg_vocab_path() + ".vocabf"
+            # Get vocabs
+            if self.merge_vocabs:
+                files = [f"{src_lang}-{trg_lang}.vocabf"]
+            else:
+                files = [f"{src_lang}.vocabf", f"{trg_lang}.vocabf"]
 
-        # Create vocabs and export it
-        if self.force_overwrite or not os.path.exists(spm_vocab_freq_path):
-            # Load vocab
-            vocabs = {l.strip().split('\t')[0] for l in open(spm_vocab_path, 'r').readlines()}
+            # Check if file/files exists
+            files = [ds.get_vocab_path(fname=f) for f in files]
+            if self.force_overwrite or not all([os.path.exists(f) for f in files]):
+                # Get train paths
+                src_train_path = ds.get_encoded_path(f"{ds.train_name}.{src_lang}")
+                trg_train_path = ds.get_encoded_path(f"{ds.train_name}.{trg_lang}")
 
-            # Count tokens
-            vocab_frequencies = defaultdict(int)
-            for fname in [f"{ds.train_name}.{src_lang}", f"{ds.train_name}.{trg_lang}"]:
-                filename = ds.get_encoded_path(fname)
-                with open(filename, 'r') as f:
-                    for line in tqdm(f):
-                        tokens = line.strip().split(' ')
-                        for tok in tokens:
-                            if tok in vocabs:  # Count only the tokens that exists in the vocab
-                                vocab_frequencies[tok] += 1
+                # Read files
+                src_lines = read_file_lines(src_train_path)
+                trg_lines = read_file_lines(trg_train_path)
 
-            # Sort frequencies
-            vocab_frequencies = sorted(list(vocab_frequencies.items()), key=lambda x: x[1], reverse=True)
+                # Compute frequencies
+                src_vocab = Counter(flatten([split_fn(line) for line in src_lines]))
+                trg_vocab = Counter(flatten([split_fn(line) for line in trg_lines]))
 
-            # Save file
-            with open(spm_vocab_freq_path, 'w') as f:
-                f.writelines([f"{pair[0]}\t{pair[1]}\n" for pair in vocab_frequencies])
+                # Save vocabs
+                vocabs = [src_vocab + trg_vocab] if self.merge_vocabs else [src_vocab, trg_vocab]
+                for vocab, filename in zip(vocabs, files):
+                    # Sort frequencies
+                    vocab_frequencies = sorted(list(vocab.items()), key=lambda x: x[1], reverse=True)
 
-    def _plot_datasets(self,save_figures=True, show_figures=False,
+                    # Save file
+                    if self.force_overwrite or not os.path.exists(filename):
+                        with open(filename, 'w') as f:
+                            f.writelines([f"{pair[0]}\t{pair[1]}\n" for pair in vocab_frequencies])
+
+    def _plot_datasets(self, save_figures=True, show_figures=False,
                        add_dataset_title=True):
         print(f"=> Plotting started... (base_path={self.base_path})")
         print(f"- [WARNING]: Matplotlib might miss some images if the loop is too fast")
@@ -365,6 +414,10 @@ class DatasetBuilder:
         for ds in self:  # Dataset
             ds_name, lang_pair, ds_size_name = ds.id()
             src_lang, trg_lang = ds.id()[1].split("-")
+
+            # Ignore dataset
+            if ds.subword_model in {None, "none"}:
+                continue
 
             # Set base path
             ds_title = f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
@@ -381,8 +434,16 @@ class DatasetBuilder:
             split_stats = {}
             for fname in ds.get_split_files():
                 split_name, split_lang = fname.split('.')
-                tokens_by_sentence = np.array(
-                    utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname)))
+
+                # Ignore dataset
+                if ds.subword_model == "bytes":
+                    tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname),
+                                                                      split_fn=lambda x: x.encode("utf8"))
+                else:
+                    tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname))
+
+                # List to array
+                tokens_by_sentence = np.array(tokens_by_sentence)
 
                 # Compute data
                 row = {
@@ -429,7 +490,7 @@ class DatasetBuilder:
                           save_fig=save_figures, show_fig=show_figures, overwrite=self.force_overwrite)
 
             # Plot split size (by token number): 1
-            title = f"Split sizes (by tokens)"
+            title = f"Split sizes (by tokens - {ds.subword_model.title()})"
             title = title if not add_dataset_title else f"{ds_title}: {title}"
             p_fname = f"split_size_tok__{suffix_fname}"
             plots.catplot(data=df, x="split", y="total_tokens", hue="lang",
@@ -441,7 +502,7 @@ class DatasetBuilder:
             print(f"\t\t- Creating 'Vocabulary distribution' plots...")
 
             # Load vocabulary
-            vocab_freq_path = os.path.join(vocab_path, f"spm_{src_lang}-{trg_lang}.vocabf")
+            vocab_freq_path = os.path.join(vocab_path, f"{src_lang}-{trg_lang}.vocabf")
             with open(vocab_freq_path, 'r') as f:
                 rows = [line.split('\t') for line in f.readlines()]
                 df = pd.DataFrame(rows, columns=["token", "frequency"])
@@ -449,7 +510,7 @@ class DatasetBuilder:
                 df = df.sort_values(by='frequency', ascending=False, na_position='last')
 
             for top_k in [100, 150]:
-                title = f"Vocabulary distribution (top {str(top_k)})"
+                title = f"Vocabulary distribution (top {str(top_k)} {ds.subword_model.title()})"
                 title = title if not add_dataset_title else f"{ds_title}: {title}"
                 p_fname = f"vocab_distr_top{str(top_k)}__{suffix_fname}"
                 plots.barplot(data=df.head(top_k), x="token", y="frequency",

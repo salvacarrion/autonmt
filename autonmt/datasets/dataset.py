@@ -9,7 +9,7 @@ class Dataset:
                  encoded_path=os.path.join("data", "encoded"), pretokenized_path=os.path.join("data", "pretokenized"),
                  models_path="models", models_data_bin_path="data-bin", models_runs_path="runs",
                  models_checkpoints_path="checkpoints", model_logs_path="logs", models_eval_path="eval",
-                 models_beam_path="beams", models_scores_path="scores", vocab_path=os.path.join("vocabs", "spm"),
+                 models_beam_path="beams", models_scores_path="scores", vocab_path=os.path.join("vocabs"),
                  plots_path="plots", subword_model=None, vocab_size=None):
         # Add properties
         self.base_path = base_path
@@ -51,6 +51,12 @@ class Dataset:
     def __str__(self):
         return '_'.join(self.id())
 
+    def vocab_size_id(self):
+        if self.subword_model in {None, "none"}:
+            return []
+        else:
+            return self.subword_model, self.vocab_size
+
     def id(self):
         return self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
 
@@ -67,23 +73,23 @@ class Dataset:
         return os.path.join(self.base_path, *self.id(), self.data_splits_path, fname)
 
     def get_encoded_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_encoded_path, self.subword_model, self.vocab_size, fname)
+        return os.path.join(self.base_path, *self.id(), self.data_encoded_path, *self.vocab_size_id(), fname)
 
-    def get_vocab_path(self, base=False, fname=""):
-        extra = (self.subword_model, self.vocab_size) if not base else ()
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, *extra, fname)
+    def get_vocab_path(self, fname="", base=False):
+        _vocab_size_id = [] if base else self.vocab_size_id()
+        return os.path.join(self.base_path, *self.id(), self.vocab_path, *_vocab_size_id, fname)
 
     def get_src_vocab_path(self):
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.trg_lang}")
+        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.src_lang}")
 
     def get_trg_vocab_path(self):  # del
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.src_lang}")
+        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.trg_lang}")
 
     def get_src_trg_vocab_path(self):  # del
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, self.subword_model, self.vocab_size, f"spm_{self.src_lang}-{self.trg_lang}")
+        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.src_lang}-{self.trg_lang}")
 
     def get_model_data_bin(self, toolkit, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, self.subword_model, self.vocab_size, fname)
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, *self.vocab_size_id(), fname)
 
     def get_model_eval_path(self, toolkit, run_name, eval_name):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name)
@@ -114,7 +120,7 @@ class Dataset:
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_checkpoints_path, fname)
 
     def get_plots_path(self):
-        return os.path.join(self.base_path, *self.id(), self.plots_path, self.subword_model, self.vocab_size)
+        return os.path.join(self.base_path, *self.id(), self.plots_path, *self.vocab_size_id())
 
     def get_split_files(self):
         return [f"{fname}.{ext}" for fname in self.split_names for ext in (self.src_lang, self.trg_lang)]
