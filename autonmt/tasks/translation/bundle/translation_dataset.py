@@ -7,13 +7,14 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
 
-from autonmt.tasks.translation.bundle.vocabulary import Vocabulary
+from autonmt.tasks.translation.bundle.vocabulary import BaseVocabulary, Vocabulary
 from autonmt.utils import read_file_lines
 
 
 class TranslationDataset(Dataset):
-    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab_path=None, trg_vocab_path=None):
+    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None):
         # Get src/trg file paths
+        split_name = os.path.split(file_prefix)[1]
         src_file_path = file_prefix.strip() + f".{src_lang}"
         trg_file_path = file_prefix.strip() + f".{trg_lang}"
 
@@ -27,18 +28,39 @@ class TranslationDataset(Dataset):
         self.trg_lang = trg_lang
 
         # Read vocabs: src
-        if src_vocab_path:
-            self.src_vocab = Vocabulary(lang=src_lang).build_from_filename(filename=src_vocab_path)
+        if src_vocab and isinstance(src_vocab, str):
+            self.src_vocab = Vocabulary(lang=src_lang).build_from_vocab(filename=src_vocab)
+        elif src_vocab and isinstance(src_vocab, BaseVocabulary):
+            self.src_vocab = src_vocab
         else:
             print(f"\t- [WARNING]: No 'src_vocab_path'. Generating vocabulary from 'src_file'...")
             self.src_vocab = Vocabulary(lang=src_lang).build_from_dataset(filename=src_file_path)
 
+            # Save vocab
+            savepath = f"{split_name}_{self.src_lang}.vocabf"
+            self.src_vocab.save(filename=savepath)
+            print(f"\t- [INFO]: 'src_vocab' save at: {savepath}")
+
         # Read vocabs: trg
-        if trg_vocab_path:
-            self.trg_vocab = Vocabulary(lang=trg_lang).build_from_filename(filename=trg_vocab_path)
+        if trg_vocab and isinstance(trg_vocab, str):
+            self.trg_vocab = Vocabulary(lang=trg_lang).build_from_vocab(filename=trg_vocab)
+        elif trg_vocab and isinstance(trg_vocab, BaseVocabulary):
+            self.trg_vocab = trg_vocab
         else:
             print(f"\t- [WARNING]: No 'trg_vocab_path'. Generating vocabulary from 'trg_file'...")
             self.trg_vocab = Vocabulary(lang=trg_lang).build_from_dataset(filename=trg_file_path)
+
+            # Save vocab
+            savepath = f"{split_name}_{self.trg_lang}.vocabf"
+            self.trg_vocab.save(filename=savepath)
+            print(f"\t- [INFO]: 'trg_vocab' save at: {savepath}")
+
+        # Print info
+        if src_vocab == trg_vocab:
+            print(f"\t- [INFO]: Loaded shared vocab for '{split_name}' with {len(self.src_vocab):,} tokens")
+        else:
+            print(f"\t- [INFO]: Loaded src vocab for '{split_name}' with {len(self.src_vocab):,} tokens")
+            print(f"\t- [INFO]: Loaded trg vocab for '{split_name}' with {len(self.trg_vocab):,} tokens")
 
     def __len__(self):
         return len(self.src_lines)
@@ -53,8 +75,8 @@ class TranslationDataset(Dataset):
 
         # Add elements to batch
         for i, (x, y) in enumerate(batch):
-            _x = self.src_vocab.encode(x.strip().split(' '), add_special_tokens=True)
-            _y = self.trg_vocab.encode(y.strip().split(' '), add_special_tokens=True)
+            _x = self.src_vocab.encode(x)
+            _y = self.trg_vocab.encode(y)
 
             # Control tokens in batch
             x_max_len = max(x_max_len, len(_x))

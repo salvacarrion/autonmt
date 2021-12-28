@@ -34,21 +34,21 @@ def py_moses_tokenizer(input_file, output_file, lang):
     utils.write_file_lines(lines=lines, filename=output_file)
 
 
-def moses_detokenizer(lang, input_file, output_file, use_cmd, conda_env_name):
+def moses_detokenizer(input_file, output_file, lang, use_cmd, conda_env_name):
     if use_cmd:
-        cmd = cmd_moses_detokenizer(lang, input_file, output_file, conda_env_name)
+        cmd = cmd_moses_detokenizer(input_file, output_file, lang, conda_env_name)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
-        py_moses_detokenizer(lang, input_file, output_file)
+        py_moses_detokenizer(input_file, output_file, lang)
 
 
-def py_moses_detokenizer(lang, input_file, output_file):
+def py_moses_detokenizer(input_file, output_file, lang):
     # Read lines
     lines = utils.read_file_lines(input_file)
 
     # Detokenize
     mt = MosesDetokenizer(lang=lang)
-    lines = [mt.detokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
+    lines = [mt.detokenize(line.split()) for line in tqdm(lines, total=len(lines))]
 
     # Save file
     utils.write_file_lines(lines=lines, filename=output_file)
@@ -104,6 +104,7 @@ def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentenc
 
 def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size):
     # Train model
+    # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
     spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
                                    model_type=subword_model, vocab_size=vocab_size,
                                    input_sentence_size=input_sentence_size,

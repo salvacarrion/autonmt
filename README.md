@@ -152,28 +152,28 @@ your own class, like this:
 
 ```python
 import torch.nn as nn
-from autonmt.tasks.translation.bundle.dataset import TranslationDataset
+from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
 
 
 class CustomSeq2Seq(nn.Module):
-  def __init__(self, src_vocab_size, trg_vocab_size, *args, **kwargs):
-    super().__init__()
-    self.src_vocab_size = src_vocab_size
-    self.trg_vocab_size = trg_vocab_size
+    def __init__(self, src_vocab_size, trg_vocab_size, *args, **kwargs):
+        super().__init__()
+        self.src_vocab_size = src_vocab_size
+        self.trg_vocab_size = trg_vocab_size
 
-  def fit(self, ds_train: TranslationDataset, ds_val: TranslationDataset, *args, **kwargs):
-    pass
+    def fit(self, ds_train: TranslationDataset, ds_val: TranslationDataset, *args, **kwargs):
+        pass
 
-  def evaluate(self, *args, **kwargs):
-    pass
+    def evaluate(self, *args, **kwargs):
+        pass
 
 
 class CustomModel(CustomSeq2Seq):
-  def __init__(self, *args, **kwargs):
-    super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__()
 
-  def forward(self, X, Y, *args, **kwargs):
-    pass
+    def forward(self, X, Y, *args, **kwargs):
+        pass
 
 
 # Custom model

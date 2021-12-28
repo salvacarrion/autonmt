@@ -8,6 +8,7 @@ import os
 import datetime
 import time
 from pathlib import Path
+from collections import Counter
 
 import unicodedata
 from tqdm import tqdm
@@ -217,7 +218,6 @@ def logged_task(logger, row, fn_name, fn, **kwargs):
     return result
 
 
-
 def parse_split_size(ds_size, max_ds_size):
     # Check size type
     if isinstance(ds_size, tuple):
@@ -255,6 +255,14 @@ def replace_in_file(search_string, replace_string, filename):
 
 def flatten(lst):
     return [item for sublist in lst for item in sublist]
+
+
+def norm_counter(c):
+    c = Counter(c)
+    total = sum(c.values(), 0.0)
+    for key in c:
+        c[key] /= total
+    return c
 
 
 def parse_json_metrics(text, fields):

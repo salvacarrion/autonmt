@@ -11,9 +11,11 @@ def main(fairseq_args):
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[16000],
-        force_overwrite=True,
-        interactive=False,
+        # subword_models=["none", "bytes", "char", "word", "unigram"],
+        vocab_sizes=[8000],
+        merge_vocabs=False,
+        force_overwrite=False,
+        interactive=True,
         use_cmd=False,
         conda_env_name=None,
     ).build(make_plots=False, safe=True)
@@ -25,7 +27,7 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
-                                     force_overwrite=True, interactive=False,
+                                     force_overwrite=False, interactive=False,
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated

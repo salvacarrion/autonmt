@@ -2,17 +2,19 @@ import os
 
 
 class Dataset:
-    def __init__(self, base_path,
+    def __init__(self, base_path, parent_ds,
                  dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
+                 subword_model, vocab_size, merge_vocabs,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
                  encoded_path=os.path.join("data", "encoded"), pretokenized_path=os.path.join("data", "pretokenized"),
                  models_path="models", models_data_bin_path="data-bin", models_runs_path="runs",
                  models_checkpoints_path="checkpoints", model_logs_path="logs", models_eval_path="eval",
                  models_beam_path="beams", models_scores_path="scores", vocab_path=os.path.join("vocabs"),
-                 plots_path="plots", subword_model=None, vocab_size=None):
+                 plots_path="plots"):
         # Add properties
         self.base_path = base_path
+        self.parent_ds = parent_ds
         self.dataset_name = dataset_name.strip()
         self.dataset_lang_pair = dataset_lang_pair.strip().lower()
         self.dataset_size_name = dataset_size_name.strip()
@@ -21,9 +23,10 @@ class Dataset:
         self.src_lang, self.trg_lang = self.langs
 
         # Dataset versions
-        self.subword_model = subword_model
-        self.vocab_size = str(vocab_size)
+        self.subword_model = str(subword_model).lower() if subword_model else subword_model
+        self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
         self.pretok_flag = (self.subword_model == "word")
+        self.merge_vocabs = merge_vocabs
 
         # Constants: split names
         self.train_name = train_name
@@ -49,11 +52,16 @@ class Dataset:
         self.plots_path = plots_path
 
     def __str__(self):
-        return '_'.join(self.id())
+        if self.parent_ds:
+            return '_'.join(list(self.id())).lower()
+        else:
+            return '_'.join(list(self.id()) + [str(self.subword_model), str(self.vocab_size)]).lower()
 
     def vocab_size_id(self):
         if self.subword_model in {None, "none"}:
-            return []
+            return ["none"]
+        elif self.subword_model in {"bytes"}:
+            return ["bytes"]
         else:
             return self.subword_model, self.vocab_size
 
@@ -73,20 +81,25 @@ class Dataset:
         return os.path.join(self.base_path, *self.id(), self.data_splits_path, fname)
 
     def get_encoded_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_encoded_path, *self.vocab_size_id(), fname)
+        if self.subword_model in {None, "none"}:
+            return os.path.join(self.base_path, *self.id(), self.data_encoded_path, fname)
+        else:
+            return os.path.join(self.base_path, *self.id(), self.data_encoded_path, *self.vocab_size_id(), fname)
 
     def get_vocab_path(self, fname="", base=False):
         _vocab_size_id = [] if base else self.vocab_size_id()
         return os.path.join(self.base_path, *self.id(), self.vocab_path, *_vocab_size_id, fname)
 
-    def get_src_vocab_path(self):
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.src_lang}")
+    def get_vocab_file(self, lang=None):
+        # "none" has no vocabs
+        if self.subword_model in {None, "none"}:
+            return None
 
-    def get_trg_vocab_path(self):  # del
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.trg_lang}")
-
-    def get_src_trg_vocab_path(self):  # del
-        return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.src_lang}-{self.trg_lang}")
+        # Select vocab type
+        if self.merge_vocabs:
+            return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{self.src_lang}-{self.trg_lang}")
+        else:
+            return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{lang}")
 
     def get_model_data_bin(self, toolkit, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, *self.vocab_size_id(), fname)

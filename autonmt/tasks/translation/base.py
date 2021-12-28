@@ -7,6 +7,7 @@ from autonmt.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.datasets import Dataset, DatasetBuilder
+from autonmt.datasets.builder import encode_file
 from autonmt import py_cmd_api
 
 
@@ -100,7 +101,10 @@ class BaseTranslator(ABC):
         is_empty = os.listdir(path) == []
         return is_empty
 
-    def get_metrics_tool(self, metrics):
+    def _get_run_name(self, ds):
+        return f"{self.run_prefix}_{ds.subword_model}_{ds.vocab_size}".lower()
+
+    def _get_metrics_tool(self, metrics):
         tools = set()
         for m in metrics:
             if m.startswith("hg_"):
@@ -185,11 +189,11 @@ class BaseTranslator(ABC):
         # Set vars
         src_lang = ds.src_lang
         trg_lang = ds.trg_lang
-        train_path = os.path.join(ds.get_encoded_path(), ds.train_name)
-        val_path = os.path.join(ds.get_encoded_path(), ds.val_name)
-        test_path = os.path.join(ds.get_encoded_path(), ds.test_name)
-        model_src_vocab_path = ds.get_src_trg_vocab_path()
-        model_trg_vocab_path = ds.get_src_trg_vocab_path()
+        train_path = ds.get_encoded_path(fname=ds.train_name)
+        val_path = ds.get_encoded_path(fname=ds.val_name)
+        test_path = ds.get_encoded_path(fname=ds.test_name)
+        model_src_vocab_path = ds.get_vocab_file(lang=src_lang)  # Ignore if: none or bytes
+        model_trg_vocab_path = ds.get_vocab_file(lang=trg_lang)  # Ignore if: none or bytes
         model_data_bin_path = ds.get_model_data_bin(toolkit=self.engine)
 
         # Create dirs
@@ -204,7 +208,8 @@ class BaseTranslator(ABC):
         start_time = time.time()
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
-                         src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path, **kwargs)
+                         src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+                         subword_model=ds.subword_model, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -218,7 +223,7 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=train_ds)
 
         # Set run name
-        run_name = f"{self.run_prefix}_{train_ds.subword_model}_{train_ds.vocab_size}"
+        run_name = self._get_run_name(ds=train_ds)
 
         # Set paths
         data_bin_path = train_ds.get_model_data_bin(toolkit=self.engine)
@@ -257,17 +262,13 @@ class BaseTranslator(ABC):
         checkpoint_path = model_ds.get_model_checkpoints_path(self.engine, run_name, "checkpoint_best.pt")
 
         # [Trained model]: Create eval folder
-        model_src_vocab_path = model_ds.get_src_trg_vocab_path()
-        model_trg_vocab_path = model_ds.get_src_trg_vocab_path()
+        model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
+        model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
         model_eval_data_encoded_path = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
         model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
 
         # Create dirs
         make_dir([model_eval_data_encoded_path, model_eval_data_bin_path])
-
-        # [Trained model]: SPM model path
-        src_spm_model_path = model_ds.get_src_trg_vocab_path() + ".model"
-        trg_spm_model_path = model_ds.get_src_trg_vocab_path() + ".model"
 
         # Checks: Make sure the directory exist, and it is empty
         is_empty = self._make_empty_path(path=model_eval_data_bin_path, safe_seconds=self.safe_seconds)
@@ -276,34 +277,29 @@ class BaseTranslator(ABC):
         else:
             # [Encode extern data]: Encode test data using the subword model of the trained model
             for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
-                ori_filename = eval_ds.get_split_path(ts_fname)
-                new_filename = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
+                lang = ts_fname.split('.')[-1]
+                input_file = eval_ds.get_split_path(ts_fname)
+                output_file = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
 
-                # Apply pretokenization (if needed)
+                # Add pretokenization (if needed)
+                output_file_pretok = None
                 if model_ds.pretok_flag:
-                    # Check if the file exists
-                    pretok_filename = new_filename + ".tok"
-                    ori_filename = pretok_filename
-                    if self.force_overwrite or not os.path.exists(pretok_filename):
-                        print("\t- [INFO]: Applying pre-tokenization due to word encoding")
-                        py_cmd_api.moses_tokenizer(input_file=ori_filename, output_file=pretok_filename,
-                                                   lang=model_ds.trg_lang,
-                                                   use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    output_file_pretok = output_file + ".tok"
 
-                        # Update ori_filename for the spm encoding (overwrite)
-
-                    # Apply SPM
-                    assert src_spm_model_path == trg_spm_model_path
-                    py_cmd_api.spm_encode(spm_model_path=src_spm_model_path,
-                                          input_file=ori_filename, output_file=new_filename,
-                                          use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                # Encode file
+                encode_file(ds=model_ds, input_file=input_file, output_file=output_file,
+                            output_file_pretok=output_file_pretok,
+                            lang=lang, merge_vocabs=model_ds.merge_vocabs, force_overwrite=self.force_overwrite,
+                            use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # Preprocess external data
             test_path = os.path.join(model_eval_data_encoded_path, eval_ds.test_name)
             self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                              output_path=model_eval_data_bin_path,
                              train_path=None, val_path=None, test_path=test_path,
-                             src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path, external_data=True,
+                             src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+                             subword_model=model_ds.subword_model,
+                             external_data=True,
                              **kwargs)
 
         # Iterate over beams
@@ -313,24 +309,25 @@ class BaseTranslator(ABC):
             output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
             make_dir(output_path)
 
-            # Checks: Make sure the directory exist, and it is empty
-            is_empty = self._make_empty_path(path=output_path, safe_seconds=self.safe_seconds)
-            if not is_empty:
-                print(f"\t- [Translate]: Skipped for beam={beam}. The output directory is not empty")
-                return
-
             # Translate
-            self._translate(beam_width=beam, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                            data_path=model_eval_data_bin_path, output_path=output_path,
-                            checkpoint_path=checkpoint_path,
-                            src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path, **kwargs)
+            tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.tok", "ref.tok", "hyp.tok"]]
+            if self.force_overwrite or not all(tok_flag):
+                self._translate(beam_width=beam, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+                                data_path=model_eval_data_bin_path, output_path=output_path,
+                                checkpoint_path=checkpoint_path,
+                                model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path, **kwargs)
 
             # Postprocess tokenized files
-            self.postprocess_tok_files(output_path=output_path,
-                                       src_spm_model_path=src_spm_model_path, trg_spm_model_path=trg_spm_model_path)
+            txt_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.txt", "ref.txt", "hyp.txt"]]
+            if self.force_overwrite or not all(txt_flag):
+                self.postprocess_tok_files(output_path=output_path,
+                                           model_src_vocab_path=model_src_vocab_path,
+                                           model_trg_vocab_path=model_trg_vocab_path,
+                                           subword_model=model_ds.subword_model,
+                                           src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang)
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
-    def postprocess_tok_files(self, output_path, src_spm_model_path, trg_spm_model_path):
+    def postprocess_tok_files(self, output_path, model_src_vocab_path, model_trg_vocab_path, subword_model, src_lang, trg_lang):
         # Input files
         src_tok_path = os.path.join(output_path, "src.tok")
         ref_tok_path = os.path.join(output_path, "ref.tok")
@@ -342,9 +339,15 @@ class BaseTranslator(ABC):
         hyp_txt_path = os.path.join(output_path, "hyp.txt")
 
         # Detokenize
-        py_cmd_api.spm_decode(src_spm_model_path, input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-        py_cmd_api.spm_decode(trg_spm_model_path, input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-        py_cmd_api.spm_decode(trg_spm_model_path, input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        py_cmd_api.spm_decode(model_src_vocab_path + ".model", input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+
+        # Detokenize with moses
+        if subword_model == "word":
+            py_cmd_api.moses_detokenizer(input_file=src_txt_path, output_file=src_txt_path, lang=src_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            py_cmd_api.moses_detokenizer(input_file=ref_txt_path, output_file=ref_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            py_cmd_api.moses_detokenizer(input_file=hyp_txt_path, output_file=hyp_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
@@ -432,10 +435,10 @@ class BaseTranslator(ABC):
             return
 
         # Metrics to retrieve
-        metric_tools = self.get_metrics_tool(metrics)
+        metric_tools = self._get_metrics_tool(metrics)
 
         # Set run names
-        run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
+        run_name = self._get_run_name(ds=model_ds)
         eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
 
         # Walk through beams

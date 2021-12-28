@@ -51,9 +51,9 @@ def _postprocess_output(output_path):
     src_tok_path = os.path.join(output_path, "src.tok")
     ref_tok_path = os.path.join(output_path, "ref.tok")
     hyp_tok_path = os.path.join(output_path, "hyp.tok")
-    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^S {gen_test_path} | cut -f2- > {src_tok_path}"])
-    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^T {gen_test_path} | cut -f2- > {ref_tok_path}"])
-    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | cut -f3- > {hyp_tok_path}"])
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^S {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {src_tok_path}"])
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^T {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {ref_tok_path}"])
+    subprocess.call(['/bin/bash', '-i', '-c', f"grep ^H {gen_test_path} | LC_ALL=C sort -V | cut -f3- > {hyp_tok_path}"])
 
     # Replace "<<unk>>" with "<unk>" in ref.tok
     utils.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
@@ -79,12 +79,13 @@ class FairseqTranslator(BaseTranslator):
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
         if src_vocab_path:
+            # Careful with *.vocabf. It is the original code is not correct, it will not be equivalent to *.vocab
             new_src_vocab_path = os.path.join(output_path, f"dict.{src_lang}.txt")
-            shutil.copyfile(f"{src_vocab_path.strip()}.vocabf", new_src_vocab_path)
+            shutil.copyfile(f"{src_vocab_path}.vocabf", new_src_vocab_path)
             utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
         if trg_vocab_path:
             new_trg_vocab_path = os.path.join(output_path, f"dict.{trg_lang}.txt")
-            shutil.copyfile(f"{trg_vocab_path.strip()}.vocabf", new_trg_vocab_path)
+            shutil.copyfile(f"{trg_vocab_path}.vocabf", new_trg_vocab_path)
             utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
 
         # Trick for generation.
@@ -137,8 +138,8 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
 
-    def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, src_spm_model_path,
-                   trg_spm_model_path, beam_width, max_gen_length, **kwargs):
+    def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, beam_width, max_gen_length,
+                   **kwargs):
         # Write command
         cmd = [f"fairseq-generate {data_path}"]
 

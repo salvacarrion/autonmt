@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as tud
 import tqdm
-from autonmt.tasks.translation.bundle.dataset import TranslationDataset
+from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
 from abc import ABC, abstractmethod
 
 

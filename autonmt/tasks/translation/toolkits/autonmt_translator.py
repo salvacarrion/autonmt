@@ -1,6 +1,7 @@
 import torch
 
-from autonmt.tasks.translation.bundle.dataset import TranslationDataset
+from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
+from autonmt.tasks.translation.bundle.vocabulary import VocabularyBytes
 from autonmt.tasks.translation.models import Seq2Seq
 from autonmt.tasks.translation.base import BaseTranslator
 from autonmt.tasks.translation.bundle.search_algorithms import greedy_search, beam_search
@@ -38,8 +39,8 @@ class Translator(BaseTranslator):
 
         # Count parameters
         trainable_params, non_trainable_params = self._count_model_parameters(model)
-        print(f"\t - [INFO]: Total trainable parameters: {trainable_params}")
-        print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params}")
+        print(f"\t - [INFO]: Total trainable parameters: {trainable_params:,}")
+        print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params:,}")
         return model
 
     def _count_model_parameters(self, model):
@@ -48,20 +49,30 @@ class Translator(BaseTranslator):
         return trainable_params, non_trainable_params
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, **kwargs):
+                    trg_vocab_path, subword_model, **kwargs):
+
         # Get vocabs
-        src_vocab_path = src_vocab_path.strip() + ".vocab"
-        trg_vocab_path = trg_vocab_path.strip() + ".vocab"
+        if subword_model in {"bytes"}:
+            src_vocab = VocabularyBytes()
+            trg_vocab = VocabularyBytes()
+        else:
+            # Do not use *.vocabf if possible. It could be not equivalent to *.vocab
+            src_vocab = src_vocab_path + ".vocab" if src_vocab_path else None
+            trg_vocab = trg_vocab_path + ".vocab" if trg_vocab_path else None
 
         # Create datasets
         if not kwargs.get("external_data"):  # Training
             self.train_tds = TranslationDataset(file_prefix=train_path, src_lang=src_lang, trg_lang=trg_lang,
-                                                src_vocab_path=src_vocab_path, trg_vocab_path=trg_vocab_path)
+                                                src_vocab=src_vocab, trg_vocab=trg_vocab)
             self.val_tds = TranslationDataset(file_prefix=val_path, src_lang=src_lang, trg_lang=trg_lang,
-                                              src_vocab_path=src_vocab_path, trg_vocab_path=trg_vocab_path)
+                                              src_vocab=self.train_tds.src_vocab, trg_vocab=self.train_tds.trg_vocab)
         else:  # Evaluation
+            # Check vocab values
+            if src_vocab is None or trg_vocab is None:
+                raise ValueError("'src_vocab_path' and 'trg_vocab_path' cannot be 'None' during testing")
+
             self.test_tds = TranslationDataset(file_prefix=test_path, src_lang=src_lang, trg_lang=trg_lang,
-                                               src_vocab_path=src_vocab_path, trg_vocab_path=trg_vocab_path)
+                                               src_vocab=src_vocab, trg_vocab=trg_vocab)
 
     def _train(self, checkpoints_path, logs_path, **kwargs):
         # Create and train model
@@ -84,15 +95,23 @@ class Translator(BaseTranslator):
         self._postprocess_output(predictions=predictions, output_path=output_path)
 
     def _postprocess_output(self, predictions, output_path):
-        # Decode sentences
-        hyp_tok = [self.test_tds.trg_vocab.decode(tokens, remove_special_tokens=True) for tokens in predictions]
+        # Decode: hyp
+        hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
 
-        # Write file: hyp
-        for lines, fname in [(hyp_tok, "hyp.tok")]:
-            with open(os.path.join(output_path, fname), 'w') as f:
-                f.writelines([' '.join(tokens) + '\n' for tokens in lines])
+        # Decode: src
+        src_tok = []
+        for line in self.test_tds.src_lines:
+            line_enc = self.test_tds.src_vocab.encode(line)
+            line_dec = self.test_tds.src_vocab.decode(line_enc)
+            src_tok.append(line_dec)
 
-        # Write files: src, ref
-        for lines, fname in [(self.test_tds.src_lines, "src.tok"), (self.test_tds.trg_lines, "ref.tok")]:
-            with open(os.path.join(output_path, fname), 'w') as f:
-                f.writelines([line + '\n' for line in lines])
+        # Decode: ref
+        ref_tok = []
+        for line in self.test_tds.trg_lines:
+            line_enc = self.test_tds.trg_vocab.encode(line)
+            line_dec = self.test_tds.trg_vocab.decode(line_enc)
+            ref_tok.append(line_dec)
+
+        # Write file: hyp, src, ref
+        for lines, fname in [(hyp_tok, "hyp.tok"), (src_tok, "src.tok"), (ref_tok, "ref.tok")]:
+            write_file_lines(lines=lines, filename=os.path.join(output_path, fname))
