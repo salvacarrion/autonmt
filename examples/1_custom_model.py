@@ -13,7 +13,7 @@ def main():
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["word"],
+        subword_models=["bytes"],
         # subword_models=["none", "bytes", "char", "word", "unigram"],
         vocab_sizes=[8000],
         merge_vocabs=False,
@@ -34,7 +34,7 @@ def main():
                               force_overwrite=False, interactive=False,
                               use_cmd=False,
                               conda_env_name="mltests")  # Conda envs will soon be deprecated
-        # model.fit(max_epochs=5, num_gpus=1, learning_rate=0.001, batch_size=128)
+        # model.fit(max_epochs=5, num_gpus=1, learning_rate=0.001, batch_size=64)
         eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(eval_scores)
 

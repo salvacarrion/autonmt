@@ -255,7 +255,7 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
 
         # Set run names
-        run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
+        run_name = self._get_run_name(ds=model_ds)
         eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
 
         # Checkpoint path
@@ -339,15 +339,21 @@ class BaseTranslator(ABC):
         hyp_txt_path = os.path.join(output_path, "hyp.txt")
 
         # Detokenize
-        py_cmd_api.spm_decode(model_src_vocab_path + ".model", input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-        py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-        py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        if subword_model not in {None, "none", "bytes"}:
+            py_cmd_api.spm_decode(model_src_vocab_path + ".model", input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-        # Detokenize with moses
-        if subword_model == "word":
-            py_cmd_api.moses_detokenizer(input_file=src_txt_path, output_file=src_txt_path, lang=src_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-            py_cmd_api.moses_detokenizer(input_file=ref_txt_path, output_file=ref_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-            py_cmd_api.moses_detokenizer(input_file=hyp_txt_path, output_file=hyp_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+            # Detokenize with moses
+            if subword_model == "word":
+                py_cmd_api.moses_detokenizer(input_file=src_txt_path, output_file=src_txt_path, lang=src_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                py_cmd_api.moses_detokenizer(input_file=ref_txt_path, output_file=ref_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                py_cmd_api.moses_detokenizer(input_file=hyp_txt_path, output_file=hyp_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+        else:
+            # Rename or copy files (tok==txt)
+            shutil.copyfile(src_tok_path, src_txt_path)
+            shutil.copyfile(ref_tok_path, ref_txt_path)
+            shutil.copyfile(hyp_tok_path, hyp_txt_path)
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
@@ -361,7 +367,7 @@ class BaseTranslator(ABC):
             return
 
         # Set run names
-        run_name = f"{self.run_prefix}_{model_ds.subword_model}_{model_ds.vocab_size}"
+        run_name = self._get_run_name(ds=model_ds)
         eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
 
         # Iterate over beams
