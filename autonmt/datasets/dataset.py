@@ -126,8 +126,8 @@ class Dataset:
     def get_model_scores_path(self, toolkit, run_name, eval_name, beam):
         return os.path.join(self.get_model_beam_path(toolkit, run_name, eval_name, beam), self.models_scores_path)
 
-    def get_model_logs_path(self, toolkit, run_name):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.model_logs_path)
+    def get_model_logs_path(self, toolkit, run_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.model_logs_path, fname)
 
     def get_model_checkpoints_path(self, toolkit, run_name, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_checkpoints_path, fname)

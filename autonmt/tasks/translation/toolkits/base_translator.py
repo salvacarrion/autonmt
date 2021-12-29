@@ -77,6 +77,7 @@ class BaseTranslator(ABC):
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
+        self.config = {}
 
         # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
@@ -115,6 +116,18 @@ class BaseTranslator(ABC):
                 tools.add(m_tool)
         return tools
 
+    def _add_config(self, key: str, values: dict, reset=False):
+        def is_valid(k, v):
+            primitive_types = (str, bool, int, float, dict, set, list)
+            return not(k.startswith("_") or k in {"kwargs"}) and (isinstance(v, primitive_types) or v is None)
+
+        # Reset value (if needed)
+        if reset or key not in self.config:
+            self.config[key] = {}
+
+        # Update values
+        self.config[key].update({k: str(v) for k, v in values.items() if is_valid(k, v)})
+
     def fit(self, train_ds: Dataset = None, max_epochs=1, learning_rate=0.001, criterion="cross_entropy",
             optimizer="adam", weight_decay=0, clip_norm=0.0, update_freq=1, max_tokens=None, batch_size=64, patience=10,
             seed=None, num_gpus=None, **kwargs):
@@ -131,6 +144,13 @@ class BaseTranslator(ABC):
             print("\t- [INFO]: Setting the 'train_ds' as the 'model_ds")
             self.model_ds = train_ds
 
+        # Store config (and save file)
+        self._add_config(key="fit", values=locals(), reset=False)
+        self._add_config(key="fit", values=kwargs, reset=False)
+        logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=train_ds))
+        make_dir(logs_path)
+        save_json(self.config, savepath=os.path.join(logs_path, "config.json"))
+
         # Train and preprocess
         self.preprocess(train_ds, **kwargs)
         self.train(train_ds, max_epochs=max_epochs, learning_rate=learning_rate, criterion=criterion,
@@ -142,7 +162,7 @@ class BaseTranslator(ABC):
                 metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, **kwargs):
         print("=> [Predict]: Started.")
 
-        # Get train_ds
+        # Get model_ds
         if not model_ds and not self.model_ds:
             raise ValueError("'model_ds' is missing. You can either specify it in the constructor ('model_ds') or "
                              "pass it as an argument to this function")
@@ -165,6 +185,13 @@ class BaseTranslator(ABC):
             metrics = {"bleu"}
         else:
             metrics = set(metrics)
+
+        # Store config
+        self._add_config(key="predict", values=locals(), reset=False)
+        self._add_config(key="predict", values=kwargs, reset=False)
+        logs_path = model_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=model_ds))
+        make_dir(logs_path)
+        save_json(self.config, savepath=os.path.join(logs_path, "config.json"))
 
         # Iterate over the evaluation datasets
         eval_scores = []
@@ -516,3 +543,5 @@ class BaseTranslator(ABC):
         print(f"\t\t- random: {random.random()}")
         print(f"\t\t- numpy: {np.random.rand(1)}")
         print(f"\t\t- torch: {torch.rand(1)}")
+
+        return seed
