@@ -38,4 +38,4 @@ onnx
 # Other
 tqdm
 jupyterlab
-
+pytest
