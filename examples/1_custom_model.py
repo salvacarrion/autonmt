@@ -13,7 +13,7 @@ def main():
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["word"],
+        subword_models=["char+bytes"],
         vocab_sizes=[8000],
         merge_vocabs=True,
         force_overwrite=False,

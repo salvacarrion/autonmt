@@ -54,6 +54,29 @@ def py_moses_detokenizer(input_file, output_file, lang):
     utils.write_file_lines(lines=lines, filename=output_file)
 
 
+def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, conda_env_name):
+    # Enable
+    byte_fallback = False
+    if "+bytes" in subword_model:
+        subword_model = subword_model.replace("+bytes", "")
+        byte_fallback = True
+
+    if use_cmd:
+        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback, conda_env_name)
+        print(f"\t- [INFO]: Command used: {cmd}")
+    else:
+        py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback)
+
+
+def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback):
+    # Train model
+    # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
+    spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
+                                   model_type=subword_model, vocab_size=vocab_size,
+                                   input_sentence_size=input_sentence_size, byte_fallback=byte_fallback,
+                                   pad_id=3)
+
+
 def spm_encode(spm_model_path, input_file, output_file, use_cmd, conda_env_name):
     if use_cmd:
         cmd = cmd_spm_encode(spm_model_path, input_file, output_file, conda_env_name)
@@ -92,23 +115,6 @@ def py_spm_decode(spm_model_path, input_file, output_file):
 
     # Save file
     utils.write_file_lines(lines=lines, filename=output_file)
-
-
-def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, conda_env_name):
-    if use_cmd:
-        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, conda_env_name)
-        print(f"\t- [INFO]: Command used: {cmd}")
-    else:
-        py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size)
-
-
-def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size):
-    # Train model
-    # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
-    spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
-                                   model_type=subword_model, vocab_size=vocab_size,
-                                   input_sentence_size=input_sentence_size,
-                                   pad_id=3)
 
 
 def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, conda_env_name):

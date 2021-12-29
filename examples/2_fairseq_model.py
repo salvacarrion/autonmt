@@ -10,7 +10,7 @@ def main(fairseq_args):
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["word"],
+        subword_models=["char+bytes"],
         vocab_sizes=[8000],
         merge_vocabs=True,
         force_overwrite=False,
@@ -30,7 +30,7 @@ def main(fairseq_args):
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-        model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+        model.fit(max_epochs=5, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
                   update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
                   fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])

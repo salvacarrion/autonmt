@@ -13,8 +13,6 @@ from collections import Counter
 
 from autonmt import py_cmd_api
 
-SPM_MODELS = {"word", "unigram", "bpe", "char"}
-
 
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
     # Tokenize
@@ -53,7 +51,7 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
 
 
 class DatasetBuilder:
-    SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "bpe", "unigram", "bytes"}
+    SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "char+bytes", "bpe", "unigram", "bytes"}
 
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, force_overwrite=False,
                  interactive=True, use_cmd=False, conda_env_name=None):
@@ -407,13 +405,13 @@ class DatasetBuilder:
             spm_model = False
 
             # Select split function
-            if ds.subword_model in SPM_MODELS:
-                split_fn = lambda x: x.split(' ')
-                spm_model = True
+            if ds.subword_model in {None, "none"}:
+                continue
             elif ds.subword_model in {"bytes"}:
                 split_fn = lambda x: [x for x in x.encode()]
             else:
-                continue
+                split_fn = lambda x: x.split(' ')
+                spm_model = True
 
             # Get langs
             if self.merge_vocabs:
