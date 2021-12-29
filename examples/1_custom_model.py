@@ -13,14 +13,15 @@ def main():
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["char+bytes"],
+        subword_models=["bytes"],
         vocab_sizes=[8000],
         merge_vocabs=True,
-        force_overwrite=False,
+        bytes_as_words=True,
+        force_overwrite=True,
         interactive=True,
         use_cmd=False,
         conda_env_name=None,
-    ).build(make_plots=False, safe=True)
+    ).build(make_plots=True, safe=True)
 
     # Create datasets for testing
     ts_datasets = tr_datasets

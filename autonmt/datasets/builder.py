@@ -30,6 +30,7 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
             # Save file as UTF8 and make sure everything uses NFKC
             lines = read_file_lines(input_file)
             lines = [preprocess_text(line, normalization="NFKC") for line in lines]
+            lines = [" ".join([hex(x) for x in line.encode()]) for line in lines] if ds.bytes_as_words else lines
             write_file_lines(lines=lines, filename=output_file, encoding="utf8")
 
         else:
@@ -53,13 +54,15 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
 class DatasetBuilder:
     SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "char+bytes", "bpe", "unigram", "bytes"}
 
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, force_overwrite=False,
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, bytes_as_words=False,
+                 force_overwrite=False,
                  interactive=True, use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
         self.vocab_sizes = vocab_sizes
         self.merge_vocabs = merge_vocabs
+        self.bytes_as_words = bytes_as_words
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
@@ -102,7 +105,7 @@ class DatasetBuilder:
                 for ds_size_name, ds_max_lines in ds["sizes"]:  # Lengths
                     base_params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
                                        dataset_size_name=ds_size_name, dataset_lines=ds_max_lines,
-                                       merge_vocabs=self.merge_vocabs)
+                                       merge_vocabs=self.merge_vocabs, bytes_as_words=self.bytes_as_words)
 
                     if include_variants:
                         for subword_model in self.subword_models:  # unigram, bpe, char, or word
@@ -408,7 +411,10 @@ class DatasetBuilder:
             if ds.subword_model in {None, "none"}:
                 continue
             elif ds.subword_model in {"bytes"}:
-                split_fn = lambda x: [x for x in x.encode()]
+                if ds.bytes_as_words:
+                    split_fn = lambda x: x.split(' ')
+                else:
+                    split_fn = lambda x: [x for x in x.encode()]
             else:
                 split_fn = lambda x: x.split(' ')
                 spm_model = True
