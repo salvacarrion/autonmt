@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 
-from autonmt.tasks.translation.base import BaseTranslator
+from autonmt.tasks.translation.toolkits.base_translator import BaseTranslator
 from autonmt import utils
 from autonmt.cmd import NO_CONDA_MSG
 
@@ -25,10 +25,19 @@ def _parse_args(**kwargs):
             raise ValueError(f"A reserved fairseq arg was used. List of reserved args: {str(reserved_args)}")
 
     # Convert AutoNLP args to Fairseq
-    autonmt2fairseq = {'batch_size': "--batch-size", 'max_tokens': "--max-tokens", 'max_epochs': "--max-epoch",
-                       'learning_rate': "--lr", 'clip_norm': "--clip-norm", 'patience': "--patience",
-                       'criterion': "--criterion", 'optimizer': "--optimizer"}
-    proposed_args = []
+    autonmt2fairseq = {
+        'learning_rate': "--lr",
+        'criterion': "--criterion",
+        'optimizer': "--optimizer",
+        'clip_norm': "--clip-norm",
+        'update_freq': "--update-freq",
+        'max_epochs': "--max-epoch",
+        'max_tokens': "--max-tokens",
+        'batch_size': "--batch-size",
+        'patience': "--patience",
+        'seed': "--seed",
+    }
+    proposed_args = []  # From AutoNMTBase
     for autonmt_arg_name, autonmt_arg_value in kwargs.items():
         faisreq_arg_name = autonmt2fairseq.get(autonmt_arg_name)
         if autonmt_arg_value is not None and faisreq_arg_name:
@@ -74,7 +83,7 @@ class FairseqTranslator(BaseTranslator):
             # raise ValueError("'FairseqTranslator' needs the name of the conda environment where it is installed")
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, **kwargs):
+                    trg_vocab_path, subword_model, **kwargs):
         # Reformat vocab files for fairseq
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
@@ -138,10 +147,10 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
 
-    def _translate(self, src_lang, trg_lang, data_path, output_path, checkpoint_path, beam_width, max_gen_length,
-                   **kwargs):
+    def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
+                   data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path, **kwargs):
         # Write command
-        cmd = [f"fairseq-generate {data_path}"]
+        cmd = [f"fairseq-generate {data_bin_path}"]
 
         # Add stuff
         cmd += [
@@ -153,8 +162,8 @@ class FairseqTranslator(BaseTranslator):
             f"--max-len-a {0}",  # max_len = ax+b
             f"--max-len-b {max_gen_length}",
             f"--nbest 1",
-            "--scoring sacrebleu",
-            "--skip-invalid-size-inputs-valid-test",
+            f"--scoring sacrebleu",
+            f"--skip-invalid-size-inputs-valid-test",
         ]
 
         # Parse fairseq args
@@ -172,4 +181,3 @@ class FairseqTranslator(BaseTranslator):
 
         # Prepare output files (from fairseq to tokenized form)
         _postprocess_output(output_path=output_path)
-

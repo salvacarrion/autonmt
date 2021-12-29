@@ -71,17 +71,15 @@ class BaseTranslator(ABC):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
+        self.model_ds = model_ds
+        self.safe_seconds = safe_seconds
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
 
-        # Add train_ds
-        self.model_ds = model_ds
+        # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
-
-        # Other
-        self.safe_seconds = safe_seconds
 
     def _make_empty_path(self, path, safe_seconds=0):
         # Check if the directory and can be delete it
@@ -117,9 +115,9 @@ class BaseTranslator(ABC):
                 tools.add(m_tool)
         return tools
 
-    def fit(self, train_ds: Dataset = None, batch_size=128, max_tokens=None, max_epochs=5, learning_rate=1e-3,
-            weight_decay=0, clip_norm=1.0, patience=10, criterion="cross_entropy", optimizer="adam",
-            checkpoints_path=None, logs_path=None, **kwargs):
+    def fit(self, train_ds: Dataset = None, max_epochs=1, learning_rate=0.001, criterion="cross_entropy",
+            optimizer="adam", weight_decay=0, clip_norm=0.0, update_freq=1, max_tokens=None, batch_size=64, patience=10,
+            seed=None, num_gpus=None, **kwargs):
         print("=> [Fit]: Started.")
 
         # Get train_ds
@@ -135,9 +133,10 @@ class BaseTranslator(ABC):
 
         # Train and preprocess
         self.preprocess(train_ds, **kwargs)
-        self.train(train_ds, batch_size=batch_size, max_tokens=max_tokens, max_epochs=max_epochs,
-                   learning_rate=learning_rate, weight_decay=weight_decay, clip_norm=clip_norm, patience=patience,
-                   criterion=criterion, optimizer=optimizer, **kwargs)
+        self.train(train_ds, max_epochs=max_epochs, learning_rate=learning_rate, criterion=criterion,
+                   optimizer=optimizer, weight_decay=weight_decay, clip_norm=clip_norm, update_freq=update_freq,
+                   max_tokens=max_tokens, batch_size=batch_size, patience=patience,
+                   seed=seed, num_gpus=num_gpus, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
                 metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, **kwargs):
@@ -240,6 +239,9 @@ class BaseTranslator(ABC):
             print("\t- [Train]: Skipped. The checkpoints directory is not empty")
             return
 
+        # Set seed
+        self.manual_seed(seed=kwargs.get("seed"))
+
         start_time = time.time()
         self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
@@ -248,7 +250,8 @@ class BaseTranslator(ABC):
     def _translate(self, *args, **kwargs):
         pass
 
-    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], **kwargs):
+    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length,
+                  batch_size, max_tokens, **kwargs):
         print("=> [Translate]: Started.")
 
         # Check datasets
@@ -312,10 +315,11 @@ class BaseTranslator(ABC):
             # Translate
             tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.tok", "ref.tok", "hyp.tok"]]
             if self.force_overwrite or not all(tok_flag):
-                self._translate(beam_width=beam, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                                data_path=model_eval_data_bin_path, output_path=output_path,
-                                checkpoint_path=checkpoint_path,
-                                model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path, **kwargs)
+                self._translate(
+                    src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+                    beam_width=beam, max_gen_length=max_gen_length, batch_size=batch_size, max_tokens=max_tokens,
+                    data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoint_path=checkpoint_path,
+                    model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path, **kwargs)
 
             # Postprocess tokenized files
             txt_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.txt", "ref.txt", "hyp.txt"]]
@@ -490,3 +494,25 @@ class BaseTranslator(ABC):
             scores["beams"].update({f"beam{str(beam)}": beam_scores})
         return scores
 
+    @staticmethod
+    def manual_seed(seed, use_deterministic_algorithms=False):
+        import torch
+        import random
+        import numpy as np
+
+        # Define seed
+        seed = seed if seed is not None else int(time.time()) % 2**32
+
+        # Set seeds
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        # Tricky: https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
+        torch.use_deterministic_algorithms(use_deterministic_algorithms)
+
+        # Test randomness
+        print(f"\t- [INFO]: Testing random seed ({seed}):")
+        print(f"\t\t- random: {random.random()}")
+        print(f"\t\t- numpy: {np.random.rand(1)}")
+        print(f"\t\t- torch: {torch.rand(1)}")

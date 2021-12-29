@@ -11,9 +11,8 @@ def main(fairseq_args):
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
         subword_models=["word"],
-        # subword_models=["none", "bytes", "char", "word", "unigram"],
         vocab_sizes=[8000],
-        merge_vocabs=False,
+        merge_vocabs=True,
         force_overwrite=False,
         interactive=True,
         use_cmd=False,
@@ -27,11 +26,13 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
-                                     force_overwrite=False, interactive=False,
+                                     force_overwrite=True, interactive=False,
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-        model.fit(fairseq_args=fairseq_args, num_gpus=1)
+        model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+                  update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
+                  fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
     print(scores[0][0]['beams']['beam1'])
@@ -54,15 +55,7 @@ if __name__ == "__main__":
         "--encoder-ffn-embed-dim 512",
         "--decoder-ffn-embed-dim 512",
         "--dropout 0.1",
-        "--lr 0.001",
-        "--optimizer adam",
-        "--criterion cross_entropy",
-        # "--max-tokens 4096",
-        "--max-epoch 5",
-        "--clip-norm 1.0",
-        "--update-freq 1",
-        "--patience 10",
-        "--seed 1234",
+
         "--no-epoch-checkpoints",
         "--maximize-best-checkpoint-metric",
         "--best-checkpoint-metric bleu",
