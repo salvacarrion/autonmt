@@ -49,7 +49,7 @@ You check full examples [here](examples).
 
 The `DatasetBuilder` is the object in charge of generating variants of your datasets ("original"). In other words, it 
 creates versions of your original dataset, with different training sizes to test ideas faster, multiple vocabularies
-lengths and variations (words, unigram, bpe, char, bytes), etc.
+lengths and variations (bytes, char+bytes, unigram, bpe, word), etc.
 
 If you don't know how to use it, don't worry. Run the following code with the `interactive=True` argument enabled, 
 and it will guide you step-by-step so that you can create a new dataset.
@@ -58,20 +58,21 @@ and it will guide you step-by-step so that you can create a new dataset.
 ```python
 from autonmt import DatasetBuilder
 
-# Create datasets for training (2*1*2*3*2 = 24 datasets)
-tr_datasets = DatasetBuilder(
-    base_path="/home/datasets",
+# Create datasets for training
+builder = DatasetBuilder(
+    base_path="/home/datasets/",
     datasets=[
         {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
         {"name": "scielo/health", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
     ],
-    subword_models=["word", "unigram", "char"],
-    vocab_sizes=[8000, 16000],
-    interactive=True
+    subword_models=["bytes", "char+bytes", "char", "unigram", "word"],
+    vocab_sizes=[8000],
+    merge_vocabs=True,
 ).build(make_plots=True)
 
 # Create datasets for testing
-ts_datasets = tr_datasets
+tr_datasets = builder.get_ds()
+ts_datasets = builder.get_ds(ignore_variants=True)
 ```
 
 #### Format
@@ -89,30 +90,35 @@ The `Translator` object abstracts the seq2seq pipeline so that you can train and
 you can use other engines such as `fairseq` or `opennmt`.
 
 ```python
-import autonmt as al
-
 # Train & Score a model for each dataset
-for train_ds in tr_datasets:
-    model = al.Translator()
-    model.fit(train_ds)
-    model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
+scores = []
+for ds in tr_datasets:
+    model = al.Translator(model=Transformer, model_ds=ds)
+    model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+              update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1)
+    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
+    scores.append(m_scores)
 ```
+
+
+The evaluation will be performed only the compatible datasets (same source and target language).
+
+It is worth to point out that the DatasetBuilder will create n variations for each unique dataset, therefore, n models
+per unique dataset will be trained. Nevertheless, AutoNMT is smart enough to evaluate each model once per unique dataset
+as the raw test files of each variation are the same (each model will encode its data).
+
 
 ### Generate a report
 
+This code will save the score of the multiple training (as json and csv), will create a summary of the results and will 
+make a few plots to visualize the performance of the models.
+
 ```python
-from autonmt.tasks.translation.bundle.metrics import create_report
-
-# Train & Score a model for each dataset
-scores = []
-for train_ds in tr_datasets:
-  model = al.Translator()
-  model.fit(train_ds)
-  eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
-  scores.append(eval_scores)
-
 # Make report
-create_report(scores=scores, metric_id="beam_5__sacrebleu_bleu", output_path=".outputs")
+df_report, df_summary = generate_report(scores=scores, output_path=".outputs", plot_metric="beam1__sacrebleu_bleu_score")
+
+print("Summary:")
+print(df_summary.to_string(index=False))
 ```
 
 ### Toolkit abstraction
@@ -126,17 +132,12 @@ The only requirement is that the forward must return a tensor with shape `(batch
 from autonmt.tasks.translation.models import Seq2Seq
 
 
-class Transformer(Seq2Seq):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        # do stuff        
+class CustomModel(Seq2Seq):
+    def __init__(self, src_vocab_size, trg_vocab_size, **kwargs):
+        super().__init__(src_vocab_size, trg_vocab_size, **kwargs)
 
-    def forward(self, X, Y):
-        # do stuff
+    def forward(self, x, y):
         return  # Tensor with shape: (Batch, Length, probabilities)
-
-# Custom model
-mymodel = Transformer()
 
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
@@ -152,16 +153,16 @@ your own class, like this:
 
 ```python
 import torch.nn as nn
-from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
 
 
 class CustomSeq2Seq(nn.Module):
-    def __init__(self, src_vocab_size, trg_vocab_size, *args, **kwargs):
+
+    def __init__(self, src_vocab_size, trg_vocab_size, **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
 
-    def fit(self, ds_train: TranslationDataset, ds_val: TranslationDataset, *args, **kwargs):
+    def fit(self, *args, **kwargs):
         pass
 
     def evaluate(self, *args, **kwargs):
@@ -169,22 +170,24 @@ class CustomSeq2Seq(nn.Module):
 
 
 class CustomModel(CustomSeq2Seq):
-    def __init__(self, *args, **kwargs):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def forward(self, X, Y, *args, **kwargs):
+    def forward(self, x, y):
         pass
 
 
 # Custom model
-model = al.Translator(model=CustomModel())
+model = al.Translator(model=CustomModel)
 ```
 
 #### Fairseq models
 
 When using a Fairseq model, you can use it through the fairseq command-line tools:
 
-```text
+```python
+# These args are pass to fairseq using our pipeline
+# Fairseq Command-line tools: https://fairseq.readthedocs.io/en/latest/command_line_tools.html
 fairseq_args = [
     "--arch transformer",
     "--encoder-embed-dim 256",
@@ -198,11 +201,15 @@ fairseq_args = [
     "--dropout 0.1",
 ]
 
-# Train fairseq models
-for train_ds in tr_datasets:
-    model = al.FairseqTranslator(conda_env_name="fairseq")
-    model.fit(train_ds, fairseq_args=fairseq_args)
-    model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5])
+# Train & Score a fairseq model for each dataset
+scores = []
+for ds in tr_datasets:
+    model = al.FairseqTranslator(model_ds=ds, conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
+    model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+              update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
+              fairseq_args=fairseq_args)
+    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
+    scores.append(m_scores)
 ```
 
 > **Note:** 'fairseq_args' always has preference over the 'autonmt' parameters in case of a collision. This is because
@@ -213,7 +220,16 @@ for train_ds in tr_datasets:
 
 ### Reproducibility
 
-If you use AutoNMT as command-line interface, it will gives you all the commands it is using under the hood. For example, this is a typical output when working in the command-line mode:
+By default, AutoNMT tries to operate directly through the python apis. However, for reproducibility purposes you can
+force AutoNMT to use the command line version of thoses libraries with the flag `use_cmd=True` (available in 
+the DatasetBuilder and Trainers).
+
+```python
+builder = DatasetBuilder(..., use_cmd=True)
+model = al.Translator(..., use_cmd=True)
+```
+
+By enabling this flag, AutoNMT will use the command line tools as a typical user. 
 
 ```bash
 ...
@@ -224,7 +240,11 @@ If you use AutoNMT as command-line interface, it will gives you all the commands
 - Command used: sacrebleu /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/datasets/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
 ...
 ```
+By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `conda_env_name="myenv"`
 
+```python
+model = al.Translator(model=Transformer, model_ds=ds, conda_env_name="myenv")
+```
 
 ### Plots & Stats
 
@@ -240,6 +260,7 @@ containing its data, summary and statistics
 ### Layout example
 
 This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt)
+
 ```text
 multi30k/
 .

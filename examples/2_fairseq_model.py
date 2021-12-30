@@ -26,7 +26,6 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        print(f"***** New run: {str(ds)} *****")
         model = al.FairseqTranslator(model_ds=ds, force_overwrite=False, conda_fairseq_env_name="fairseq")
         model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
                   update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
