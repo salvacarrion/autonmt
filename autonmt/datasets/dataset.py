@@ -4,7 +4,7 @@ import os
 class Dataset:
     def __init__(self, base_path, parent_ds,
                  dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
-                 subword_model, vocab_size, merge_vocabs, bytes_as_words,
+                 subword_model, vocab_size, merge_vocabs,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
                  encoded_path=os.path.join("data", "encoded"), pretokenized_path=os.path.join("data", "pretokenized"),
@@ -27,7 +27,6 @@ class Dataset:
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
         self.pretok_flag = (self.subword_model == "word")
         self.merge_vocabs = merge_vocabs
-        self.bytes_as_words = bytes_as_words
 
         # Constants: split names
         self.train_name = train_name

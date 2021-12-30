@@ -16,7 +16,6 @@ def main():
         subword_models=["bytes"],
         vocab_sizes=[8000],
         merge_vocabs=True,
-        bytes_as_words=True,
         force_overwrite=True,
         interactive=True,
         use_cmd=False,
@@ -29,11 +28,7 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = al.Translator(model=Transformer,
-                              model_ds=ds, safe_seconds=2,
-                              force_overwrite=True, interactive=False,
-                              use_cmd=False,
-                              conda_env_name="mltests")  # Conda envs will soon be deprecated
+        model = al.Translator(model=Transformer, model_ds=ds, force_overwrite=True)
         model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
                   update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1)
         eval_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])

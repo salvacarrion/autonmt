@@ -18,7 +18,8 @@ def set_non_gui_backend():
 
 
 def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fname, aspect_ratio=(12, 8), size=1.0,
-            show_values=True, dpi=150, show_fig=False, save_fig=True, formats=None, overwrite=True, data_format='{:.0f}'):
+            show_values=True, dpi=150, rotate_xlabels=0, show_fig=False, save_fig=True, formats=None,
+            overwrite=True, data_format='{:.0f}'):
     if formats is None:
         formats = ["png", "pdf"]
 
@@ -37,7 +38,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
 
     # Tweaks
     g.set(xlabel=xlabel, ylabel=ylabel)
-    # g.set_xticklabels(g.get_xticklabels(), rotation=90)
+    # g.set_xticklabels(g.get_xticklabels(), rotation=rotate_xlabels)
     # g.tick_params(axis='x', which='major', labelsize=8*size)
     # g.tick_params(axis='y', which='major', labelsize=8*size)
     g.axes.flat[0].yaxis.set_major_formatter(utils.human_format_int)  # only for catplot
@@ -154,7 +155,11 @@ def do_all_figs_exists(output_dir, fname, formats):
     return False
 
 
-def plot_metrics(output_path, df_metrics, metric_id, save_figures, show_figures):
+def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_figures=False):
+    # Check if the metric id is in the dataframe
+    if plot_metric not in df_report.columns:
+        raise ValueError(f"Metric '{plot_metric}' was not found in the given dataframe")
+
     # Set backend
     if save_figures:
         set_non_gui_backend()
@@ -164,18 +169,23 @@ def plot_metrics(output_path, df_metrics, metric_id, save_figures, show_figures)
     print(f"=> Plotting metrics...")
     print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
-    metric_name = metric_id.split('_')[-1].upper()
-    p_fname = f"metrics__{metric_name}"
+    # Parse metric name
+    beam_width, metric_name = plot_metric.split('__')
+    beam_width = beam_width.replace("beam", "beam=")
+    metric_name = metric_name.replace('_', ' ').replace("score", "").strip().title()
 
-    # Check if the metric id is in the dataframe
-    if metric_id not in df_metrics.columns:
-        raise ValueError(f"Metric '{metric_id}' was not found in the given dataframe")
+    # Set other values
+    ylabel = f"{metric_name} ({beam_width})"
+    fname = f"report__{plot_metric}"
+
+    # Make run name smaller with break lines
+    df_report["alias"] = df_report["run_name"].apply(lambda x: '\n'.join(x.split('_')))
 
     # Plot data
-    catplot(data=df_metrics, x="run_name", y=metric_id, hue="eval_dataset",
-                  title=f"Model comparison", xlabel="Models", ylabel=metric_name, leyend_title=None,
-                  output_dir=output_path, fname=p_fname, aspect_ratio=(8, 4), size=1.0,
-                  save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
+    catplot(data=df_report, x="alias", y=plot_metric, hue="eval_dataset",
+            title=f"Model comparison", xlabel="Models", ylabel=ylabel, leyend_title=None,
+            output_dir=output_path, fname=fname, aspect_ratio=(8, 4), size=1.0, rotate_xlabels=0,
+            save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
     
 # def histogram(data, output_dir, fname, title="", legend_title=None, labels=None, nbins=20, bargap=0.2,
 #                show_fig=False, save_fig=True, formats=None):

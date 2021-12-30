@@ -21,7 +21,9 @@ def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
 
 
 def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_vocabs, force_overwrite, **kwargs):
+    # Check if file exists
     if force_overwrite or not os.path.exists(output_file):
+
         # Copy file
         if ds.subword_model in {None, "none"}:
             shutil.copyfile(input_file, output_file)
@@ -30,8 +32,8 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
             # Save file as UTF8 and make sure everything uses NFKC
             lines = read_file_lines(input_file)
             lines = [preprocess_text(line, normalization="NFKC") for line in lines]
-            lines = [" ".join([hex(x) for x in line.encode()]) for line in lines] if ds.bytes_as_words else lines
-            write_file_lines(lines=lines, filename=output_file, encoding="utf8")
+            lines = [" ".join([hex(x) for x in line.encode()]) for line in lines]
+            write_file_lines(lines=lines, filename=output_file)
 
         else:
             # Pretokenize file if needed (used during the translation code)
@@ -51,56 +53,71 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
                                   input_file=input_file, output_file=output_file, **kwargs)
 
 
-def decode_file(input_file, output_file, lang, subword_model, bytes_as_words, model_vocab_path, force_overwrite,
+def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, force_overwrite,
                 use_cmd, conda_env_name, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
 
         # Detokenize
-        if subword_model not in {None, "none", "bytes"}:
+        if subword_model in {None, "none"}:
+            # Rename or copy files (tok==txt)
+            shutil.copyfile(input_file, output_file)
+
+        elif subword_model in {"bytes"}:
+            # Decode files
+            lines = read_file_lines(input_file)
+            lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
+
+            # Write files
+            write_file_lines(lines=lines, filename=output_file)
+
+        else:
+            # Decode files
             py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
                                   use_cmd=use_cmd, conda_env_name=conda_env_name)
 
             # Detokenize with moses
-            if subword_model == "word":
+            if subword_model in {"word"}:
                 py_cmd_api.moses_detokenizer(input_file=input_file, output_file=output_file, lang=lang,
                                              use_cmd=use_cmd, conda_env_name=conda_env_name)
-        else:
-            # From 0x65 to letters
-            if subword_model == "bytes" and bytes_as_words:
-                # Decode files
-                lines = read_file_lines(input_file)
-                lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
 
-                # Write files
-                write_file_lines(lines=lines, filename=output_file)
-            else:
-                # Rename or copy files (tok==txt)
-                shutil.copyfile(input_file, output_file)
+
+def get_compatible_datasets(datasets, ref_ds):
+    # Keep only relevant datasets
+    compatible_datasets = []
+    compatible_datasets_ids = set()
+    for ds in datasets:
+        ds_name = '_'.join(ds.id())
+        ds_ref_name = '_'.join(ds.id())
+
+        # Check language compatibility
+        if ds.langs != ref_ds.langs:
+            print(f"Skipping '{ds_name}' as it is not compatible with the '{ds_ref_name}'")
+            continue
+
+        # Check if it has already been included
+        if ds_name in compatible_datasets_ids:
+            print(f"Skipping '{ds_name}' as a variant of it has already been included")
+        else:
+            compatible_datasets.append(ds)
+            compatible_datasets_ids.add(ds_name)
+    return compatible_datasets
 
 
 class DatasetBuilder:
-    SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "char+bytes", "bpe", "unigram", "bytes"}
 
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, bytes_as_words=False,
-                 force_overwrite=False,
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, force_overwrite=False,
                  interactive=True, use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
         self.vocab_sizes = vocab_sizes
         self.merge_vocabs = merge_vocabs
-        self.bytes_as_words = bytes_as_words
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
 
         self.ref_size_name = "original"
-
-        # Check subword models
-        sw_diff = set(self.subword_models).difference(self.SUPPORTED_SUBWORD_MODELS)
-        if sw_diff:
-            raise ValueError(f"These subword models are not supported: {str(sw_diff)}")
 
         # Other
         self.ds_list = self._unroll_datasets(include_variants=True)  # includes subwords, vocabs,...
@@ -132,7 +149,7 @@ class DatasetBuilder:
                 for ds_size_name, ds_max_lines in ds["sizes"]:  # Lengths
                     base_params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
                                        dataset_size_name=ds_size_name, dataset_lines=ds_max_lines,
-                                       merge_vocabs=self.merge_vocabs, bytes_as_words=self.bytes_as_words)
+                                       merge_vocabs=self.merge_vocabs)
 
                     if include_variants:
                         for subword_model in self.subword_models:  # unigram, bpe, char, or word
@@ -144,9 +161,11 @@ class DatasetBuilder:
                                 print(f"\t- [INFO]: Overriding vocabulary for none (None)")
                                 vocab_sizes = [None]
                                 params["encoded_path"] = os.path.join("data", "splits")
+
                             elif subword_model in {"bytes"}:
                                 print(f"\t- [INFO]: Overriding vocabulary for bytes (256 + special tokens)")
                                 vocab_sizes = [None]
+
                             else:
                                 vocab_sizes = self.vocab_sizes
 
@@ -159,8 +178,8 @@ class DatasetBuilder:
                         ds_list_tmp.append(_ds)
         return ds_list_tmp
 
-    def iter_main(self):
-        return self.ds_list_main
+    def get_ds(self, ignore_variants=False):
+        return self.ds_list_main if ignore_variants else self.ds_list
 
     def build(self, encode=True, val_size=(0.1, 5000), test_size=(0.1, 5000), shuffle=True, force_pretok=False,
               make_plots=False, safe=True):
@@ -200,7 +219,7 @@ class DatasetBuilder:
                   f"\t        If you want to overwrite the splits, add the flag 'safe=False")
 
         # Create reduce splits
-        for ds in self.iter_main():  # Dataset
+        for ds in self.get_ds(ignore_variants=True):  # Dataset
             # Ignore if this is NOT a reference dataset
             if ds.id()[2] != self.ref_size_name:
                 continue
@@ -296,7 +315,7 @@ class DatasetBuilder:
         print("=> Creating reduced versions...")
 
         # Create reduce splits
-        for ds in self.iter_main():  # Dataset
+        for ds in self.get_ds(ignore_variants=True):  # Dataset
             # Ignore if this is the reference dataset
             ds_ref = ds.id()[0], ds.id()[1], self.ref_size_name
             if ds.id()[2] == self.ref_size_name:
@@ -438,10 +457,7 @@ class DatasetBuilder:
             if ds.subword_model in {None, "none"}:
                 continue
             elif ds.subword_model in {"bytes"}:
-                if ds.bytes_as_words:
-                    split_fn = lambda x: x.split(' ')
-                else:
-                    split_fn = lambda x: [x for x in x.encode()]
+                split_fn = lambda x: x.split(' ')
             else:
                 split_fn = lambda x: x.split(' ')
                 spm_model = True
@@ -542,11 +558,7 @@ class DatasetBuilder:
                 split_name, split_lang = fname.split('.')
 
                 # Ignore dataset
-                if ds.subword_model == "bytes":
-                    tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname),
-                                                                      split_fn=lambda x: x.encode())
-                else:
-                    tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname))
+                tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname))
 
                 # List to array
                 tokens_by_sentence = np.array(tokens_by_sentence)

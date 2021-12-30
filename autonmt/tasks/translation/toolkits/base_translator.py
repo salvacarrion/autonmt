@@ -7,7 +7,7 @@ from autonmt.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.datasets import Dataset, DatasetBuilder
-from autonmt.datasets.builder import encode_file, decode_file
+from autonmt.datasets.builder import encode_file, decode_file, get_compatible_datasets
 from autonmt import py_cmd_api
 
 
@@ -66,8 +66,8 @@ class BaseTranslator(ABC):
                     }
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
-    def __init__(self, engine, run_prefix="model", model_ds=None, safe_seconds=2, force_overwrite=False,
-                 interactive=True, use_cmd=False, conda_env_name=None, **kwargs):
+    def __init__(self, engine, run_prefix="model", model_ds=None, safe_seconds=0, force_overwrite=False,
+                 interactive=False, use_cmd=False, conda_env_name=None, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
@@ -118,15 +118,20 @@ class BaseTranslator(ABC):
 
     def _add_config(self, key: str, values: dict, reset=False):
         def is_valid(k, v):
-            primitive_types = (str, bool, int, float, dict, set, list)
+            primitive_types = (str, bool, int, float, dict, set, list)  # Problems with list of objects
             return not(k.startswith("_") or k in {"kwargs"}) and (isinstance(v, primitive_types) or v is None)
+
+        def parse_value(x):
+            if isinstance(x, (list, set)):
+                return [str(_x) for _x in x]
+            return str(x)
 
         # Reset value (if needed)
         if reset or key not in self.config:
             self.config[key] = {}
 
         # Update values
-        self.config[key].update({k: str(v) for k, v in values.items() if is_valid(k, v)})
+        self.config[key].update({k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
     def fit(self, train_ds: Dataset = None, max_epochs=1, learning_rate=0.001, criterion="cross_entropy",
             optimizer="adam", weight_decay=0, clip_norm=0.0, update_freq=1, max_tokens=None, batch_size=64, patience=10,
@@ -193,9 +198,9 @@ class BaseTranslator(ABC):
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, "config.json"))
 
-        # Iterate over the evaluation datasets
+        # Translate and score
         eval_scores = []
-        eval_datasets = eval_datasets if isinstance(eval_datasets, DatasetBuilder) else [eval_datasets]
+        eval_datasets = get_compatible_datasets(eval_datasets, model_ds)
         for eval_ds in eval_datasets:
             self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
                            batch_size=batch_size, max_tokens=max_tokens, **kwargs)
@@ -235,7 +240,7 @@ class BaseTranslator(ABC):
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=ds.subword_model, bytes_as_words=ds.bytes_as_words, **kwargs)
+                         subword_model=ds.subword_model, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -283,10 +288,11 @@ class BaseTranslator(ABC):
 
         # Check datasets
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
+        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
         # Set run names
         run_name = self._get_run_name(ds=model_ds)
-        eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
+        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Checkpoint path
         checkpoint_path = model_ds.get_model_checkpoints_path(self.engine, run_name, "checkpoint_best.pt")
@@ -356,31 +362,18 @@ class BaseTranslator(ABC):
 
                 # Post-process files
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                            subword_model=model_ds.subword_model, bytes_as_words=model_ds.bytes_as_words,
+                            subword_model=model_ds.subword_model,
                             model_vocab_path=model_vocab_path, force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
-
-    def postprocess_tok_files(self, output_path, model_src_vocab_path, model_trg_vocab_path, subword_model,
-                              bytes_as_words, src_lang, trg_lang):
-        # Input files
-        src_tok_path = os.path.join(output_path, "src.tok")
-        ref_tok_path = os.path.join(output_path, "ref.tok")
-        hyp_tok_path = os.path.join(output_path, "hyp.tok")
-
-        # Output files
-        src_txt_path = os.path.join(output_path, "src.txt")
-        ref_txt_path = os.path.join(output_path, "ref.txt")
-        hyp_txt_path = os.path.join(output_path, "hyp.txt")
-
-
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
 
         # Check datasets
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
+        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
         # Check supported metrics
         metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
@@ -389,7 +382,7 @@ class BaseTranslator(ABC):
 
         # Set run names
         run_name = self._get_run_name(ds=model_ds)
-        eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
+        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Iterate over beams
         for beam in beams:
@@ -455,6 +448,7 @@ class BaseTranslator(ABC):
 
         # Check datasets
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
+        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
         # Check supported metrics
         metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
@@ -466,17 +460,20 @@ class BaseTranslator(ABC):
 
         # Set run names
         run_name = self._get_run_name(ds=model_ds)
-        eval_name = f"{str(eval_ds)}"  # The subword model and vocab size depends on the trained model
+        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Walk through beams
         scores = {
-            "train_dataset": str(model_ds), "train_lines": model_ds.dataset_lines,
-            "train_lang_pair": model_ds.dataset_lang_pair,
-            "eval_dataset": str(eval_ds), "eval_lines": eval_ds.dataset_lines,
-            "eval_lang_pair": eval_ds.dataset_lang_pair,
-            "run_name": run_name, "subword_model": model_ds.subword_model, "vocab_size": model_ds.vocab_size,
             "engine": kwargs.get("engine"),
-            "beams": {}
+            "lang_pair": model_ds.dataset_lang_pair,
+            "train_dataset": model_ds.dataset_name,
+            "eval_dataset": eval_ds.dataset_name,
+            "subword_model": str(model_ds.subword_model).lower(),
+            "vocab_size": str(model_ds.vocab_size).lower(),
+            "run_name": run_name,
+            "train_max_lines": model_ds.dataset_lines,
+            "beams": {},
+            "config": self.config,
         }
 
         # Iterate over beams

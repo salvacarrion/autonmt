@@ -22,10 +22,10 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         self.test_tds = None
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, subword_model, bytes_as_words, **kwargs):
+                    trg_vocab_path, subword_model, **kwargs):
 
         # Get vocabs
-        if subword_model in {"bytes"} and bytes_as_words:
+        if subword_model in {"bytes"}:
             src_vocab = VocabularyBytes()
             trg_vocab = VocabularyBytes()
         else:

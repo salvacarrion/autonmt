@@ -8,7 +8,7 @@ import autonmt as al
 
 from autonmt import DatasetBuilder
 from autonmt.modules.nn import Transformer
-from autonmt.tasks.translation.bundle.report import scores2pandas, summarize_scores
+from autonmt.tasks.translation.bundle.report import scores2pandas, summarize_scores, generate_report
 from autonmt import utils
 
 import pytest
@@ -110,26 +110,17 @@ def test_autonmt_vs_fairseq(datasets_dir):
     fairseq_scores = train_and_score_fairseq(**params)
     autonmt_scores = train_and_score_autonmt(**params)
 
-
     # Create output path (debugging
     test_dir = pathlib.Path(__file__).parent.resolve()
-    outputs_path = os.path.join(test_dir, ".outputs")
-    utils.make_dir(outputs_path)
-
-    # Save tests scores (just in case)
-    fairseq_scores_path = os.path.join(outputs_path, "fairseq_scores.json")
-    autonmt_scores_path = os.path.join(outputs_path, "autonmt_scores.json")
-    utils.save_json(fairseq_scores, savepath=fairseq_scores_path)
-    utils.save_json(autonmt_scores, savepath=autonmt_scores_path)
-
-    # Read scores and convert to pandas
-    df_fairseq_scores = scores2pandas(utils.load_json(fairseq_scores_path))
-    df_autonmt_scores = scores2pandas(utils.load_json(autonmt_scores_path))
+    df_fairseq_report, _ = generate_report(scores=fairseq_scores,  output_path=test_dir)
+    df_autonmt_report, _ = generate_report(scores=autonmt_scores,  output_path=test_dir)
 
     # Summarize results
-    df = summarize_scores([df_fairseq_scores, df_autonmt_scores], beam_width=1)
+    df_summary = summarize_scores([df_fairseq_report, df_autonmt_report])
+
     print("Summary:")
-    print(df.to_string(index=False))
+    print(df_summary.to_string(index=False))
+
     assert 1==1
 
     #
