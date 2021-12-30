@@ -1,7 +1,7 @@
 import torch
 
 from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
-from autonmt.tasks.translation.bundle.vocabulary import VocabularyBytes
+from autonmt.tasks.translation.bundle.vocabulary import BaseVocabulary, Vocabulary
 from autonmt.tasks.translation.models import Seq2Seq
 from autonmt.tasks.translation.toolkits.base_translator import BaseTranslator
 from autonmt.tasks.translation.bundle.search_algorithms import greedy_search, beam_search
@@ -12,7 +12,7 @@ from typing import Type
 
 class Translator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model: Type[Seq2Seq],  **kwargs):
+    def __init__(self, model: Type[Seq2Seq], src_vocab=None, trg_vocab=None, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
 
@@ -21,31 +21,26 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         self.val_tds = None
         self.test_tds = None
 
+        # Set vocab (optional)
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
+
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
                     trg_vocab_path, subword_model, **kwargs):
 
-        # Get vocabs
-        if subword_model in {"bytes"}:
-            src_vocab = VocabularyBytes()
-            trg_vocab = VocabularyBytes()
-        else:
-            # Do not use *.vocabf if possible. It could be not equivalent to *.vocab
-            src_vocab = src_vocab_path + ".vocab" if src_vocab_path else None
-            trg_vocab = trg_vocab_path + ".vocab" if trg_vocab_path else None
+        # Load vocabs (do not replace the ones from the constructor)
+        _src_vocab = self.src_vocab if self.src_vocab else self._get_vocab(src_vocab_path + ".vocab", lang=src_lang)
+        _trg_vocab = self.trg_vocab if self.trg_vocab else self._get_vocab(trg_vocab_path + ".vocab", lang=trg_lang)
 
         # Create datasets
         if not kwargs.get("external_data"):  # Training
             self.train_tds = TranslationDataset(file_prefix=train_path, src_lang=src_lang, trg_lang=trg_lang,
-                                                src_vocab=src_vocab, trg_vocab=trg_vocab)
+                                                src_vocab=_src_vocab, trg_vocab=_trg_vocab)
             self.val_tds = TranslationDataset(file_prefix=val_path, src_lang=src_lang, trg_lang=trg_lang,
-                                              src_vocab=self.train_tds.src_vocab, trg_vocab=self.train_tds.trg_vocab)
+                                              src_vocab=_src_vocab, trg_vocab=_trg_vocab)
         else:  # Evaluation
-            # Check vocab values
-            if src_vocab is None or trg_vocab is None:
-                raise ValueError("'src_vocab_path' and 'trg_vocab_path' cannot be 'None' during testing")
-
             self.test_tds = TranslationDataset(file_prefix=test_path, src_lang=src_lang, trg_lang=trg_lang,
-                                               src_vocab=src_vocab, trg_vocab=trg_vocab)
+                                               src_vocab=_src_vocab, trg_vocab=_trg_vocab)
 
     def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
         # Create and train model
@@ -90,6 +85,18 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         # Write file: hyp, src, ref
         for lines, fname in [(hyp_tok, "hyp.tok"), (src_tok, "src.tok"), (ref_tok, "ref.tok")]:
             write_file_lines(lines=lines, filename=os.path.join(output_path, fname))
+
+    def _get_vocab(self, vocab, lang):
+        if isinstance(vocab, str):
+            vocab = Vocabulary(lang=lang).build_from_vocab(filename=vocab)
+        elif isinstance(vocab, BaseVocabulary):
+            pass
+        else:
+            raise ValueError("'vocab' must be a path or instance of 'Vocabulary'")
+
+        # Print stuff
+        print(f"\t- [INFO]: Loaded '{lang}' vocab with {len(vocab):,} tokens")
+        return vocab
 
     def _get_model(self, dts: TranslationDataset, **kwargs):
         # Get vocab sizes

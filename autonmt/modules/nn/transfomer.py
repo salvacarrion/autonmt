@@ -47,34 +47,36 @@ class Transformer(Seq2Seq):
         assert encoder_ffn_embed_dim == decoder_ffn_embed_dim
 
     def forward(self, x, y):
+        memory = self.forward_encoder(x)
+        output = self.forward_decoder(y, memory)
+        return output
+
+    def forward_encoder(self, x):
         assert x.shape[1] <= self.max_sequence_length
-        assert y.shape[1] <= self.max_sequence_length
 
         # Encode src
         x_pos = self.src_pos_embeddings(x)
         x_emb = self.src_embeddings(x)
         x_emb = (x_emb + x_pos).transpose(0, 1)
-        # x_emb = (x_emb + x_pos*self.src_scale).transpose(0, 1)
-        # x_emb = self.input_dropout(x_emb)
+
+        memory = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
+        return memory
+
+    def forward_decoder(self, y, memory):
+        assert y.shape[1] <= self.max_sequence_length
 
         # Encode trg
         y_pos = self.trg_pos_embeddings(y)
         y_emb = self.trg_embeddings(y)
         y_emb = (y_emb + y_pos).transpose(0, 1)
-        # y_emb = (y_emb + y_pos*self.trg_scale).transpose(0, 1)
-        # y_emb = self.input_dropout(y_emb)
 
         # Make trg mask
-        mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
+        tgt_mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
 
-        # Forward model
-        output = self.transformer.forward(src=x_emb, tgt=y_emb, tgt_mask=mask)
+        output = self.transformer.decoder(tgt=y_emb, memory=memory, tgt_mask=tgt_mask, memory_mask=None,
+                                          tgt_key_padding_mask=None, memory_key_padding_mask=None)
 
         # Get output
         output = output.transpose(0, 1)
         output = self.output_layer(output)
         return output
-
-
-
-

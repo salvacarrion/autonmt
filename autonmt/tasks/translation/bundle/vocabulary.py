@@ -132,10 +132,11 @@ class Vocabulary(BaseVocabulary):
 
 
 class VocabularyBytes(BaseVocabulary):
-    def __init__(self, sos_id=256, eos_id=257, pad_id=258,
+    def __init__(self, hex_input=False, sos_id=256, eos_id=257, pad_id=258,
                  sos_piece="<s>", eos_piece="</s>", pad_piece="<pad>"):
         super().__init__(sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
                          sos_piece=sos_piece, eos_piece=eos_piece, pad_piece=pad_piece)
+        self.hex_input = hex_input
 
         # Set special tokens
         self._offset = len(self.special_tokens)
@@ -144,8 +145,11 @@ class VocabularyBytes(BaseVocabulary):
         return 256 + len(self.special_tokens)
 
     def encode(self, text, add_special_tokens=True):
-        s_bytes = text.encode()  # b'Hello world! \xf0\x9f\x8c\xb1'
-        b_list = [b for b in s_bytes]  # [72, 101, 108,...]
+        if self.hex_input:
+            b_list = [int(x, base=16) for x in text.split(' ')]
+        else:
+            s_bytes = text.encode()  # b'Hello world! \xf0\x9f\x8c\xb1'
+            b_list = [b for b in s_bytes]  # [72, 101, 108,...]
         idxs = [self.sos_id] + b_list + [self.eos_id] if add_special_tokens else b_list
         return idxs
 
@@ -165,7 +169,10 @@ class VocabularyBytes(BaseVocabulary):
             except ValueError:
                 pass
 
-        # Decode sentences
-        b_enc = bytes(idxs)
-        tokens = b_enc.decode()
-        return tokens
+        # Decode idxs
+        if self.hex_input:
+            text = " ".join([hex(x) for x in idxs])
+        else:
+            b_enc = bytes(idxs)
+            text = b_enc.decode()
+        return text

@@ -23,11 +23,14 @@ def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_ge
             dec_idxs = torch.full((x.shape[0], 1), sos_id, dtype=torch.long).to(device)  # Sentence tokens
             dec_probs = torch.zeros(x.shape[0]).to(device)  # Sentence probability
 
+            # Run encoder
+            memory = model.forward_encoder(x)
+
             # Iterative decoder
             all_eos = False
             while not all_eos and dec_idxs.shape[1] <= max_gen_length:
                 # Get next token (probs + idx)
-                next_probabilities = model.forward(x, dec_idxs)[:, -1].log_softmax(-1)
+                next_probabilities = model.forward_decoder(dec_idxs, memory)[:, -1].log_softmax(-1)
                 next_max_probabilities, next_max_idxs = next_probabilities.max(-1)
 
                 # Concat new tokens with previous tokens
@@ -80,6 +83,9 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
             topk_next_idxs = topk_next_idxs.reshape(-1, 1)
             dec_idxs = torch.cat((dec_idxs, topk_next_idxs), axis=-1)
 
+            # Run encoder
+            memory = model.forward_encoder(x)
+
             # Iterative decoder
             all_eos = False
             while not all_eos and dec_idxs.shape[1] <= max_gen_length:
@@ -89,8 +95,9 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
 
                 # Get next probs for each beam
                 beam_next_probabilities = []
-                for _x, _y in tensor_dataloader:
-                    beam_next_probabilities.append(model.forward(_x, _y)[:, -1, :].log_softmax(-1))
+                for _, _y in tensor_dataloader:
+                    output = model.forward_decoder(_y, memory)[:, -1, :].log_softmax(-1)
+                    beam_next_probabilities.append(output)
 
                 # Concat probabilities and reshape them => (batch, beams, probs)
                 beam_next_probabilities = torch.cat(beam_next_probabilities, axis=0)
