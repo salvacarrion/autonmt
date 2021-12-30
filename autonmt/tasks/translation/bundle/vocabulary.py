@@ -86,9 +86,10 @@ class Vocabulary(BaseVocabulary):
         self._assert_vocab()
         return self
 
-    def encode(self, text, add_special_tokens=True):
+    def encode(self, text, add_special_tokens=True, max_length=None):
         tokens = text.strip().split(' ')
         idxs = [self.voc2idx.get(tok, self.unk_id) for tok in tokens]
+        idxs = idxs[:max_length-2*int(add_special_tokens)] if max_length else idxs  # count <sos> and <eos>
         idxs = [self.sos_id] + idxs + [self.eos_id] if add_special_tokens else idxs
         return idxs
 
@@ -144,13 +145,14 @@ class VocabularyBytes(BaseVocabulary):
     def __len__(self):
         return 256 + len(self.special_tokens)
 
-    def encode(self, text, add_special_tokens=True):
+    def encode(self, text, add_special_tokens=True, max_length=None):
         if self.hex_input:
             b_list = [int(x, base=16) for x in text.split(' ')]
         else:
             s_bytes = text.encode()  # b'Hello world! \xf0\x9f\x8c\xb1'
             b_list = [b for b in s_bytes]  # [72, 101, 108,...]
-        idxs = [self.sos_id] + b_list + [self.eos_id] if add_special_tokens else b_list
+        idxs = b_list[:max_length - 2 * int(add_special_tokens)] if max_length else b_list  # count <sos> and <eos>
+        idxs = [self.sos_id] + idxs + [self.eos_id] if add_special_tokens else b_list
         return idxs
 
     def decode(self, idxs, remove_special_tokens=True):

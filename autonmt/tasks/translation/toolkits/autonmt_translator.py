@@ -12,7 +12,8 @@ from typing import Type
 
 class Translator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model: Type[Seq2Seq], src_vocab=None, trg_vocab=None, **kwargs):
+    def __init__(self, model: Type[Seq2Seq], src_vocab=None, trg_vocab=None, max_src_positions=None,
+                 max_trg_positions=None, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
 
@@ -25,6 +26,10 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
 
+        # Other
+        self.max_src_positions = max_src_positions
+        self.max_trg_positions = max_trg_positions
+
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
                     trg_vocab_path, subword_model, **kwargs):
 
@@ -33,14 +38,14 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         _trg_vocab = self.trg_vocab if self.trg_vocab else self._get_vocab(trg_vocab_path + ".vocab", lang=trg_lang)
 
         # Create datasets
+        # Set common params
+        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=_src_vocab, trg_vocab=_trg_vocab,
+                      max_src_positions=self.max_src_positions, max_trg_positions=self.max_trg_positions)
         if not kwargs.get("external_data"):  # Training
-            self.train_tds = TranslationDataset(file_prefix=train_path, src_lang=src_lang, trg_lang=trg_lang,
-                                                src_vocab=_src_vocab, trg_vocab=_trg_vocab)
-            self.val_tds = TranslationDataset(file_prefix=val_path, src_lang=src_lang, trg_lang=trg_lang,
-                                              src_vocab=_src_vocab, trg_vocab=_trg_vocab)
+            self.train_tds = TranslationDataset(file_prefix=train_path, **params, **kwargs)
+            self.val_tds = TranslationDataset(file_prefix=val_path, **params, **kwargs)
         else:  # Evaluation
-            self.test_tds = TranslationDataset(file_prefix=test_path, src_lang=src_lang, trg_lang=trg_lang,
-                                               src_vocab=_src_vocab, trg_vocab=_trg_vocab)
+            self.test_tds = TranslationDataset(file_prefix=test_path, **params, **kwargs)
 
     def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
         # Create and train model

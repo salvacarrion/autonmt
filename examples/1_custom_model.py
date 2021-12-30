@@ -14,7 +14,7 @@ def main():
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
-        subword_models=["bytes"],
+        subword_models=["word"],
         vocab_sizes=[8000],
         merge_vocabs=True,
         force_overwrite=False,
@@ -27,11 +27,11 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = al.Translator(model=Transformer, model_ds=ds, force_overwrite=True,
-                              src_vocab=VocabularyBytes(hex_input=True), trg_vocab=VocabularyBytes(hex_input=True))
-        # model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-        #           update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1, )
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
+        model = al.Translator(model=Transformer, model_ds=ds, force_overwrite=True)
+        model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+                  update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1)
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1],
+                                 batch_size=128, max_tokens=None, max_gen_length=150)
         scores.append(m_scores)
 
     # Make report and print it

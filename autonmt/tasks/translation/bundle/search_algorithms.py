@@ -57,8 +57,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
     device = next(model.parameters()).device
 
     # Create dataloader
-    def collate_fn(x):
-        return dataset.collate_fn(x, max_tokens=max_tokens)
+    collate_fn = lambda x: dataset.collate_fn(x, max_tokens=max_tokens)
     eval_dataloader = tud.DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
     idxs = []

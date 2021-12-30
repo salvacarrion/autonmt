@@ -17,18 +17,20 @@ class Transformer(Seq2Seq):
                  decoder_ffn_embed_dim=512,
                  dropout=0.1,
                  activation_fn="relu",
-                 max_sequence_length=1024,
+                 max_src_positions=1024,
+                 max_trg_positions=1024,
                  padding_idx=None,
                  learned=False,
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, **kwargs)
-        self.max_sequence_length = max_sequence_length
+        self.max_src_positions = max_src_positions
+        self.max_trg_positions = max_trg_positions
 
         # Model
         self.src_embeddings = nn.Embedding(src_vocab_size, encoder_embed_dim)
         self.trg_embeddings = nn.Embedding(trg_vocab_size, decoder_embed_dim)
-        self.src_pos_embeddings = PositionalEmbedding(num_embeddings=max_sequence_length, embedding_dim=encoder_embed_dim, padding_idx=padding_idx, learned=learned)
-        self.trg_pos_embeddings = PositionalEmbedding(num_embeddings=max_sequence_length, embedding_dim=decoder_embed_dim, padding_idx=padding_idx, learned=learned)
+        self.src_pos_embeddings = PositionalEmbedding(num_embeddings=max_src_positions, embedding_dim=encoder_embed_dim, padding_idx=padding_idx, learned=learned)
+        self.trg_pos_embeddings = PositionalEmbedding(num_embeddings=max_trg_positions, embedding_dim=decoder_embed_dim, padding_idx=padding_idx, learned=learned)
         self.transformer = nn.Transformer(d_model=encoder_embed_dim,
                                           nhead=encoder_attention_heads,
                                           num_encoder_layers=encoder_layers,
@@ -38,8 +40,6 @@ class Transformer(Seq2Seq):
                                           activation=activation_fn)
         self.output_layer = nn.Linear(encoder_embed_dim, src_vocab_size)
         self.input_dropout = nn.Dropout(dropout)
-        # self.src_scale = math.sqrt(encoder_embed_dim)
-        # self.trg_scale = math.sqrt(decoder_embed_dim)
 
         # Checks
         assert encoder_embed_dim == decoder_embed_dim
@@ -52,7 +52,7 @@ class Transformer(Seq2Seq):
         return output
 
     def forward_encoder(self, x):
-        assert x.shape[1] <= self.max_sequence_length
+        assert x.shape[1] <= self.max_src_positions
 
         # Encode src
         x_pos = self.src_pos_embeddings(x)
@@ -63,7 +63,7 @@ class Transformer(Seq2Seq):
         return memory
 
     def forward_decoder(self, y, memory):
-        assert y.shape[1] <= self.max_sequence_length
+        assert y.shape[1] <= self.max_trg_positions
 
         # Encode trg
         y_pos = self.trg_pos_embeddings(y)
