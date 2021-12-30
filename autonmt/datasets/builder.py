@@ -51,6 +51,33 @@ def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_voc
                                   input_file=input_file, output_file=output_file, **kwargs)
 
 
+def decode_file(input_file, output_file, lang, subword_model, bytes_as_words, model_vocab_path, force_overwrite,
+                use_cmd, conda_env_name, **kwargs):
+    if force_overwrite or not os.path.exists(output_file):
+
+        # Detokenize
+        if subword_model not in {None, "none", "bytes"}:
+            py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
+                                  use_cmd=use_cmd, conda_env_name=conda_env_name)
+
+            # Detokenize with moses
+            if subword_model == "word":
+                py_cmd_api.moses_detokenizer(input_file=input_file, output_file=output_file, lang=lang,
+                                             use_cmd=use_cmd, conda_env_name=conda_env_name)
+        else:
+            # From 0x65 to letters
+            if subword_model == "bytes" and bytes_as_words:
+                # Decode files
+                lines = read_file_lines(input_file)
+                lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
+
+                # Write files
+                write_file_lines(lines=lines, filename=output_file)
+            else:
+                # Rename or copy files (tok==txt)
+                shutil.copyfile(input_file, output_file)
+
+
 class DatasetBuilder:
     SUPPORTED_SUBWORD_MODELS = {"none", "word", "char", "char+bytes", "bpe", "unigram", "bytes"}
 

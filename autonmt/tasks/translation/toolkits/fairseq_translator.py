@@ -83,7 +83,7 @@ class FairseqTranslator(BaseTranslator):
             # raise ValueError("'FairseqTranslator' needs the name of the conda environment where it is installed")
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, subword_model, **kwargs):
+                    trg_vocab_path, subword_model, bytes_as_words, **kwargs):
         # Reformat vocab files for fairseq
         new_src_vocab_path = ""
         new_trg_vocab_path = ""

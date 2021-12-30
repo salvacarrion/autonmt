@@ -13,10 +13,8 @@ def main(fairseq_args):
         subword_models=["bytes"],
         vocab_sizes=[8000],
         merge_vocabs=True,
+        bytes_as_words=True,
         force_overwrite=False,
-        interactive=True,
-        use_cmd=False,
-        conda_env_name=None,
     ).build(make_plots=False, safe=True)
 
     # Create datasets for testing
@@ -26,13 +24,13 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = al.FairseqTranslator(model_ds=ds, safe_seconds=2,
-                                     force_overwrite=True, interactive=False,
+                                     force_overwrite=False, interactive=False,
                                      use_cmd=False,
                                      conda_env_name="mltests",
                                      conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-        model.fit(max_epochs=5, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-                  update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
-                  fairseq_args=fairseq_args)
+        # model.fit(max_epochs=5, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
+        #           update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
+        #           fairseq_args=fairseq_args)
         eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(eval_scores)
     print(scores[0][0]['beams']['beam1'])

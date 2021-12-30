@@ -7,7 +7,7 @@ from autonmt.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.datasets import Dataset, DatasetBuilder
-from autonmt.datasets.builder import encode_file
+from autonmt.datasets.builder import encode_file, decode_file
 from autonmt import py_cmd_api
 
 
@@ -53,10 +53,10 @@ class BaseTranslator(ABC):
     # Global variables
     total_runs = 0
     TOOL_PARSERS = {"sacrebleu": {"filename": "sacrebleu_scores", "py": (parse_sacrebleu_json, "json"), "cmd": (parse_sacrebleu_json, "json")},
-                      "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json"), "cmd": (parse_bertscore_txt, "txt")},
-                      "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json"), "cmd": (parse_comet_txt, "txt")},
-                      "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json"), "cmd": (parse_beer_txt, "txt")},
-                      "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json"), "cmd": (parse_huggingface_json, "json")},
+                    "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json"), "cmd": (parse_bertscore_txt, "txt")},
+                    "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json"), "cmd": (parse_comet_txt, "txt")},
+                    "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json"), "cmd": (parse_beer_txt, "txt")},
+                    "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json"), "cmd": (parse_huggingface_json, "json")},
                     }
     TOOL2METRICS = {"sacrebleu": {"bleu", "chrf", "ter"},
                     "bertscore": {"bertscore"},
@@ -235,7 +235,7 @@ class BaseTranslator(ABC):
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=ds.subword_model, **kwargs)
+                         subword_model=ds.subword_model, bytes_as_words=ds.bytes_as_words, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -349,16 +349,21 @@ class BaseTranslator(ABC):
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path, **kwargs)
 
             # Postprocess tokenized files
-            txt_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.txt", "ref.txt", "hyp.txt"]]
-            if self.force_overwrite or not all(txt_flag):
-                self.postprocess_tok_files(output_path=output_path,
-                                           model_src_vocab_path=model_src_vocab_path,
-                                           model_trg_vocab_path=model_trg_vocab_path,
-                                           subword_model=model_ds.subword_model,
-                                           src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang)
+            for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang), ("hyp", model_ds.trg_lang)]:
+                input_file = os.path.join(output_path, f"{fname}.tok")
+                output_file = os.path.join(output_path, f"{fname}.txt")
+                model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
+
+                # Post-process files
+                decode_file(input_file=input_file, output_file=output_file, lang=lang,
+                            subword_model=model_ds.subword_model, bytes_as_words=model_ds.bytes_as_words,
+                            model_vocab_path=model_vocab_path, force_overwrite=self.force_overwrite,
+                            use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
-    def postprocess_tok_files(self, output_path, model_src_vocab_path, model_trg_vocab_path, subword_model, src_lang, trg_lang):
+    def postprocess_tok_files(self, output_path, model_src_vocab_path, model_trg_vocab_path, subword_model,
+                              bytes_as_words, src_lang, trg_lang):
         # Input files
         src_tok_path = os.path.join(output_path, "src.tok")
         ref_tok_path = os.path.join(output_path, "ref.tok")
@@ -369,22 +374,7 @@ class BaseTranslator(ABC):
         ref_txt_path = os.path.join(output_path, "ref.txt")
         hyp_txt_path = os.path.join(output_path, "hyp.txt")
 
-        # Detokenize
-        if subword_model not in {None, "none", "bytes"}:
-            py_cmd_api.spm_decode(model_src_vocab_path + ".model", input_file=src_tok_path, output_file=src_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-            py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=ref_tok_path, output_file=ref_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-            py_cmd_api.spm_decode(model_trg_vocab_path + ".model", input_file=hyp_tok_path, output_file=hyp_txt_path, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-            # Detokenize with moses
-            if subword_model == "word":
-                py_cmd_api.moses_detokenizer(input_file=src_txt_path, output_file=src_txt_path, lang=src_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-                py_cmd_api.moses_detokenizer(input_file=ref_txt_path, output_file=ref_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-                py_cmd_api.moses_detokenizer(input_file=hyp_txt_path, output_file=hyp_txt_path, lang=trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-        else:
-            # Rename or copy files (tok==txt)
-            shutil.copyfile(src_tok_path, src_txt_path)
-            shutil.copyfile(ref_tok_path, ref_txt_path)
-            shutil.copyfile(hyp_tok_path, hyp_txt_path)
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
