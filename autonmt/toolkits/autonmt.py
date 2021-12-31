@@ -1,24 +1,20 @@
-import torch
-
-from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
-from autonmt.tasks.translation.bundle.vocabulary import BaseVocabulary, Vocabulary
-from autonmt.tasks.translation.models import Seq2Seq, LitSeq2Seq
-from autonmt.tasks.translation.toolkits.base_translator import BaseTranslator
-from autonmt.tasks.translation.bundle.search_algorithms import greedy_search, beam_search
-from autonmt.utils import *
+from autonmt.modules.datasets.translation_dataset import TranslationDataset
+from autonmt.vocabularies.base_vocab import BaseVocabulary
+from autonmt.vocabularies.space_vocab import Vocabulary
+from autonmt.modules.seq2seq import LitSeq2Seq
+from autonmt.toolkits.base import BaseTranslator
+from autonmt.search.greedy_search import greedy_search
+from autonmt.search.beam_search import beam_search
+from autonmt.bundle.utils import *
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from typing import Type
 
 import torch
-from torch import nn
-from torch.nn import functional as F
 from torch.utils.data import DataLoader
-from torch.utils.data import random_split
 import pytorch_lightning as pl
-from pytorch_lightning import loggers as pl_loggers
 
 
 class Translator(BaseTranslator):  # AutoNMT Translator
@@ -28,7 +24,7 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
 
-        # Translation datasets (do not confuse with 'train_ds')
+        # Translation builder (do not confuse with 'train_ds')
         self.train_tds = None
         self.val_tds = None
         self.test_tds = None
@@ -48,7 +44,7 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         _src_vocab = self.src_vocab if self.src_vocab else self._get_vocab(src_vocab_path + ".vocab", lang=src_lang)
         _trg_vocab = self.trg_vocab if self.trg_vocab else self._get_vocab(trg_vocab_path + ".vocab", lang=trg_lang)
 
-        # Create datasets
+        # Create builder
         # Set common params
         params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=_src_vocab, trg_vocab=_trg_vocab,
                       max_src_positions=self.max_src_positions, max_trg_positions=self.max_trg_positions)
@@ -92,7 +88,8 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(model, train_loader, val_loader)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
-                   data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path, **kwargs):
+                   data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path,
+                   num_workers, **kwargs):
         # Instantiate model
         model = self.model(src_vocab_size=len(self.test_tds.src_vocab), trg_vocab_size=len(self.test_tds.trg_vocab),
                            padding_idx=self.test_tds.src_vocab.pad_id, **kwargs)
@@ -107,7 +104,8 @@ class Translator(BaseTranslator):  # AutoNMT Translator
                                                           sos_id=self.test_tds.src_vocab.sos_id,
                                                           eos_id=self.test_tds.src_vocab.eos_id,
                                                           batch_size=batch_size, max_tokens=max_tokens,
-                                                          beam_width=beam_width, max_gen_length=max_gen_length)
+                                                          beam_width=beam_width, max_gen_length=max_gen_length,
+                                                          num_workers=num_workers)
         # Decode output
         self._postprocess_output(predictions=predictions, output_path=output_path)
 

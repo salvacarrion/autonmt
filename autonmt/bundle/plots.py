@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from autonmt import utils
+from autonmt.bundle import utils
 
 # Sort of incompatible with plotly
 import matplotlib
@@ -186,29 +186,3 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
             title=f"Model comparison", xlabel="Models", ylabel=ylabel, leyend_title=None,
             output_dir=output_path, fname=fname, aspect_ratio=(8, 4), size=1.0, rotate_xlabels=0,
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
-    
-# def histogram(data, output_dir, fname, title="", legend_title=None, labels=None, nbins=20, bargap=0.2,
-#                show_fig=False, save_fig=True, formats=None):
-#     import plotly.express as px
-#     import plotly.graph_objects as go
-#
-#     # Fix mathjax issue
-#     import plotly.io as pio
-#     pio.kaleido.scope.mathjax = None
-#
-#     if formats is None:
-#         formats = ["png", "pdf"]
-#
-#     fig = px.histogram(data, nbins=nbins, title=title, labels=labels)
-#     fig.update_layout(bargap=bargap, legend_orientation='h', title=dict(x=0.5, font=dict(size=18)),
-#                       legend_title=legend_title)
-#
-#     # Save image
-#     if save_fig:
-#         for ext in formats:
-#             # Create png/pdf/... dirs
-#             save_dir = os.path.join(output_dir, ext)
-#             Path(save_dir).mkdir(parents=True, exist_ok=True)
-#
-#             # Save image
-#             fig.write_image(os.path.join(save_dir, f"{fname}.{ext}"))

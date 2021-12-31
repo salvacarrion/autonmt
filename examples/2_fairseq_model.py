@@ -1,13 +1,10 @@
-import os
-
-import autonmt as al
-from autonmt import DatasetBuilder
-from autonmt.tasks.translation.bundle.report import generate_report, summarize_scores, scores2pandas
-from autonmt import utils
+from autonmt.toolkits.fairseq import FairseqTranslator
+from autonmt.builder.builder import DatasetBuilder
+from autonmt.bundle.report import generate_report
 
 
 def main(fairseq_args):
-    # Create datasets for training
+    # Create builder for training
     builder = DatasetBuilder(
         base_path="/home/salva/datasets/",
         datasets=[
@@ -15,25 +12,25 @@ def main(fairseq_args):
         ],
         subword_models=["word"],
         vocab_sizes=[8000],
-        merge_vocabs=True,
+        merge_vocabs=False,
         force_overwrite=False,
-    ).build(make_plots=False, safe=True)
+        use_cmd=True,
+    ).build(make_plots=True, safe=True)
 
-    # Create datasets for testing
+    # Create builder for training and testing
     tr_datasets = builder.get_ds()
     ts_datasets = builder.get_ds(ignore_variants=True)
 
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = al.FairseqTranslator(model_ds=ds, force_overwrite=False, conda_fairseq_env_name="fairseq")
-        model.fit(max_epochs=10, batch_size=128, seed=1234, num_workers=16,
-                  fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
+        model = FairseqTranslator(model_ds=ds, force_overwrite=False, conda_fairseq_env_name="fairseq", use_cmd=True)
+        model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it
-    df_report, df_summary = generate_report(scores=scores, output_path=".outputs", plot_metric="beam1__sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=".outputs/fairseq", plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 

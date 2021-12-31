@@ -1,17 +1,15 @@
-import random
 import shutil
 from itertools import islice
 
 import numpy as np
 import pandas as pd
-import tqdm
 
-from autonmt.utils import *
-from autonmt import plots, utils
-from autonmt.datasets.dataset import Dataset
+from autonmt.bundle.utils import *
+from autonmt.bundle import utils, plots
+from autonmt.builder.dataset import Dataset
 from collections import Counter
 
-from autonmt import py_cmd_api
+from autonmt.api import py_cmd_api
 
 
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
@@ -82,7 +80,7 @@ def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, 
 
 
 def get_compatible_datasets(datasets, ref_ds):
-    # Keep only relevant datasets
+    # Keep only relevant builder
     compatible_datasets = []
     compatible_datasets_ids = set()
     for ds in datasets:
@@ -121,7 +119,7 @@ class DatasetBuilder:
 
         # Other
         self.ds_list = self._unroll_datasets(include_variants=True)  # includes subwords, vocabs,...
-        self.ds_list_main = self._unroll_datasets(include_variants=False)  # main datasets only
+        self.ds_list_main = self._unroll_datasets(include_variants=False)  # main builder only
 
     def __iter__(self):
         self.n = 0
@@ -198,7 +196,7 @@ class DatasetBuilder:
         # Build vocabs
         self._build_vocab(force_pretok=force_pretok)
 
-        # Encode datasets
+        # Encode builder
         if encode:
             self._encode_datasets()
             self._export_vocab_frequencies()
@@ -302,7 +300,7 @@ class DatasetBuilder:
                         make_dir(splits_path) if res else None
                         print("=> Directories created. ")
 
-                # Notify about the datasets missing
+                # Notify about the builder missing
                 print(f"You need to add your dataset to at least one of these folders:")
                 print(
                     f"\t- The '{ds.data_raw_path}' folder is used when you have two files (e.g. 'data.ru' and 'data.en')")
@@ -535,7 +533,7 @@ class DatasetBuilder:
             if show_figures:
                 raise ValueError("'save_fig' is incompatible with 'show_fig'")
 
-        # Walk through datasets
+        # Walk through builder
         for ds in self:  # Dataset
             ds_name, lang_pair, ds_size_name = ds.id()
             src_lang, trg_lang = ds.id()[1].split("-")

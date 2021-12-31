@@ -1,5 +1,5 @@
 import subprocess
-from autonmt.cmd import NO_CONDA_MSG
+from autonmt.api import NO_CONDA_MSG
 
 
 def cmd_spm_encode(model_path, input_file, output_file, conda_env_name=None):

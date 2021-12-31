@@ -1,17 +1,5 @@
-import os
-
-import torch
-import torch.nn as nn
-import torch.utils.data as tud
-import tqdm
-from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
-from abc import ABC, abstractmethod
-
 import torch
 from torch import nn
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from torch.utils.data import random_split
 import pytorch_lightning as pl
 
 
@@ -62,13 +50,19 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Forward
         output = self.forward_encoder(x)
-        output = self.forward_decoder(y, output)
+        output = self.forward_decoder(y, output)  # (B, L, E)
 
         # Compute loss
         output = output.transpose(1, 2)[:, :, :-1]  # Remove last index to match shape with 'y[1:]'
         y = y[:, 1:]  # Remove <sos>
         loss = self.criterion_fn(output, y)
+        #
+        # # Metrics: Accuracy
+        # predictions = output.argmax(1)
+        # batch_errors = (predictions != y)
+        # accuracy = 1 - (batch_errors / predictions.numel())
 
         # Log params
         self.log(f"{log_prefix}_loss", loss)
+        # self.log(f"{log_prefix}_acc", accuracy)
         return loss

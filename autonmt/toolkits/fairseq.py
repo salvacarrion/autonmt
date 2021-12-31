@@ -2,9 +2,9 @@ import os
 import shutil
 import subprocess
 
-from autonmt.tasks.translation.toolkits.base_translator import BaseTranslator
-from autonmt import utils
-from autonmt.cmd import NO_CONDA_MSG
+from autonmt.toolkits.base import BaseTranslator
+from autonmt.bundle import utils
+from autonmt.api import NO_CONDA_MSG
 
 
 def _parse_args(**kwargs):

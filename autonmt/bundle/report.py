@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from autonmt.utils import make_dir, save_json
-from autonmt import plots
+from autonmt.bundle.utils import make_dir, save_json
+from autonmt.bundle import plots
 
 
 def generate_report(scores, output_path, plot_metric=None, **kwargs):

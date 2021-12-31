@@ -1,11 +1,11 @@
-import autonmt as al
-from autonmt import DatasetBuilder
-from autonmt.tasks.translation.bundle.report import generate_report
+from autonmt.toolkits.fairseq import FairseqTranslator
+from autonmt.builder.builder import DatasetBuilder
+from autonmt.bundle.report import generate_report
 
 
 def main(fairseq_args):
-    # Create datasets for training
-    tr_datasets = DatasetBuilder(
+    # Create builder for training
+    builder = DatasetBuilder(
         base_path="/home/salva/datasets/",
         datasets=[
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
@@ -14,13 +14,11 @@ def main(fairseq_args):
         vocab_sizes=[8000],
         merge_vocabs=True,
         force_overwrite=False,
-        interactive=False,
-        use_cmd=False,
-        conda_env_name=None,
     ).build(make_plots=False, safe=True)
 
-    # Create datasets for testing
-    ts_datasets = tr_datasets
+    # Create builder for training and testing
+    tr_datasets = builder.get_ds()
+    ts_datasets = builder.get_ds(ignore_variants=True)
 
     # Train & Score a model for each dataset
     runs = 3
@@ -30,26 +28,22 @@ def main(fairseq_args):
         run_eval_scores = []
         for i in range(runs):
             run_id = f"model{i}"
-            model = al.FairseqTranslator(model_ds=ds, safe_seconds=2, run_prefix=run_id,
-                                         force_overwrite=True, interactive=False,
-                                         use_cmd=False,
-                                         conda_env_name="mltests",
-                                         conda_fairseq_env_name="fairseq")  # Conda envs will soon be deprecated
-            model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-                      update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=None, num_gpus=1,
-                      fairseq_args=fairseq_args)
-            eval_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
-            run_eval_scores.append(eval_scores)
+            model = FairseqTranslator(model_ds=ds, run_prefix=run_id, force_overwrite=False, conda_fairseq_env_name="fairseq")
+            model.fit(max_epochs=10, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
+            m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1, 5])
+            run_eval_scores.append(m_scores)
         scores.append(run_eval_scores)
 
-    # Make report
-    # generate_report(scores=scores, metric_id="beam_1__sacrebleu_bleu", output_path=".outputs/fairseq", save_figures=True, show_figures=False)
+    # Make report and print it
+    df_report, df_summary = generate_report(scores=scores, output_path=".outputs/fairseq", plot_metric="beam1__sacrebleu_bleu_score")
+    print("Summary:")
+    print(df_summary.to_string(index=False))
 
 
 if __name__ == "__main__":
     # These args are pass to fairseq using our pipeline
     # Fairseq Command-line tools: https://fairseq.readthedocs.io/en/latest/command_line_tools.html
-    fairseq_cmd_args = [
+    fairseq_args = [
         "--arch transformer",
         "--encoder-embed-dim 256",
         "--decoder-embed-dim 256",
@@ -73,4 +67,4 @@ if __name__ == "__main__":
     ]
 
     # Run grid
-    main(fairseq_args=fairseq_cmd_args)
+    main(fairseq_args=fairseq_args)

@@ -1,14 +1,14 @@
 import os.path
 import shutil
 
-from typing import List, Set, Iterable
+from typing import List, Set
 
-from autonmt.utils import *
+from autonmt.bundle.utils import *
 
 from abc import ABC, abstractmethod
-from autonmt.datasets import Dataset, DatasetBuilder
-from autonmt.datasets.builder import encode_file, decode_file, get_compatible_datasets
-from autonmt import py_cmd_api
+from autonmt.builder.dataset import Dataset
+from autonmt.builder.builder import encode_file, decode_file, get_compatible_datasets
+from autonmt.api import py_cmd_api
 
 
 def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
@@ -22,7 +22,7 @@ def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
         raise TypeError("'eval_ds' must be an instance of 'Dataset' so that we can know the layout of the dataset "
                         "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
 
-    # Check that the datasets are compatible
+    # Check that the builder are compatible
     if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang) or (train_ds.trg_lang != eval_ds.trg_lang)):
         raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
                          f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
@@ -166,7 +166,7 @@ class BaseTranslator(ABC):
                    num_workers=num_workers, monitor=monitor, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, **kwargs):
+                metrics: Set[str] = None, batch_size=32, max_tokens=None, max_gen_length=150, num_workers=0, **kwargs):
         print("=> [Predict]: Started.")
 
         # Get model_ds
@@ -205,7 +205,7 @@ class BaseTranslator(ABC):
         eval_datasets = get_compatible_datasets(eval_datasets, model_ds)
         for eval_ds in eval_datasets:
             self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
-                           batch_size=batch_size, max_tokens=max_tokens, **kwargs)
+                           batch_size=batch_size, max_tokens=max_tokens, num_workers=num_workers, **kwargs)
             self.score(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
             model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
                                               engine=self.engine, **kwargs)
@@ -252,7 +252,7 @@ class BaseTranslator(ABC):
     def train(self, train_ds: Dataset, **kwargs):
         print("=> [Train]: Started.")
 
-        # Check datasets
+        # Check builder
         _check_datasets(train_ds=train_ds)
 
         # Set run name
@@ -286,10 +286,10 @@ class BaseTranslator(ABC):
         pass
 
     def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length,
-                  batch_size, max_tokens, **kwargs):
+                  batch_size, max_tokens, num_workers, **kwargs):
         print("=> [Translate]: Started.")
 
-        # Check datasets
+        # Check builder
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
@@ -355,7 +355,8 @@ class BaseTranslator(ABC):
                     src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                     beam_width=beam, max_gen_length=max_gen_length, batch_size=batch_size, max_tokens=max_tokens,
                     data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoint_path=checkpoint_path,
-                    model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path, **kwargs)
+                    model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
+                    num_workers=num_workers, **kwargs)
 
             # Postprocess tokenized files
             for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang), ("hyp", model_ds.trg_lang)]:
@@ -374,7 +375,7 @@ class BaseTranslator(ABC):
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
 
-        # Check datasets
+        # Check builder
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
@@ -449,7 +450,7 @@ class BaseTranslator(ABC):
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Parsing]: Started.")
 
-        # Check datasets
+        # Check builder
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 

@@ -1,7 +1,6 @@
 import subprocess
 
-from autonmt.cmd import NO_CONDA_MSG
-from autonmt import utils
+from autonmt.api import NO_CONDA_MSG
 
 
 def cmd_sacrebleu(ref_file, hyp_file, output_file, metrics, conda_env_name=None):

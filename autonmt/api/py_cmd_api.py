@@ -1,10 +1,9 @@
-import subprocess
 from sacremoses import MosesTokenizer, MosesDetokenizer
 import sentencepiece as spm
 
-from autonmt import utils
-from autonmt.cmd.cmd_tokenizers import *
-from autonmt.cmd.cmd_metrics import *
+from autonmt.bundle import utils
+from autonmt.api.cmd_tokenizers import *
+from autonmt.api.cmd_metrics import *
 
 from tqdm import tqdm
 

@@ -1,13 +1,9 @@
-import os
-import math
 import torch
-import numpy as np
-import pandas as pd
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 
-from autonmt.utils import read_file_lines
+from autonmt.bundle.utils import read_file_lines
 
 
 class TranslationDataset(Dataset):
