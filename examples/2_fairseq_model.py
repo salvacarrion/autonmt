@@ -13,9 +13,8 @@ def main(fairseq_args):
         ],
         subword_models=["word"],
         vocab_sizes=[8000],
-        merge_vocabs=False,
+        merge_vocabs=True,
         force_overwrite=False,
-        use_cmd=True,
     ).build(make_plots=True, safe=True)
 
     # Create preprocessing for training and testing
@@ -25,7 +24,7 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(model_ds=ds, force_overwrite=False, conda_fairseq_env_name="fairseq", use_cmd=True)
+        model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
         model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)

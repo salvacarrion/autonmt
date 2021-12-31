@@ -14,7 +14,7 @@ def main():
         ],
         subword_models=["word"],
         vocab_sizes=[8000],
-        merge_vocabs=False,
+        merge_vocabs=True,
     ).build(make_plots=True, safe=True)
 
     # Create preprocessing for training and testing
@@ -24,7 +24,7 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=False, use_cmd=True)
+        model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=True)
         model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16)
         m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)

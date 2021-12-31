@@ -166,7 +166,7 @@ class BaseTranslator(ABC):
                    num_workers=num_workers, monitor=monitor, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=32, max_tokens=None, max_gen_length=150, num_workers=0, **kwargs):
+                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, num_workers=0, **kwargs):
         print("=> [Predict]: Started.")
 
         # Get model_ds
