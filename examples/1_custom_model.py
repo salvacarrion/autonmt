@@ -1,11 +1,12 @@
-from autonmt.toolkits.autonmt import Translator
-from autonmt.builder.builder import DatasetBuilder
-from autonmt.modules.models.transfomer import Transformer
+from autonmt.preprocessing import DatasetBuilder
 from autonmt.bundle.report import generate_report
+
+from autonmt.toolkits import AutonmtTranslator
+from autonmt.modules.models import Transformer
 
 
 def main():
-    # Create builder for training
+    # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/salva/datasets/",
         datasets=[
@@ -14,18 +15,16 @@ def main():
         subword_models=["word"],
         vocab_sizes=[8000],
         merge_vocabs=False,
-        force_overwrite=False,
-        use_cmd=True,
     ).build(make_plots=True, safe=True)
 
-    # Create builder for training and testing
+    # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
     ts_datasets = builder.get_ds(ignore_variants=True)
 
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = Translator(model=Transformer, model_ds=ds, force_overwrite=False, use_cmd=True)
+        model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=False, use_cmd=True)
         model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16)
         m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)

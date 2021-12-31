@@ -7,7 +7,7 @@ import autonmt as al
 from autonmt.modules.models.transfomer import Transformer
 from autonmt.toolkits.autonmt import Translator
 from autonmt.toolkits.fairseq import FairseqTranslator
-from autonmt.builder.builder import DatasetBuilder
+from autonmt.preprocessing.builder import DatasetBuilder
 from autonmt.bundle.report import generate_report, summarize_scores
 
 import pytest
@@ -83,7 +83,7 @@ def train_and_score_fairseq(train_datasets, train_params, test_params, test_data
 def test_autonmt_vs_fairseq(datasets_dir):
     # Add the -s flag to see the prints
 
-    # Create builder for training
+    # Create preprocessing for training
     builder = DatasetBuilder(
         base_path=datasets_dir,
         datasets=[
@@ -97,7 +97,7 @@ def test_autonmt_vs_fairseq(datasets_dir):
         use_cmd=False,
     ).build(make_plots=False, safe=True)
 
-    # Create builder for training and testing
+    # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
     ts_datasets = builder.get_ds(ignore_variants=True)
 
@@ -125,10 +125,10 @@ def test_autonmt_vs_fairseq(datasets_dir):
     assert True  # Analyze the results manually
 
     #
-    # # Create builder for testing
+    # # Create preprocessing for testing
     # ts_datasets = tr_datasets
     #
     # # Train and score
-    # autonmt_score = _test_autonmt(builder)
-    # fairseq_score = _test_fairseq(builder)
+    # autonmt_score = _test_autonmt(preprocessing)
+    # fairseq_score = _test_fairseq(preprocessing)
     # assert abs(autonmt_score - fairseq_score) == approx(2)

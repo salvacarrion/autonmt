@@ -1,7 +1,7 @@
 import math
 import torch.nn as nn
 from autonmt.modules.seq2seq import LitSeq2Seq
-from autonmt.modules.layers.sinusoidal_pos_emb import SinusoidalPositionalEmbedding
+from autonmt.modules.layers import PositionalEmbedding
 
 
 class Transformer(LitSeq2Seq):
@@ -29,8 +29,8 @@ class Transformer(LitSeq2Seq):
         # Model
         self.src_embeddings = nn.Embedding(src_vocab_size, encoder_embed_dim)
         self.trg_embeddings = nn.Embedding(trg_vocab_size, decoder_embed_dim)
-        self.src_pos_embeddings = SinusoidalPositionalEmbedding(num_embeddings=max_src_positions, embedding_dim=encoder_embed_dim, padding_idx=padding_idx)
-        self.trg_pos_embeddings = SinusoidalPositionalEmbedding(num_embeddings=max_trg_positions, embedding_dim=decoder_embed_dim, padding_idx=padding_idx)
+        self.src_pos_embeddings = PositionalEmbedding(num_embeddings=max_src_positions, embedding_dim=encoder_embed_dim, padding_idx=padding_idx, learned=learned)
+        self.trg_pos_embeddings = PositionalEmbedding(num_embeddings=max_trg_positions, embedding_dim=decoder_embed_dim, padding_idx=padding_idx, learned=learned)
         self.transformer = nn.Transformer(d_model=encoder_embed_dim,
                                           nhead=encoder_attention_heads,
                                           num_encoder_layers=encoder_layers,

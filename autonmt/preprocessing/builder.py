@@ -6,7 +6,7 @@ import pandas as pd
 
 from autonmt.bundle.utils import *
 from autonmt.bundle import utils, plots
-from autonmt.builder.dataset import Dataset
+from autonmt.preprocessing.dataset import Dataset
 from collections import Counter
 
 from autonmt.api import py_cmd_api
@@ -80,7 +80,7 @@ def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, 
 
 
 def get_compatible_datasets(datasets, ref_ds):
-    # Keep only relevant builder
+    # Keep only relevant preprocessing
     compatible_datasets = []
     compatible_datasets_ids = set()
     for ds in datasets:
@@ -119,7 +119,7 @@ class DatasetBuilder:
 
         # Other
         self.ds_list = self._unroll_datasets(include_variants=True)  # includes subwords, vocabs,...
-        self.ds_list_main = self._unroll_datasets(include_variants=False)  # main builder only
+        self.ds_list_main = self._unroll_datasets(include_variants=False)  # main preprocessing only
 
     def __iter__(self):
         self.n = 0
@@ -196,7 +196,7 @@ class DatasetBuilder:
         # Build vocabs
         self._build_vocab(force_pretok=force_pretok)
 
-        # Encode builder
+        # Encode preprocessing
         if encode:
             self._encode_datasets()
             self._export_vocab_frequencies()
@@ -300,7 +300,7 @@ class DatasetBuilder:
                         make_dir(splits_path) if res else None
                         print("=> Directories created. ")
 
-                # Notify about the builder missing
+                # Notify about the preprocessing missing
                 print(f"You need to add your dataset to at least one of these folders:")
                 print(
                     f"\t- The '{ds.data_raw_path}' folder is used when you have two files (e.g. 'data.ru' and 'data.en')")
@@ -533,7 +533,7 @@ class DatasetBuilder:
             if show_figures:
                 raise ValueError("'save_fig' is incompatible with 'show_fig'")
 
-        # Walk through builder
+        # Walk through preprocessing
         for ds in self:  # Dataset
             ds_name, lang_pair, ds_size_name = ds.id()
             src_lang, trg_lang = ds.id()[1].split("-")

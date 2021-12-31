@@ -6,8 +6,8 @@ from typing import List, Set
 from autonmt.bundle.utils import *
 
 from abc import ABC, abstractmethod
-from autonmt.builder.dataset import Dataset
-from autonmt.builder.builder import encode_file, decode_file, get_compatible_datasets
+from autonmt.preprocessing.dataset import Dataset
+from autonmt.preprocessing.builder import encode_file, decode_file, get_compatible_datasets
 from autonmt.api import py_cmd_api
 
 
@@ -22,7 +22,7 @@ def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
         raise TypeError("'eval_ds' must be an instance of 'Dataset' so that we can know the layout of the dataset "
                         "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
 
-    # Check that the builder are compatible
+    # Check that the preprocessing are compatible
     if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang) or (train_ds.trg_lang != eval_ds.trg_lang)):
         raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
                          f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
@@ -252,7 +252,7 @@ class BaseTranslator(ABC):
     def train(self, train_ds: Dataset, **kwargs):
         print("=> [Train]: Started.")
 
-        # Check builder
+        # Check preprocessing
         _check_datasets(train_ds=train_ds)
 
         # Set run name
@@ -289,7 +289,7 @@ class BaseTranslator(ABC):
                   batch_size, max_tokens, num_workers, **kwargs):
         print("=> [Translate]: Started.")
 
-        # Check builder
+        # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
@@ -375,7 +375,7 @@ class BaseTranslator(ABC):
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Score]: Started.")
 
-        # Check builder
+        # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
@@ -450,7 +450,7 @@ class BaseTranslator(ABC):
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print("=> [Parsing]: Started.")
 
-        # Check builder
+        # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 

@@ -1,10 +1,11 @@
-from autonmt.toolkits.fairseq import FairseqTranslator
-from autonmt.builder.builder import DatasetBuilder
+from autonmt.preprocessing import DatasetBuilder
 from autonmt.bundle.report import generate_report
+
+from autonmt.toolkits.fairseq import FairseqTranslator
 
 
 def main(fairseq_args):
-    # Create builder for training
+    # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/salva/datasets/",
         datasets=[
@@ -17,7 +18,7 @@ def main(fairseq_args):
         use_cmd=True,
     ).build(make_plots=True, safe=True)
 
-    # Create builder for training and testing
+    # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
     ts_datasets = builder.get_ds(ignore_variants=True)
 

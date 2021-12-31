@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 from autonmt.bundle.utils import read_file_lines
 
 
-class TranslationDataset(Dataset):
+class Seq2SeqDataset(Dataset):
     def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, max_src_positions=None,
                  max_trg_positions=None, **kwargs):
         # Get src/trg file paths

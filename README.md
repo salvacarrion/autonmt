@@ -56,11 +56,11 @@ and it will guide you step-by-step so that you can create a new dataset.
 
 
 ```python
-from autonmt import DatasetBuilder
+from autonmt.preprocessing import DatasetBuilder
 
-# Create builder for training
+# Create preprocessing for training
 builder = DatasetBuilder(
-    base_path="/home/builder/",
+    base_path="/home/preprocessing/",
     datasets=[
         {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
         {"name": "scielo/health", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
@@ -70,7 +70,7 @@ builder = DatasetBuilder(
     merge_vocabs=True,
 ).build(make_plots=True)
 
-# Create builder for testing
+# Create preprocessing for testing
 tr_datasets = builder.get_ds()
 ts_datasets = builder.get_ds(ignore_variants=True)
 ```
@@ -90,12 +90,15 @@ The `Translator` object abstracts the seq2seq pipeline so that you can train and
 you can use other engines such as `fairseq` or `opennmt`.
 
 ```python
+from autonmt.toolkits import AutonmtTranslator
+from autonmt.modules.models import Transformer
+
 # Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = al.Translator(model=Transformer, model_ds=ds)
-    model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-              update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1)
+    model = AutonmtTranslator(model=Transformer, model_ds=ds)
+    model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", max_tokens=None, 
+              batch_size=64, patience=10, seed=1234, devices=1)
     m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
     scores.append(m_scores)
 ```
@@ -107,6 +110,12 @@ It is worth to point out that the DatasetBuilder will create n variations for ea
 per unique dataset will be trained. Nevertheless, AutoNMT is smart enough to evaluate each model once per unique dataset
 as the raw test files of each variation are the same (each model will encode its data).
 
+#### Fit parameters
+
+Our models are wrapped using Pytorch Lightning. Therefore, you can pass to the fit function all the parameters that 
+training of pytorch lightning accepts (and more!).
+
+Check the available parameters [here](https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html)
 
 ### Generate a report
 
@@ -114,6 +123,8 @@ This code will save the score of the multiple training (as json and csv), will c
 make a few plots to visualize the performance of the models.
 
 ```python
+from autonmt.bundle.report import generate_report
+
 # Make report
 df_report, df_summary = generate_report(scores=scores, output_path=".outputs", plot_metric="beam1__sacrebleu_bleu_score")
 
@@ -129,52 +140,42 @@ To create your custom pytorch model, you only need inherit from `Seq2Seq` and th
 The only requirement is that the forward must return a tensor with shape `(batch, length, probabilities)`.
 
 ```python
-from autonmt.tasks.translation.models import Seq2Seq
+from autonmt.toolkits import AutonmtTranslator
+from autonmt.modules.seq2seq import LitSeq2Seq
 
 
-class CustomModel(Seq2Seq):
+class CustomModel(LitSeq2Seq):
     def __init__(self, src_vocab_size, trg_vocab_size, **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, **kwargs)
 
-    def forward(self, x, y):
-        return  # Tensor with shape: (Batch, Length, probabilities)
+    def forward_encoder(self, x):
+        pass
+    
+    def forward_decoder(self, y, memory):
+        pass  # output = (Batch, Length, probabilities)
 
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
-    model = al.Translator(model=mymodel)
+    model = AutonmtTranslator(model=CustomModel)
     model.fit(train_ds)
     model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
 ```
 
 **Custom trainer/evaluator**
 
-If you need to write a custom fit or evaluate function, you can either overwrite the methods you want from the `Seq2Seq` class, or simply write
-your own class, like this:
+Our Seq2Seq base model is simply a wrapper that uses PyTorchLightning. If you need to write your custom Seq2Seq trainer, you can do it like this:
 
 ```python
-import torch.nn as nn
+import pytorch_lightning as pl
 
 
-class CustomSeq2Seq(nn.Module):
-
-    def __init__(self, src_vocab_size, trg_vocab_size, **kwargs):
-        super().__init__()
-        self.src_vocab_size = src_vocab_size
-        self.trg_vocab_size = trg_vocab_size
-
-    def fit(self, *args, **kwargs):
-        pass
-
-    def evaluate(self, *args, **kwargs):
-        pass
+class LitCustomSeq2Seq(pl.LightningModule):
+    # Stuff for Pytorch Lightning modules
 
 
-class CustomModel(CustomSeq2Seq):
+class CustomModel(LitCustomSeq2Seq):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    def forward(self, x, y):
-        pass
 
 
 # Custom model
@@ -204,10 +205,9 @@ fairseq_args = [
 # Train & Score a fairseq model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = al.FairseqTranslator(model_ds=ds, conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
-    model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-              update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1,
-              fairseq_args=fairseq_args)
+    model = FairseqTranslator(model_ds=ds, conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
+    model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam",
+              max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1, fairseq_args=fairseq_args)
     m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
     scores.append(m_scores)
 ```
@@ -226,24 +226,24 @@ the DatasetBuilder and Trainers).
 
 ```python
 builder = DatasetBuilder(..., use_cmd=True)
-model = al.Translator(..., use_cmd=True)
+model = AutonmtTranslator(..., use_cmd=True)
 ```
 
 By enabling this flag, AutoNMT will use the command line tools as a typical user. 
 
 ```bash
 ...
-- Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
-- Command used: spm_decode --model=/home/salva/builder/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
-- Command used: spm_decode --model=/home/salva/builder/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
-- Command used: spm_decode --model=/home/salva/builder/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
-- Command used: sacrebleu /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/builder/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
+- Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
+- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
+- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
+- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
+- Command used: sacrebleu /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
 ...
 ```
 By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `conda_env_name="myenv"`
 
 ```python
-model = al.Translator(model=Transformer, model_ds=ds, conda_env_name="myenv")
+model = AutonmtTranslator(model=Transformer, model_ds=ds, conda_env_name="myenv")
 ```
 
 ### Plots & Stats
