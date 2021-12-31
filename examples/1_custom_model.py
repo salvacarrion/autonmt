@@ -25,7 +25,7 @@ def main():
     scores = []
     for ds in tr_datasets:
         model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=True)
-        model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16)
+        model.fit(max_epochs=10, batch_size=128, seed=1234, num_workers=0)
         m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)
 

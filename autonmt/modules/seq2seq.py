@@ -56,13 +56,13 @@ class LitSeq2Seq(pl.LightningModule):
         output = output.transpose(1, 2)[:, :, :-1]  # Remove last index to match shape with 'y[1:]'
         y = y[:, 1:]  # Remove <sos>
         loss = self.criterion_fn(output, y)
-        #
-        # # Metrics: Accuracy
-        # predictions = output.argmax(1)
-        # batch_errors = (predictions != y)
-        # accuracy = 1 - (batch_errors / predictions.numel())
+
+        # Metrics: Accuracy
+        predictions = output.detach().argmax(1)
+        batch_errors = (predictions != y).sum().item()
+        accuracy = 1 - (batch_errors / predictions.numel())
 
         # Log params
-        self.log(f"{log_prefix}_loss", loss)
-        # self.log(f"{log_prefix}_acc", accuracy)
+        self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
