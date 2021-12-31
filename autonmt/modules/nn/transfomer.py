@@ -1,10 +1,10 @@
 import math
 import torch.nn as nn
-from autonmt.tasks.translation.models import Seq2Seq
+from autonmt.tasks.translation.models import Seq2Seq, LitSeq2Seq
 from autonmt.modules.layers import PositionalEmbedding
 
 
-class Transformer(Seq2Seq):
+class Transformer(LitSeq2Seq):
     def __init__(self,
                  src_vocab_size, trg_vocab_size,
                  encoder_embed_dim=256,
@@ -22,7 +22,7 @@ class Transformer(Seq2Seq):
                  padding_idx=None,
                  learned=False,
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, **kwargs)
+        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, **kwargs)
         self.max_src_positions = max_src_positions
         self.max_trg_positions = max_trg_positions
 
@@ -45,11 +45,6 @@ class Transformer(Seq2Seq):
         assert encoder_embed_dim == decoder_embed_dim
         assert encoder_attention_heads == decoder_attention_heads
         assert encoder_ffn_embed_dim == decoder_ffn_embed_dim
-
-    def forward(self, x, y):
-        memory = self.forward_encoder(x)
-        output = self.forward_decoder(y, memory)
-        return output
 
     def forward_encoder(self, x):
         assert x.shape[1] <= self.max_src_positions

@@ -20,7 +20,7 @@ albumentations
 # Metrics
 torchmetrics
 bert-score
-unbabel-comet
+# unbabel-comet  # Uses an old version of pytorch-lightning
 sacrebleu
 datasets
 
@@ -39,3 +39,6 @@ onnx
 tqdm
 jupyterlab
 pytest
+
+# Loggers
+wandb

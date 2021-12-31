@@ -10,8 +10,12 @@ from tqdm import tqdm
 
 import sacrebleu
 import bert_score
-import comet
 from datasets import load_metric
+
+try:
+    import comet
+except ImportError as e:
+    print("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
 
 
 def moses_tokenizer(input_file, output_file, lang, use_cmd, conda_env_name):

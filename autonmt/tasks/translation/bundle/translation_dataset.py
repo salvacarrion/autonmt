@@ -41,7 +41,7 @@ class TranslationDataset(Dataset):
         src_line, trg_line = self.src_lines[idx], self.trg_lines[idx]
         return src_line, trg_line
 
-    def collate_fn(self, batch, max_tokens=None):
+    def collate_fn(self, batch, max_tokens=None, **kwargs):
         x_encoded, y_encoded = [], []
         x_max_len = y_max_len = 0
 

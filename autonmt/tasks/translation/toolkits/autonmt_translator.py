@@ -2,17 +2,28 @@ import torch
 
 from autonmt.tasks.translation.bundle.translation_dataset import TranslationDataset
 from autonmt.tasks.translation.bundle.vocabulary import BaseVocabulary, Vocabulary
-from autonmt.tasks.translation.models import Seq2Seq
+from autonmt.tasks.translation.models import Seq2Seq, LitSeq2Seq
 from autonmt.tasks.translation.toolkits.base_translator import BaseTranslator
 from autonmt.tasks.translation.bundle.search_algorithms import greedy_search, beam_search
 from autonmt.utils import *
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from typing import Type
+
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+import pytorch_lightning as pl
+from pytorch_lightning import loggers as pl_loggers
 
 
 class Translator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model: Type[Seq2Seq], src_vocab=None, trg_vocab=None, max_src_positions=None,
+    def __init__(self, model: Type[LitSeq2Seq], src_vocab=None, trg_vocab=None, max_src_positions=None,
                  max_trg_positions=None, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
@@ -47,16 +58,47 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         else:  # Evaluation
             self.test_tds = TranslationDataset(file_prefix=test_path, **params, **kwargs)
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
-        # Create and train model
-        model = self._get_model(dts=self.train_tds, **kwargs)
-        model.fit(self.train_tds, self.val_tds, checkpoints_path=checkpoints_path, logs_path=logs_path, **kwargs)
+    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, monitor, run_name,
+               num_workers, patience, **kwargs):
+        # Define dataloaders
+        train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+        val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+
+        # Loggers
+        tb_logger = TensorBoardLogger(save_dir=logs_path, name=run_name)
+        loggers = [tb_logger]
+
+        # Callbacks: Checkpoint
+        callbacks = []
+        mode = "min" if monitor == "loss" else "max"
+        ckpt_cb = ModelCheckpoint(dirpath=checkpoints_path, save_top_k=1, monitor=f"val_{monitor}", mode=mode,
+                                  filename="checkpoint_best", save_weights_only=True)
+        ckpt_cb.FILE_EXTENSION = ".pt"
+        callbacks += [ckpt_cb]
+
+        # Callback: EarlyStop
+        if patience:
+            early_stop = EarlyStopping(monitor=f"val_{monitor}", patience=patience, mode=mode)
+            callbacks += [early_stop]
+
+        # Instantiate model
+        model = self.model(src_vocab_size=len(self.train_tds.src_vocab), trg_vocab_size=len(self.train_tds.trg_vocab),
+                           padding_idx=self.train_tds.src_vocab.pad_id, **kwargs)
+
+        # Training
+        remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate'}
+        pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
+        trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
+        trainer.fit(model, train_loader, val_loader)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path, **kwargs):
+        # Instantiate model
+        model = self.model(src_vocab_size=len(self.test_tds.src_vocab), trg_vocab_size=len(self.test_tds.trg_vocab),
+                           padding_idx=self.test_tds.src_vocab.pad_id, **kwargs)
+
         # Load model
-        model = self._get_model(dts=self.test_tds, **kwargs)
-        model_state_dict = torch.load(checkpoint_path)
+        model_state_dict = torch.load(checkpoint_path)['state_dict']
         model.load_state_dict(model_state_dict)
 
         # Iterative decoding
@@ -102,27 +144,27 @@ class Translator(BaseTranslator):  # AutoNMT Translator
         # Print stuff
         print(f"\t- [INFO]: Loaded '{lang}' vocab with {len(vocab):,} tokens")
         return vocab
-
-    def _get_model(self, dts: TranslationDataset, **kwargs):
-        # Get vocab sizes
-        src_vocab_size = len(dts.src_vocab)
-        trg_vocab_size = len(dts.trg_vocab)
-
-        # Set device
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print(f'Using {device} device')
-
-        # Create and train model
-        padding_idx = dts.src_vocab.pad_id
-        assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
-        model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, padding_idx=padding_idx,
-                           **kwargs).to(device)
-
-        # Count parameters
-        trainable_params, non_trainable_params = self._count_model_parameters(model)
-        print(f"\t - [INFO]: Total trainable parameters: {trainable_params:,}")
-        print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params:,}")
-        return model
+    #
+    # def _get_model(self,  **kwargs):
+    #     # Get vocab sizes
+    #     src_vocab_size = len(dts.src_vocab)
+    #     trg_vocab_size = len(dts.trg_vocab)
+    #     #     padding_idx = dts.src_vocab.pad_id
+    #     #     assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
+    #     # Set device
+    #     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #     print(f'Using {device} device')
+    #
+    #     # Create and train model
+    #     padding_idx = dts.src_vocab.pad_id
+    #     assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
+    #     model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, padding_idx=padding_idx, **kwargs).to(device)
+    #
+    #     # Count parameters
+    #     trainable_params, non_trainable_params = self._count_model_parameters(model)
+    #     print(f"\t - [INFO]: Total trainable parameters: {trainable_params:,}")
+    #     print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params:,}")
+    #     return model
 
     @staticmethod
     def _count_model_parameters(model):

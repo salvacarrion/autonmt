@@ -27,11 +27,9 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = al.Translator(model=Transformer, model_ds=ds, force_overwrite=True)
-        model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", clip_norm=1.0,
-                  update_freq=1, max_tokens=None, batch_size=64, patience=10, seed=1234, num_gpus=1)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1],
-                                 batch_size=128, max_tokens=None, max_gen_length=150)
+        model = al.Translator(model=Transformer, model_ds=ds, force_overwrite=False)
+        model.fit(max_epochs=10, batch_size=128, seed=1234, num_workers=16)
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it

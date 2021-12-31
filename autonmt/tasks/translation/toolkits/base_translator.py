@@ -133,9 +133,10 @@ class BaseTranslator(ABC):
         # Update values
         self.config[key].update({k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
-    def fit(self, train_ds: Dataset = None, max_epochs=1, learning_rate=0.001, criterion="cross_entropy",
-            optimizer="adam", weight_decay=0, clip_norm=0.0, update_freq=1, max_tokens=None, batch_size=64, patience=10,
-            seed=None, num_gpus=None, **kwargs):
+    def fit(self, train_ds: Dataset = None, max_tokens=None, batch_size=128, max_epochs=1,
+            learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
+            criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
+            monitor="loss", **kwargs):
         print("=> [Fit]: Started.")
 
         # Get train_ds
@@ -158,10 +159,11 @@ class BaseTranslator(ABC):
 
         # Train and preprocess
         self.preprocess(train_ds, **kwargs)
-        self.train(train_ds, max_epochs=max_epochs, learning_rate=learning_rate, criterion=criterion,
-                   optimizer=optimizer, weight_decay=weight_decay, clip_norm=clip_norm, update_freq=update_freq,
-                   max_tokens=max_tokens, batch_size=batch_size, patience=patience,
-                   seed=seed, num_gpus=num_gpus, **kwargs)
+        self.train(train_ds, max_tokens=max_tokens, batch_size=batch_size, max_epochs=max_epochs,
+                   learning_rate=learning_rate, optimizer=optimizer, weight_decay=weight_decay,
+                   gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
+                   criterion=criterion, patience=patience, seed=seed, devices=devices, accelerator=accelerator,
+                   num_workers=num_workers, monitor=monitor, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
                 metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, **kwargs):
@@ -275,7 +277,8 @@ class BaseTranslator(ABC):
         self.manual_seed(seed=kwargs.get("seed"))
 
         start_time = time.time()
-        self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path, **kwargs)
+        self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path,
+                    run_name=run_name, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -513,6 +516,7 @@ class BaseTranslator(ABC):
         import torch
         import random
         import numpy as np
+        from pytorch_lightning.utilities.seed import seed_everything
 
         # Define seed
         seed = seed if seed is not None else int(time.time()) % 2**32
@@ -521,6 +525,7 @@ class BaseTranslator(ABC):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
+        seed_everything(seed)
 
         # Tricky: https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
         torch.use_deterministic_algorithms(use_deterministic_algorithms)

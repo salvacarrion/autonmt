@@ -29,13 +29,14 @@ def _parse_args(**kwargs):
         'learning_rate': "--lr",
         'criterion': "--criterion",
         'optimizer': "--optimizer",
-        'clip_norm': "--clip-norm",
-        'update_freq': "--update-freq",
+        'gradient_clip_val': "--clip-norm",
+        'accumulate_grad_batches': "--update-freq",
         'max_epochs': "--max-epoch",
         'max_tokens': "--max-tokens",
         'batch_size': "--batch-size",
         'patience': "--patience",
         'seed': "--seed",
+        'monitor': "--best-checkpoint-metric",
     }
     proposed_args = []  # From AutoNMTBase
     for autonmt_arg_name, autonmt_arg_value in kwargs.items():
@@ -120,7 +121,7 @@ class FairseqTranslator(BaseTranslator):
         cmd += [f" --tgtdict '{new_trg_vocab_path}'"] if new_trg_vocab_path else []
 
         # Parse fairseq args
-        # cmd += _parse_args(**kwargs)
+        # cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Run command
         cmd = " ".join([] + cmd)
@@ -128,18 +129,18 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, **kwargs):
+    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, **kwargs):
         # Write command
         cmd = [f"fairseq-train '{data_bin_path}'"]
         cmd += [f"--save-dir '{checkpoints_path}'"] if checkpoints_path else []
         cmd += [f"--tensorboard-logdir '{logs_path}'"] if logs_path else []
 
         # Parse fairseq args
-        cmd += _parse_args(**kwargs)
+        cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Parse gpu flag
-        num_gpus = kwargs.get('num_gpus')
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if num_gpus else ""
+        num_gpus = kwargs.get('devices')
+        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
 
         # Run command
         cmd = " ".join([num_gpus] + cmd)
@@ -169,7 +170,7 @@ class FairseqTranslator(BaseTranslator):
         cmd += [f"--max-tokens '{max_tokens}'"] if max_tokens else []
 
         # Parse fairseq args
-        # cmd += _parse_args(**kwargs)
+        # cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Parse gpu flag
         num_gpus = kwargs.get('num_gpus')
