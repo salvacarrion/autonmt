@@ -19,8 +19,7 @@ import pytorch_lightning as pl
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model: Type[LitSeq2Seq], src_vocab=None, trg_vocab=None, max_src_positions=None,
-                 max_trg_positions=None, **kwargs):
+    def __init__(self, model, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
 
@@ -29,25 +28,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.val_tds = None
         self.test_tds = None
 
-        # Set vocab (optional)
-        self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
-
-        # Other
-        self.max_src_positions = max_src_positions
-        self.max_trg_positions = max_trg_positions
-
-    def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, subword_model, **kwargs):
-
-        # Load vocabs (do not replace the ones from the constructor)
-        _src_vocab = self.src_vocab if self.src_vocab else self._get_vocab(src_vocab_path + ".vocab", lang=src_lang)
-        _trg_vocab = self.trg_vocab if self.trg_vocab else self._get_vocab(trg_vocab_path + ".vocab", lang=trg_lang)
-
+    def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, subword_model, **kwargs):
         # Create preprocessing
         # Set common params
-        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=_src_vocab, trg_vocab=_trg_vocab,
-                      max_src_positions=self.max_src_positions, max_trg_positions=self.max_trg_positions)
+        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
         if not kwargs.get("external_data"):  # Training
             self.train_tds = Seq2SeqDataset(file_prefix=train_path, **params, **kwargs)
             self.val_tds = Seq2SeqDataset(file_prefix=val_path, **params, **kwargs)
@@ -77,30 +61,22 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             early_stop = EarlyStopping(monitor=f"val_{monitor}", patience=patience, mode=mode)
             callbacks += [early_stop]
 
-        # Instantiate model
-        model = self.model(src_vocab_size=len(self.train_tds.src_vocab), trg_vocab_size=len(self.train_tds.trg_vocab),
-                           padding_idx=self.train_tds.src_vocab.pad_id, **kwargs)
-
         # Training
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate'}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
-        trainer.fit(model, train_loader, val_loader)
+        trainer.fit(self.model, train_loader, val_loader)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path,
                    num_workers, **kwargs):
-        # Instantiate model
-        model = self.model(src_vocab_size=len(self.test_tds.src_vocab), trg_vocab_size=len(self.test_tds.trg_vocab),
-                           padding_idx=self.test_tds.src_vocab.pad_id, **kwargs)
-
         # Load model
         model_state_dict = torch.load(checkpoint_path)['state_dict']
-        model.load_state_dict(model_state_dict)
+        self.model.load_state_dict(model_state_dict)
 
         # Iterative decoding
         search_algorithm = beam_search if beam_width > 1 else greedy_search
-        predictions, log_probabilities = search_algorithm(model=model, dataset=self.test_tds,
+        predictions, log_probabilities = search_algorithm(model=self.model, dataset=self.test_tds,
                                                           sos_id=self.test_tds.src_vocab.sos_id,
                                                           eos_id=self.test_tds.src_vocab.eos_id,
                                                           batch_size=batch_size, max_tokens=max_tokens,
@@ -130,39 +106,6 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Write file: hyp, src, ref
         for lines, fname in [(hyp_tok, "hyp.tok"), (src_tok, "src.tok"), (ref_tok, "ref.tok")]:
             write_file_lines(lines=lines, filename=os.path.join(output_path, fname))
-
-    def _get_vocab(self, vocab, lang):
-        if isinstance(vocab, str):
-            vocab = Vocabulary(lang=lang).build_from_vocab(filename=vocab)
-        elif isinstance(vocab, BaseVocabulary):
-            pass
-        else:
-            raise ValueError("'vocab' must be a path or instance of 'Vocabulary'")
-
-        # Print stuff
-        print(f"\t- [INFO]: Loaded '{lang}' vocab with {len(vocab):,} tokens")
-        return vocab
-    #
-    # def _get_model(self,  **kwargs):
-    #     # Get vocab sizes
-    #     src_vocab_size = len(dts.src_vocab)
-    #     trg_vocab_size = len(dts.trg_vocab)
-    #     #     padding_idx = dts.src_vocab.pad_id
-    #     #     assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
-    #     # Set device
-    #     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    #     print(f'Using {device} device')
-    #
-    #     # Create and train model
-    #     padding_idx = dts.src_vocab.pad_id
-    #     assert dts.src_vocab.pad_id == dts.trg_vocab.pad_id
-    #     model = self.model(src_vocab_size=src_vocab_size, trg_vocab_size=trg_vocab_size, padding_idx=padding_idx, **kwargs).to(device)
-    #
-    #     # Count parameters
-    #     trainable_params, non_trainable_params = self._count_model_parameters(model)
-    #     print(f"\t - [INFO]: Total trainable parameters: {trainable_params:,}")
-    #     print(f"\t - [INFO]: Total non-trainable parameters: {non_trainable_params:,}")
-    #     return model
 
     @staticmethod
     def _count_model_parameters(model):

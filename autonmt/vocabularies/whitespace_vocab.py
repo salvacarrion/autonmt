@@ -7,14 +7,12 @@ from autonmt.vocabularies.base_vocab import BaseVocabulary
 
 class Vocabulary(BaseVocabulary):
 
-    def __init__(self, lang=None,
+    def __init__(self,
                  unk_id=0, sos_id=1, eos_id=2, pad_id=3,
-                 unk_piece="<unk>", sos_piece="<s>", eos_piece="</s>", pad_piece="<pad>"):
+                 unk_piece="<unk>", sos_piece="<s>", eos_piece="</s>", pad_piece="<pad>", lang=None, max_tokens=None):
         super().__init__(sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
-                         sos_piece=sos_piece, eos_piece=eos_piece, pad_piece=pad_piece)
-
-        # Set language
-        self.lang = lang
+                         sos_piece=sos_piece, eos_piece=eos_piece, pad_piece=pad_piece,
+                         lang=lang, max_tokens=max_tokens)
 
         # Set special tokens
         self.unk_id = unk_id
@@ -36,7 +34,7 @@ class Vocabulary(BaseVocabulary):
         assert self.idx2voc[self.eos_id] == self.eos_piece
         assert self.idx2voc[self.pad_id] == self.pad_piece
 
-    def _build_from_tokens(self, tokens):
+    def build_from_tokens(self, tokens):
         # Tokens must include the special tokens
         self.voc2idx = {tok: idx for idx, (tok, log_prob) in enumerate(tokens)}
         self.idx2voc = {idx: tok for idx, (tok, log_prob) in enumerate(tokens)}
@@ -49,7 +47,7 @@ class Vocabulary(BaseVocabulary):
         tokens = [line.split('\t') for line in read_file_lines(filename)]
         special_tokens = [(tok, 0) for tok, tok_id in self.special_tokens] if not includes_special_tokes else []
         tokens = special_tokens + tokens  # Do not sort. It could lead to different idxs
-        self._build_from_tokens(tokens)
+        self.build_from_tokens(tokens)
         self._assert_vocab()
         return self
 
@@ -57,14 +55,21 @@ class Vocabulary(BaseVocabulary):
         tokens = Counter(flatten([line.strip().split(' ') for line in read_file_lines(filename)]))
         special_tokens = [(tok, 0) for tok, tok_id in self.special_tokens]
         tokens = special_tokens + tokens.most_common()
-        self._build_from_tokens(tokens)
+        self.build_from_tokens(tokens)
         self._assert_vocab()
         return self
 
-    def encode(self, text, add_special_tokens=True, max_length=None):
+    def build_from_ds(self, ds, lang):
+        self.lang = lang
+        vocab_path = ds.get_vocab_path(lang) + ".vocab"
+        self.build_from_vocab(vocab_path)
+        self._assert_vocab()
+        return self
+
+    def encode(self, text, add_special_tokens=True):
         tokens = text.strip().split(' ')
         idxs = [self.voc2idx.get(tok, self.unk_id) for tok in tokens]
-        idxs = idxs[:max_length-2*int(add_special_tokens)] if max_length else idxs  # count <sos> and <eos>
+        idxs = idxs[:self.max_tokens-2*int(add_special_tokens)] if self.max_tokens else idxs  # count <sos> and <eos>
         idxs = [self.sos_id] + idxs + [self.eos_id] if add_special_tokens else idxs
         return idxs
 

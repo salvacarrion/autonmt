@@ -247,6 +247,16 @@ def flatten(lst):
     return [item for sublist in lst for item in sublist]
 
 
+def build_counter_low_mem(filename, split_fn):
+    c = Counter()
+    with open(filename, 'r') as f:
+        for line in tqdm(f):
+            line = line.strip()
+            tokens = split_fn(line)
+            c.update(tokens)
+    return c
+
+
 def norm_counter(c):
     c = Counter(c)
     total = sum(c.values(), 0.0)

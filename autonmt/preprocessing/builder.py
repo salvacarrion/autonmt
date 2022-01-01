@@ -10,73 +10,8 @@ from autonmt.preprocessing.dataset import Dataset
 from collections import Counter
 
 from autonmt.api import py_cmd_api
+from autonmt.preprocessing.processors import pretokenize_file, encode_file
 
-
-def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
-    # Tokenize
-    if force_overwrite or not os.path.exists(output_file):
-        py_cmd_api.moses_tokenizer(input_file=input_file, output_file=output_file, lang=lang, **kwargs)
-
-
-def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_vocabs, force_overwrite, **kwargs):
-    # Check if file exists
-    if force_overwrite or not os.path.exists(output_file):
-
-        # Copy file
-        if ds.subword_model in {None, "none"}:
-            shutil.copyfile(input_file, output_file)
-
-        elif ds.subword_model in {"bytes"}:
-            # Save file as UTF8 and make sure everything uses NFKC
-            lines = read_file_lines(input_file)
-            lines = [preprocess_text(line, normalization="NFKC") for line in lines]
-            lines = [" ".join([hex(x) for x in line.encode()]) for line in lines]
-            write_file_lines(lines=lines, filename=output_file)
-
-        else:
-            # Pretokenize file if needed (used during the translation code)
-            if output_file_pretok and ds.subword_model in {"word"}:
-                pretokenize_file(input_file=input_file, output_file=output_file_pretok, lang=lang,
-                                 force_overwrite=force_overwrite, **kwargs)
-                input_file = output_file_pretok
-
-            # Select model
-            if merge_vocabs:
-                model_path = ds.get_vocab_file() + ".model"
-            else:
-                model_path = ds.get_vocab_file(lang=lang) + ".model"
-
-            # Encode files
-            py_cmd_api.spm_encode(spm_model_path=model_path,
-                                  input_file=input_file, output_file=output_file, **kwargs)
-
-
-def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, force_overwrite,
-                use_cmd, conda_env_name, **kwargs):
-    if force_overwrite or not os.path.exists(output_file):
-
-        # Detokenize
-        if subword_model in {None, "none"}:
-            # Rename or copy files (tok==txt)
-            shutil.copyfile(input_file, output_file)
-
-        elif subword_model in {"bytes"}:
-            # Decode files
-            lines = read_file_lines(input_file)
-            lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
-
-            # Write files
-            write_file_lines(lines=lines, filename=output_file)
-
-        else:
-            # Decode files
-            py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
-                                  use_cmd=use_cmd, conda_env_name=conda_env_name)
-
-            # Detokenize with moses
-            if subword_model in {"word"}:
-                py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
-                                             use_cmd=use_cmd, conda_env_name=conda_env_name)
 
 class DatasetBuilder:
 
@@ -445,43 +380,36 @@ class DatasetBuilder:
                 lang_files = [src_lang, trg_lang]
 
             # Check if file/files exists
-            print(f"\t- Exporting vocab: {self._get_ds_alias(*ds.id2())}")
+            print(f"\t- Exporting frequency vocab: {self._get_ds_alias(*ds.id2())}")
             vocab_files = [ds.get_vocab_path(fname=f)+".vocabf" for f in lang_files]
             if self.force_overwrite or not all([os.path.exists(f) for f in vocab_files]):
                 # Get train paths
                 src_train_path = ds.get_encoded_path(f"{ds.train_name}.{src_lang}")
                 trg_train_path = ds.get_encoded_path(f"{ds.train_name}.{trg_lang}")
 
-                # Read files
-                src_lines = read_file_lines(src_train_path)
-                trg_lines = read_file_lines(trg_train_path)
-
-                # Get tokens
-                src_tokens = flatten([split_fn(line) for line in src_lines])
-                trg_tokens = flatten([split_fn(line) for line in trg_lines])
+                #  Convert to counters
+                src_vocabf = build_counter_low_mem(src_train_path, split_fn=split_fn)
+                trg_vocabf = build_counter_low_mem(trg_train_path, split_fn=split_fn)
 
                 if not spm_model:
-                    #  Convert to counters
-                    src_vocab = Counter(src_tokens)
-                    trg_vocab = Counter(trg_tokens)
-                    vocabs = [src_vocab + trg_vocab] if self.merge_vocabs else [src_vocab, trg_vocab]
+                    vocabs = [src_vocabf + trg_vocabf] if self.merge_vocabs else [src_vocabf, trg_vocabf]
 
                 else:
                     if self.merge_vocabs:
-                        tokens_lang = [(src_tokens+trg_tokens, f"{src_lang}-{trg_lang}")]
+                        vocabf_lang = [(src_vocabf+trg_vocabf, f"{src_lang}-{trg_lang}")]
                     else:
-                        tokens_lang = [(src_tokens, src_lang), (trg_tokens, trg_lang)]
+                        vocabf_lang = [(src_vocabf, src_lang), (trg_vocabf, trg_lang)]
 
                     # Count tokens
                     vocabs = []
-                    for tokens, lang_file in tokens_lang:
+                    for vocabf, lang_file in vocabf_lang:
                         # Get the exact vocab from SPM
                         spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab")
                         spm_vocab_lines = spm_vocab_lines[4:]  # Remove special tokens
                         spm_vocab = {l.split('\t')[0]: 0 for l in spm_vocab_lines}
 
                         # Only count tokens that exists in the vocabulary
-                        c = Counter(tok for tok in tokens if tok in spm_vocab)
+                        c = Counter({k: v for k, v in vocabf.items() if k in spm_vocab})
                         vocabs.append(c)
 
                 # Save vocabs

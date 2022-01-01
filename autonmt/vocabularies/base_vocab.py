@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 
 
 class BaseVocabulary(ABC):
-    def __init__(self, sos_id, eos_id, pad_id, sos_piece, eos_piece, pad_piece):
+    def __init__(self, sos_id, eos_id, pad_id, sos_piece, eos_piece, pad_piece, lang=None, max_tokens=None):
         # Set IDs
         self.sos_id = sos_id
         self.eos_id = eos_id
@@ -20,6 +20,10 @@ class BaseVocabulary(ABC):
         self.special_tokens = [(self.sos_piece, self.sos_id), (self.eos_piece, self.eos_id),
                                (self.pad_piece, self.pad_id)]
 
+        # Other
+        self.lang = lang
+        self.max_tokens = max_tokens
+
     @abstractmethod
     def encode(self, *args, **kwargs):
         pass
@@ -27,4 +31,5 @@ class BaseVocabulary(ABC):
     @abstractmethod
     def decode(self, *args, **kwargs):
         pass
+
 

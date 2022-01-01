@@ -68,12 +68,19 @@ builder = DatasetBuilder(
     subword_models=["bytes", "char+bytes", "char", "unigram", "word"],
     vocab_sizes=[8000],
     merge_vocabs=True,
+    eval_mode="compatible", # {same, compatible}
 ).build(make_plots=True)
 
 # Create preprocessing for testing
 tr_datasets = builder.get_ds()
 ts_datasets = builder.get_ds(ignore_variants=True)
 ```
+
+> **Note:**
+> 
+> The `eval_model` indicates the datasets for which each model can be evaluated:
+> -  `same`: evaluates a model only with its test set.
+> -  `compatible`: evaluates a model with all compatible test sets}
 
 #### Format
 
@@ -92,14 +99,22 @@ you can use other engines such as `fairseq` or `opennmt`.
 ```python
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.modules.models import Transformer
+from autonmt.vocabularies import Vocabulary
 
 # Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = AutonmtTranslator(model=Transformer, model_ds=ds)
-    model.fit(max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", max_tokens=None, 
-              batch_size=64, patience=10, seed=1234, devices=1)
-    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
+    
+    # Instantiate vocabs and model
+    src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.src_lang)
+    trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.trg_lang)
+    model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+
+    # Train model
+    model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
+    model.fit(train_ds=ds, max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", 
+              max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1)
+    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
     scores.append(m_scores)
 ```
 
@@ -145,8 +160,8 @@ from autonmt.modules.seq2seq import LitSeq2Seq
 
 
 class CustomModel(LitSeq2Seq):
-    def __init__(self, src_vocab_size, trg_vocab_size, **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, **kwargs)
+    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, **kwargs):
+        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, **kwargs)
 
     def forward_encoder(self, x):
         pass
@@ -156,9 +171,15 @@ class CustomModel(LitSeq2Seq):
 
 # Train & Score a model for each dataset
 for train_ds in tr_datasets:
-    model = AutonmtTranslator(model=CustomModel)
-    model.fit(train_ds)
-    model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+    
+        # Instantiate vocabs and model
+        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.src_lang)
+        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.trg_lang)
+        model = CustomModel(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+
+        # Train model
+        model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
+        model.fit(train_ds=ds)
 ```
 
 **Custom trainer/evaluator**
@@ -174,12 +195,12 @@ class LitCustomSeq2Seq(pl.LightningModule):
 
 
 class CustomModel(LitCustomSeq2Seq):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 # Custom model
-model = al.Translator(model=CustomModel)
+model = AutonmtTranslator(model= CustomModel(...), ...)
 ```
 
 #### Fairseq models
@@ -205,8 +226,8 @@ fairseq_args = [
 # Train & Score a fairseq model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = FairseqTranslator(model_ds=ds, conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
-    model.fit(max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam",
+    model = FairseqTranslator(conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
+    model.fit(train_ds=ds, max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam",
               max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1, fairseq_args=fairseq_args)
     m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
     scores.append(m_scores)
@@ -243,7 +264,7 @@ By enabling this flag, AutoNMT will use the command line tools as a typical user
 By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `conda_env_name="myenv"`
 
 ```python
-model = AutonmtTranslator(model=Transformer, model_ds=ds, conda_env_name="myenv")
+model = AutonmtTranslator(model=Transformer(...), ..., conda_env_name="myenv")
 ```
 
 ### Plots & Stats

@@ -7,7 +7,7 @@ from autonmt.bundle.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.preprocessing.dataset import Dataset
-from autonmt.preprocessing.builder import encode_file, decode_file
+from autonmt.preprocessing.processors import pretokenize_file, encode_file, decode_file
 from autonmt.api import py_cmd_api
 
 
@@ -66,8 +66,8 @@ class BaseTranslator(ABC):
                     }
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
-    def __init__(self, engine, run_prefix="model", model_ds=None, safe_seconds=0, force_overwrite=False,
-                 interactive=False, use_cmd=False, conda_env_name=None, **kwargs):
+    def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None, safe_seconds=0,
+                 force_overwrite=False, interactive=False, use_cmd=False, conda_env_name=None, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
@@ -78,6 +78,10 @@ class BaseTranslator(ABC):
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
         self.config = {}
+
+        # Set vocab (optional)
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
 
         # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
@@ -225,8 +229,8 @@ class BaseTranslator(ABC):
         train_path = ds.get_encoded_path(fname=ds.train_name)
         val_path = ds.get_encoded_path(fname=ds.val_name)
         test_path = ds.get_encoded_path(fname=ds.test_name)
-        model_src_vocab_path = ds.get_vocab_file(lang=src_lang)  # Ignore if: none or bytes
-        model_trg_vocab_path = ds.get_vocab_file(lang=trg_lang)  # Ignore if: none or bytes
+        model_src_vocab_path = ds.get_vocab_file(lang=src_lang)
+        model_trg_vocab_path = ds.get_vocab_file(lang=trg_lang)
         model_data_bin_path = ds.get_model_data_bin(toolkit=self.engine)
 
         # Create dirs

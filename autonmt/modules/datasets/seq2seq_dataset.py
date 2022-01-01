@@ -7,8 +7,11 @@ from autonmt.bundle.utils import read_file_lines
 
 
 class Seq2SeqDataset(Dataset):
-    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, max_src_positions=None,
-                 max_trg_positions=None, **kwargs):
+    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None,  **kwargs):
+        # Set vocabs
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
+
         # Get src/trg file paths
         src_file_path = file_prefix.strip() + f".{src_lang}"
         trg_file_path = file_prefix.strip() + f".{trg_lang}"
@@ -18,17 +21,6 @@ class Seq2SeqDataset(Dataset):
         self.trg_lines = read_file_lines(filename=trg_file_path)
         assert len(self.src_lines) == len(self.trg_lines)
 
-        # Read langs
-        self.src_lang = src_lang
-        self.trg_lang = trg_lang
-
-        # Set vocabs
-        self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
-
-        # Other
-        self.max_src_positions = max_src_positions
-        self.max_trg_positions = max_trg_positions
 
     def __len__(self):
         return len(self.src_lines)
@@ -44,8 +36,8 @@ class Seq2SeqDataset(Dataset):
         # Add elements to batch
         for i, (x, y) in enumerate(batch):
             # Encode tokens
-            _x = self.src_vocab.encode(x, max_length=self.max_src_positions)
-            _y = self.trg_vocab.encode(y, max_length=self.max_trg_positions)
+            _x = self.src_vocab.encode(x)
+            _y = self.trg_vocab.encode(y)
 
             # Control tokens in batch
             x_max_len = max(x_max_len, len(_x))
