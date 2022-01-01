@@ -7,7 +7,7 @@ from autonmt.bundle.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.preprocessing.dataset import Dataset
-from autonmt.preprocessing.builder import encode_file, decode_file, get_compatible_datasets
+from autonmt.preprocessing.builder import encode_file, decode_file
 from autonmt.api import py_cmd_api
 
 
@@ -155,7 +155,7 @@ class BaseTranslator(ABC):
         self._add_config(key="fit", values=kwargs, reset=False)
         logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=train_ds))
         make_dir(logs_path)
-        save_json(self.config, savepath=os.path.join(logs_path, "config.json"))
+        save_json(self.config, savepath=os.path.join(logs_path, "config_train.json"))
 
         # Train and preprocess
         self.preprocess(train_ds, **kwargs)
@@ -198,11 +198,11 @@ class BaseTranslator(ABC):
         self._add_config(key="predict", values=kwargs, reset=False)
         logs_path = model_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=model_ds))
         make_dir(logs_path)
-        save_json(self.config, savepath=os.path.join(logs_path, "config.json"))
+        save_json(self.config, savepath=os.path.join(logs_path, "config_predict.json"))
 
         # Translate and score
         eval_scores = []
-        eval_datasets = get_compatible_datasets(eval_datasets, model_ds)
+        eval_datasets = model_ds.get_eval_datasets(eval_datasets)
         for eval_ds in eval_datasets:
             self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
                            batch_size=batch_size, max_tokens=max_tokens, num_workers=num_workers, **kwargs)

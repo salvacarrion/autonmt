@@ -75,41 +75,19 @@ def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, 
 
             # Detokenize with moses
             if subword_model in {"word"}:
-                py_cmd_api.moses_detokenizer(input_file=input_file, output_file=output_file, lang=lang,
+                py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
                                              use_cmd=use_cmd, conda_env_name=conda_env_name)
-
-
-def get_compatible_datasets(datasets, ref_ds):
-    # Keep only relevant preprocessing
-    compatible_datasets = []
-    compatible_datasets_ids = set()
-    for ds in datasets:
-        ds_name = '_'.join(ds.id())
-        ds_ref_name = '_'.join(ds.id())
-
-        # Check language compatibility
-        if ds.langs != ref_ds.langs:
-            print(f"Skipping '{ds_name}' as it is not compatible with the '{ds_ref_name}'")
-            continue
-
-        # Check if it has already been included
-        if ds_name in compatible_datasets_ids:
-            print(f"Skipping '{ds_name}' as a variant of it has already been included")
-        else:
-            compatible_datasets.append(ds)
-            compatible_datasets_ids.add(ds_name)
-    return compatible_datasets
-
 
 class DatasetBuilder:
 
-    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, force_overwrite=False,
-                 interactive=True, use_cmd=False, conda_env_name=None):
+    def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
+                 force_overwrite=False, interactive=True, use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
         self.vocab_sizes = vocab_sizes
         self.merge_vocabs = merge_vocabs
+        self.eval_mode = eval_mode
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
@@ -147,7 +125,7 @@ class DatasetBuilder:
                 for ds_size_name, ds_max_lines in ds["sizes"]:  # Lengths
                     base_params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
                                        dataset_size_name=ds_size_name, dataset_lines=ds_max_lines,
-                                       merge_vocabs=self.merge_vocabs)
+                                       merge_vocabs=self.merge_vocabs, eval_mode=self.eval_mode)
 
                     if include_variants:
                         for subword_model in self.subword_models:  # unigram, bpe, char, or word

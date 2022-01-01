@@ -4,7 +4,7 @@ import os
 class Dataset:
     def __init__(self, base_path, parent_ds,
                  dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
-                 subword_model, vocab_size, merge_vocabs,
+                 subword_model, vocab_size, merge_vocabs, eval_mode,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
                  encoded_path=os.path.join("data", "encoded"), pretokenized_path=os.path.join("data", "pretokenized"),
@@ -27,6 +27,7 @@ class Dataset:
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
         self.pretok_flag = (self.subword_model == "word")
         self.merge_vocabs = merge_vocabs
+        self.eval_mode = eval_mode
 
         # Constants: split names
         self.train_name = train_name
@@ -141,3 +142,32 @@ class Dataset:
     def get_split_files(self):
         return [f"{fname}.{ext}" for fname in self.split_names for ext in (self.src_lang, self.trg_lang)]
 
+    def get_compatible_datasets(self, ts_datasets):
+        # Keep only relevant preprocessing
+        compatible_datasets = []
+        compatible_datasets_ids = set()
+        for ds in ts_datasets:
+            ds_name = '_'.join(ds.id())
+            ds_ref_name = '_'.join(ds.id())
+
+            # Check language compatibility
+            if ds.langs != self.langs:
+                print(f"Skipping '{ds_name}' as it is not compatible with the '{ds_ref_name}'")
+                continue
+
+            # Check if it has already been included
+            if ds_name in compatible_datasets_ids:
+                print(f"Skipping '{ds_name}' as a variant of it has already been included")
+            else:
+                compatible_datasets.append(ds)
+                compatible_datasets_ids.add(ds_name)
+        return compatible_datasets
+
+    def get_eval_datasets(self, ts_datasets):
+        compatible_datasets = self.get_compatible_datasets(ts_datasets)
+        if self.eval_mode == "compatible":
+            return compatible_datasets
+        elif self.eval_mode == "same":
+            return [eval_ds for eval_ds in compatible_datasets if eval_ds.dataset_name == self.dataset_name]
+        else:
+            raise ValueError(f"Unknown 'eval_mode' ({str(self.eval_mode)})")
