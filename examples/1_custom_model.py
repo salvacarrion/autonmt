@@ -34,8 +34,8 @@ def main():
     errors = []
     for ds in tr_datasets:
         try:
-            model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=True)
-            # model.fit(max_epochs=75, batch_size=128, seed=1234, num_workers=16, patience=10)
+            model = AutonmtTranslator(model=Transformer, model_ds=ds, force_overwrite=False)
+            model.fit(max_epochs=75, batch_size=128, seed=1234, num_workers=16, patience=10)
             m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
             scores.append(m_scores)
         except Exception as e:

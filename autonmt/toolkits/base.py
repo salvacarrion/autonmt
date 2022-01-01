@@ -217,7 +217,7 @@ class BaseTranslator(ABC):
         pass
 
     def preprocess(self, ds: Dataset, **kwargs):
-        print("=> [Preprocess]: Started.")
+        print(f"=> [Preprocess]: Started. ({os.path.join(*ds.id2())})")
 
         # Set vars
         src_lang = ds.src_lang
@@ -250,7 +250,7 @@ class BaseTranslator(ABC):
         pass
 
     def train(self, train_ds: Dataset, **kwargs):
-        print("=> [Train]: Started.")
+        print(f"=> [Train]: Started. ({os.path.join(*train_ds.id2())})")
 
         # Check preprocessing
         _check_datasets(train_ds=train_ds)
@@ -287,7 +287,7 @@ class BaseTranslator(ABC):
 
     def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length,
                   batch_size, max_tokens, num_workers, **kwargs):
-        print("=> [Translate]: Started.")
+        print(f"=> [Translate]: Started. ({os.path.join(*model_ds.id2())})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
@@ -373,7 +373,7 @@ class BaseTranslator(ABC):
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
-        print("=> [Score]: Started.")
+        print(f"=> [Score]: Started. ({os.path.join(*model_ds.id2())})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
@@ -448,7 +448,7 @@ class BaseTranslator(ABC):
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
-        print("=> [Parsing]: Started.")
+        print(f"=> [Parsing]: Started. ({os.path.join(*model_ds.id2())})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)

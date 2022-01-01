@@ -5,6 +5,9 @@ from autonmt.bundle import plots
 
 
 def generate_report(scores, output_path, plot_metric=None, **kwargs):
+    if not scores:
+        raise ValueError("No scores were given")
+
     # Create logs path
     reports_path = os.path.join(output_path, "reports")
     plots_path = os.path.join(output_path, "plots")
