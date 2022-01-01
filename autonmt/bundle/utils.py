@@ -159,26 +159,16 @@ def create_logger(logs_path, log_level=logging.INFO):
     # Create logget path
     Path(logs_path).mkdir(parents=True, exist_ok=True)
 
-    # Create logger
     mylogger = logging.getLogger()
     mylogger.setLevel(log_level)
 
-    # Define format
-    logformat = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-
-    # Define handlers
-    # Log file
-    log_handler = logging.FileHandler(os.path.join(logs_path, 'logger.log'), mode='w')
-    log_handler.setFormatter(logformat)
-    mylogger.addHandler(log_handler)
-
-    # Standard output
+    file_handler = logging.FileHandler(filename=os.path.join(logs_path, "logs.log"), mode='w')
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(logformat)
-    mylogger.addHandler(stdout_handler)
+    mylogger.handlers = [file_handler, stdout_handler]
 
     # Print something
     mylogger.info("########## LOGGER STARTED ##########")
+    mylogger.info(f"- Log level: {str(log_level)}")
     mylogger.info(f"- Logs path: {logs_path}")
     return mylogger
 
