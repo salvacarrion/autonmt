@@ -12,13 +12,17 @@ def main(fairseq_args):
     builder = DatasetBuilder(
         base_path="/home/salva/datasets/",
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "iwlst16", "languages": ["de-en"], "sizes": [("100k", 100000)]},
+            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[8000],
-        merge_vocabs=True,
+        vocab_sizes=[1000, 8000],
+        merge_vocabs=False,
         force_overwrite=False,
-    ).build(make_plots=True, safe=True)
+        use_cmd=True,
+        eval_mode="same",
+    ).build(make_plots=False, safe=True)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
@@ -27,9 +31,9 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
-        model.fit(max_epochs=1, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
+        model = FairseqTranslator(force_overwrite=False, conda_fairseq_env_name="fairseq")
+        model.fit(train_ds=ds, max_epochs=5, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it
@@ -54,6 +58,7 @@ if __name__ == "__main__":
         "--decoder-ffn-embed-dim 512",
         "--dropout 0.1",
 
+        "--max-tokens 4096",
         "--no-epoch-checkpoints",
         "--maximize-best-checkpoint-metric",
         "--best-checkpoint-metric bleu",

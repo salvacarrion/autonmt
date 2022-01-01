@@ -114,7 +114,7 @@ for ds in tr_datasets:
     model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
     model.fit(train_ds=ds, max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", 
               max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1)
-    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1])
+    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1])
     scores.append(m_scores)
 ```
 
@@ -146,6 +146,23 @@ df_report, df_summary = generate_report(scores=scores, output_path=".outputs", p
 print("Summary:")
 print(df_summary.to_string(index=False))
 ```
+
+**Single toolkit output:**
+
+```text
+train_dataset eval_dataset subword_model vocab_size  fairseq_bleu
+     europarl     europarl          word       1000     17.465943
+     europarl     europarl          word       8000     11.431010
+```
+
+**Multi-toolkit output:**
+
+```text
+train_dataset eval_dataset subword_model vocab_size  custom_bleu  fairseq_bleu
+     europarl     europarl          word       1000     17.218436     17.465943
+     europarl     europarl          word       8000     12.080312     11.431010
+```
+
 
 ### Toolkit abstraction
 
