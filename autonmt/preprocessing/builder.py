@@ -207,8 +207,8 @@ class DatasetBuilder:
 
         return self
 
-    def _get_ds_alias(self, ds_name, lang_pair, ds_size):
-        return os.path.join(ds_name, lang_pair, ds_size)
+    def _get_ds_alias(self, *args):
+        return os.path.join(*args)
 
     def _create_splits(self, val_size, test_size, shuffle, safe=True, safe_seconds=3):
         print("=> Creating splits...")
@@ -292,7 +292,7 @@ class DatasetBuilder:
                             print(f"\t- Partition saved: {split_name}.{lang}")
             else:  # Create folders
                 if not flag_raw_exists or not flag_splits_exists:
-                    print(f"=> [Missing data]: We couldn't find either the 'raw' folder or the 'splits' folder.")
+                    print(f"=> [Missing data]: We couldn't find either the 'raw' folder or the 'splits' folder. ({self._get_ds_alias(*ds.id())})")
                     res = ask_yes_or_no(question="Do you want to create the missing directories?",
                                         interactive=self.interactive)
                     if res:
@@ -319,13 +319,11 @@ class DatasetBuilder:
             if ds.id()[2] == self.ref_size_name:
                 continue
 
-            print(f"\t=> Checking dataset: {self._get_ds_alias(*ds.id())}")
-            src_lang, trg_lang = ds.id()[1].split("-")
-
             # Create new splits folder *****
             make_dir(ds.get_split_path())
 
             # Add truncated splits
+            print(f"\t=> Creating reduced version: {self._get_ds_alias(*ds.id())}")
             for fname in ds.get_split_files():
                 ori_filename = os.path.join(self.base_path, *ds_ref, ds.data_splits_path, fname)
                 new_filename = ds.get_split_path(fname)
@@ -340,7 +338,7 @@ class DatasetBuilder:
     def _pretokenize(self, force_pretok=False):
         print(f"=> Pretokenizing files... (only applied if needed)")
 
-        for ds in self:  # Dataset
+        for ds in self:  # self.get_ds(ignore_variants=True):  does not contain infor about the subword_model
             pretok_flag = ds.pretok_flag or force_pretok
 
             # Check if this needs pretokenization
@@ -355,16 +353,18 @@ class DatasetBuilder:
             pretokenize_path = ds.get_pretok_path()
             make_dir([pretokenize_path])
 
-            print(f"\t- Pretokenizing splits")
             for fname in ds.get_split_files():
                 lang = fname.split(".")[1]
                 input_file = ds.get_split_path(fname)
                 output_file = ds.get_pretok_path(fname)
 
-                # Pretokenize
-                pretokenize_file(input_file=input_file, output_file=output_file, lang=lang,
-                                 force_overwrite=self.force_overwrite,
-                                 use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                if self.force_overwrite or not os.path.exists(output_file):
+                    print(f"\t- Pretokenizing splits: {self._get_ds_alias(*ds.id())}")
+
+                    # Pretokenize
+                    pretokenize_file(input_file=input_file, output_file=output_file, lang=lang,
+                                     force_overwrite=self.force_overwrite,
+                                     use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
     def _build_vocab(self, force_pretok=False, input_sentence_size=1000000):
         print(f"=> Building vocabularies...")
@@ -377,7 +377,7 @@ class DatasetBuilder:
             tmp_path = os.path.join(ds.get_vocab_path(base=True), "_tmp")
             pretokenize_path = ds.get_pretok_path()
             make_dir([vocab_path, tmp_path, pretokenize_path])
-            print(f"\t- Building vocabulary: {vocab_path}")
+            print(f"\t- Building vocabulary: {self._get_ds_alias(*ds.id2())}")
 
             # Ignore dataset but create directories (just in case... for plots or stats)
             if ds.subword_model in {None, "none", "bytes"}:
@@ -429,9 +429,9 @@ class DatasetBuilder:
             # Create paths
             encoded_path = ds.get_encoded_path()
             make_dir([encoded_path])
-            print(f"\t- Encoding dataset: {encoded_path}")
 
             # Encode files
+            print(f"\t- Encoding dataset: {self._get_ds_alias(*ds.id2())}")
             for fname in ds.get_split_files():
                 lang = fname.split('.')[-1]
                 data_path = ds.data_pretokenized_path if pretok_flag else ds.data_splits_path
@@ -467,6 +467,7 @@ class DatasetBuilder:
                 lang_files = [src_lang, trg_lang]
 
             # Check if file/files exists
+            print(f"\t- Exporting vocab: {self._get_ds_alias(*ds.id2())}")
             vocab_files = [ds.get_vocab_path(fname=f)+".vocabf" for f in lang_files]
             if self.force_overwrite or not all([os.path.exists(f) for f in vocab_files]):
                 # Get train paths
@@ -542,7 +543,7 @@ class DatasetBuilder:
             ds_title = f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
             vocab_name = f"_{ds.vocab_size}" if ds.vocab_size else ""
             suffix_fname = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}{vocab_name}".lower()
-            print(f"\t- Creating plots for: {suffix_fname}")
+            print(f"\t- Creating plots for: {self._get_ds_alias(*ds.id2())}")
 
             # Set paths and create dirs
             vocab_path = ds.get_vocab_path()

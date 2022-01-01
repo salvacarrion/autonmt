@@ -5,12 +5,6 @@ from autonmt.toolkits.fairseq import FairseqTranslator
 
 import os
 import datetime
-from autonmt.bundle.utils import create_logger
-
-
-# Set output path/logger
-output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
-logger = create_logger(os.path.join(output_path, "logs"))
 
 
 def main(fairseq_args):
@@ -39,6 +33,7 @@ def main(fairseq_args):
         scores.append(m_scores)
 
     # Make report and print it
+    output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
     df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))

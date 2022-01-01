@@ -2,6 +2,7 @@ from autonmt.preprocessing import DatasetBuilder
 from autonmt.bundle.report import generate_report
 
 from autonmt.toolkits.fairseq import FairseqTranslator
+import datetime
 
 
 def main(fairseq_args):
@@ -36,7 +37,8 @@ def main(fairseq_args):
         scores.append(run_eval_scores)
 
     # Make report and print it
-    df_report, df_summary = generate_report(scores=scores, output_path=".outputs/fairseq", plot_metric="beam1__sacrebleu_bleu_score")
+    output_path = f".outputs/fairseq_multirun/{str(datetime.datetime.now())}"
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 

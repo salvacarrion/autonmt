@@ -68,6 +68,9 @@ class Dataset:
     def id(self):
         return self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
 
+    def id2(self):
+        return list(self.id()) + list(self.vocab_size_id())
+
     def get_path(self):
         return os.path.join(self.base_path, *self.id())
 
