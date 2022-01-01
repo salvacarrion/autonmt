@@ -321,7 +321,7 @@ class BaseTranslator(ABC):
             # [Encode extern data]: Encode test data using the subword model of the trained model
             for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
                 lang = ts_fname.split('.')[-1]
-                input_file = eval_ds.get_split_path(ts_fname)
+                input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
                 output_file = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
 
                 # Add pretokenization (if needed)

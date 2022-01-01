@@ -4,10 +4,12 @@ import os
 class Dataset:
     def __init__(self, base_path, parent_ds,
                  dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
-                 subword_model, vocab_size, merge_vocabs, eval_mode,
+                 subword_model, vocab_size, merge_vocabs, eval_mode, normalization, strip_whitespace,
+                 collapse_whitespace, letter_case, file_encoding,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
-                 encoded_path=os.path.join("data", "encoded"), pretokenized_path=os.path.join("data", "pretokenized"),
+                 encoded_path=os.path.join("data", "encoded"), preprocessed_path=os.path.join("data", "preprocessed"),
+                 pretokenized_path=os.path.join("data", "pretokenized"),
                  models_path="models", models_data_bin_path="data-bin", models_runs_path="runs",
                  models_checkpoints_path="checkpoints", model_logs_path="logs", models_eval_path="eval",
                  models_beam_path="beams", models_scores_path="scores", vocab_path=os.path.join("vocabs"),
@@ -40,6 +42,7 @@ class Dataset:
         self.data_raw_path = raw_path
         self.data_splits_path = splits_path
         self.data_encoded_path = encoded_path
+        self.data_preprocessed_path = preprocessed_path
         self.data_pretokenized_path = pretokenized_path
         self.models_path = models_path
         self.models_data_bin_path = models_data_bin_path
@@ -51,6 +54,13 @@ class Dataset:
         self.models_scores_path = models_scores_path
         self.vocab_path = vocab_path
         self.plots_path = plots_path
+
+        # Encoding params
+        self.normalization = normalization
+        self.strip_whitespace = strip_whitespace
+        self.collapse_whitespace = collapse_whitespace
+        self.letter_case = letter_case
+        self.file_encoding = file_encoding
 
     def __str__(self):
         if self.parent_ds:
@@ -77,6 +87,9 @@ class Dataset:
 
     def get_raw_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_raw_path, fname)
+
+    def get_preprocessed_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
 
     def get_pretok_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)

@@ -60,18 +60,30 @@ def get_translation_files(src_lang, trg_lang):
     return files
 
 
-def preprocess_text(text, normalization="NFKC"):
+def preprocess_text(text, letter_case=None, collapse_whitespace=True, strip_whitespace=True, normalization="NFKC",
+                    **kwargs):
     try:
-        p_whitespace = re.compile(" +")
-
-        # Remove repeated whitespaces "   " => " "
-        text = p_whitespace.sub(' ', text)
+        # Set lower/upper case
+        if letter_case == "lower":
+            text = text.lower()
+        elif letter_case == "upper":
+            text = text.upper()
+        else:
+            pass
 
         # Normalization Form Compatibility Composition
-        text = unicodedata.normalize(normalization, text)
+        if normalization:
+            text = unicodedata.normalize(normalization.upper(), text)
+
+        # Remove repeated whitespaces "   " => " "
+        if collapse_whitespace:
+            p_whitespace = re.compile(" +")
+            text = p_whitespace.sub(' ', text)
 
         # Strip whitespace
-        text = text.strip()
+        if strip_whitespace:
+            text = text.strip()
+
     except TypeError as e:
         # print(f"=> Error preprocessing: '{text}'")
         text = ""
@@ -228,7 +240,7 @@ def read_file_lines(filename, strip=False, remove_break_lines=True):
 
 
 def write_file_lines(lines, filename, encoding="utf8"):
-    with open(filename, 'w', encoding=encoding) as f:
+    with open(filename, 'w', encoding=encoding.lower()) as f:
         lines = [line.strip() + '\n' for line in lines]
         f.writelines(lines)
 

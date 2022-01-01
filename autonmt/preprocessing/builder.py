@@ -10,13 +10,14 @@ from autonmt.preprocessing.dataset import Dataset
 from collections import Counter
 
 from autonmt.api import py_cmd_api
-from autonmt.preprocessing.processors import pretokenize_file, encode_file
+from autonmt.preprocessing.processors import preprocess_file, pretokenize_file, encode_file
 
 
 class DatasetBuilder:
 
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
-                 force_overwrite=False, interactive=True, use_cmd=False, conda_env_name=None):
+                 normalization="NFKC", strip_whitespace=True, collapse_whitespace=True, letter_case=None,
+                 file_encoding="utf8", force_overwrite=False, interactive=True, use_cmd=False, conda_env_name=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
@@ -27,6 +28,13 @@ class DatasetBuilder:
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.conda_env_name = conda_env_name
+
+        # Set preprocessing flags
+        self.normalization = normalization
+        self.strip_whitespace = strip_whitespace
+        self.collapse_whitespace = collapse_whitespace
+        self.letter_case = letter_case
+        self.file_encoding = file_encoding
 
         self.ref_size_name = "original"
 
@@ -60,8 +68,10 @@ class DatasetBuilder:
                 for ds_size_name, ds_max_lines in ds["sizes"]:  # Lengths
                     base_params = dict(base_path=self.base_path, dataset_name=ds["name"], dataset_lang_pair=lang_pair,
                                        dataset_size_name=ds_size_name, dataset_lines=ds_max_lines,
-                                       merge_vocabs=self.merge_vocabs, eval_mode=self.eval_mode)
-
+                                       merge_vocabs=self.merge_vocabs, eval_mode=self.eval_mode,
+                                       normalization=self.normalization, strip_whitespace=self.strip_whitespace,
+                                       collapse_whitespace=self.collapse_whitespace, letter_case=self.letter_case,
+                                       file_encoding=self.file_encoding)
                     if include_variants:
                         for subword_model in self.subword_models:  # unigram, bpe, char, or word
                             # To avoid modifying the base params
@@ -102,6 +112,9 @@ class DatasetBuilder:
 
         # Create version for different sizes
         self._create_reduced_versions()
+
+        # Preprocessing
+        self._preprocess()
 
         # Pretokenize (if needed)
         self._pretokenize(force_pretok=force_pretok)
@@ -248,6 +261,28 @@ class DatasetBuilder:
                         fout.writelines(lines)
                         print(f"\t\t=> Creating split file: {fname}")
 
+    def _preprocess(self):
+        print(f"=> Preprocessing files...")
+
+        for ds in self:  # self.get_ds(ignore_variants=True):  does not contain infor about the subword_model
+            # Create paths
+            preprocessed_path = ds.get_preprocessed_path()
+            make_dir([preprocessed_path])
+
+            for fname in ds.get_split_files():
+                input_file = ds.get_split_path(fname)
+                output_file = ds.get_pretok_path(fname)
+
+                if self.force_overwrite or not os.path.exists(output_file):
+                    print(f"\t- Preprocessing splits: {self._get_ds_alias(*ds.id())}")
+
+                    # Preprocess
+                    preprocess_file(input_file=input_file, output_file=output_file,
+                                    encoding=self.file_encoding,
+                                    letter_case=self.letter_case, collapse_whitespace=self.collapse_whitespace,
+                                    strip_whitespace=self.strip_whitespace, normalization=self.normalization,
+                                    force_overwrite=self.force_overwrite)
+
     def _pretokenize(self, force_pretok=False):
         print(f"=> Pretokenizing files... (only applied if needed)")
 
@@ -268,7 +303,7 @@ class DatasetBuilder:
 
             for fname in ds.get_split_files():
                 lang = fname.split(".")[1]
-                input_file = ds.get_split_path(fname)
+                input_file = ds.get_preprocessed_path(fname)
                 output_file = ds.get_pretok_path(fname)
 
                 if self.force_overwrite or not os.path.exists(output_file):
@@ -297,7 +332,7 @@ class DatasetBuilder:
                 continue
 
             # Get train files
-            file_path_fn = ds.get_pretok_path if ds.pretok_flag or force_pretok else ds.get_split_path
+            file_path_fn = ds.get_pretok_path if ds.pretok_flag or force_pretok else ds.get_preprocessed_path
             src_train_path = file_path_fn(fname=f"{ds.train_name}.{src_lang}")
             trg_train_path = file_path_fn(fname=f"{ds.train_name}.{trg_lang}")
 
@@ -347,7 +382,7 @@ class DatasetBuilder:
             print(f"\t- Encoding dataset: {self._get_ds_alias(*ds.id2())}")
             for fname in ds.get_split_files():
                 lang = fname.split('.')[-1]
-                data_path = ds.data_pretokenized_path if pretok_flag else ds.data_splits_path
+                data_path = ds.data_pretokenized_path if pretok_flag else ds.data_preprocessed_path
                 input_file = os.path.join(ds.base_path, *ds.id(), data_path, fname)
                 output_file = ds.get_encoded_path(fname)
 

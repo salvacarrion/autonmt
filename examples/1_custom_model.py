@@ -12,10 +12,9 @@ import datetime
 def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
-        base_path="/home/salva/datasets/",
+        base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "iwlst16", "languages": ["de-en"], "sizes": [("100k", 100000)]},
+            # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
             {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
@@ -24,6 +23,7 @@ def main():
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
+        conda_env_name="mltests"
     ).build(make_plots=False, safe=True)
 
     # Create preprocessing for training and testing

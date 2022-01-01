@@ -10,18 +10,18 @@ import datetime
 def main(fairseq_args):
     # Create preprocessing for training
     builder = DatasetBuilder(
-        base_path="/home/salva/datasets/",
+        base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
             # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "iwlst16", "languages": ["de-en"], "sizes": [("100k", 100000)]},
             {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[1000, 8000],
+        vocab_sizes=[2000, 4000, 8000],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
+        conda_env_name="mltests"
     ).build(make_plots=False, safe=True)
 
     # Create preprocessing for training and testing
@@ -31,7 +31,7 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(force_overwrite=False, conda_fairseq_env_name="fairseq")
+        model = FairseqTranslator(force_overwrite=True, conda_fairseq_env_name="fairseq")
         model.fit(train_ds=ds, max_epochs=5, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)

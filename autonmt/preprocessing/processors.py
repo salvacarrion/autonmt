@@ -12,6 +12,13 @@ from collections import Counter
 from autonmt.api import py_cmd_api
 
 
+def preprocess_file(input_file, output_file, encoding, force_overwrite, **kwargs):
+    if force_overwrite or not os.path.exists(output_file):
+        lines = read_file_lines(input_file)
+        lines = [preprocess_text(line, **kwargs) for line in lines]
+        write_file_lines(lines=lines, filename=output_file, encoding=encoding)
+
+
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
     # Tokenize
     if force_overwrite or not os.path.exists(output_file):
@@ -21,6 +28,8 @@ def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
 def encode_file(ds, input_file, output_file, output_file_pretok, lang, merge_vocabs, force_overwrite, **kwargs):
     # Check if file exists
     if force_overwrite or not os.path.exists(output_file):
+
+        # Apply preprocessing
 
         # Copy file
         if ds.subword_model in {None, "none"}:
