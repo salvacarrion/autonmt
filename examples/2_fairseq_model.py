@@ -12,16 +12,17 @@ def main(fairseq_args):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
-            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[2000, 4000, 8000],
+        vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
-        conda_env_name="mltests"
+        conda_env_name="mltests",
+        letter_case="lower",
     ).build(make_plots=False, safe=True)
 
     # Create preprocessing for training and testing
@@ -31,9 +32,9 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(force_overwrite=True, conda_fairseq_env_name="fairseq")
+        model = FairseqTranslator(force_overwrite=True, conda_fairseq_env_name="fairseq", run_prefix="model")
         model.fit(train_ds=ds, max_epochs=5, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
+        m_scores = model.predict(ts_datasets, model_ds=ds, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it
@@ -58,7 +59,7 @@ if __name__ == "__main__":
         "--decoder-ffn-embed-dim 512",
         "--dropout 0.1",
 
-        "--max-tokens 4096",
+        # "--max-tokens 4096",
         "--no-epoch-checkpoints",
         "--maximize-best-checkpoint-metric",
         "--best-checkpoint-metric bleu",

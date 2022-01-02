@@ -1,12 +1,15 @@
 # conda create --name fairseq python=3.8
 
 # => Install latest fairseq from Github but fix code
-# c2b771b1beed56d03134aa0a807fbbec766e484c
+# ee177fc4fa06dcb3d5fd466559af1b46893c00e8
+git+git://github.com/pytorch/fairseq.git@ee177fc4fa06dcb3d5fd466559af1b46893c00e8
+tensorboard
+tensorboardX
 
-torch==1.8.*  # Not needed for 1 GPU
-sacrebleu==1.4.*
-tensorboardX==2.4.*
-tensorboard==2.7.*
+#torch==1.8.*  # Not needed for 1 GPU
+#sacrebleu==1.4.*
+#tensorboardX==2.4.*
+#tensorboard==2.7.*
 #tensorboard
 #sacremoses
 #sentencepiece

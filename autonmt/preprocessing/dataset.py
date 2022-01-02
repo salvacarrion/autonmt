@@ -8,12 +8,12 @@ class Dataset:
                  collapse_whitespace, letter_case, file_encoding,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
-                 encoded_path=os.path.join("data", "encoded"), preprocessed_path=os.path.join("data", "preprocessed"),
+                 encoded_path=os.path.join("data", "encoded"), normalized_path=os.path.join("data", "normalized"),
                  pretokenized_path=os.path.join("data", "pretokenized"),
                  models_path="models", models_data_bin_path="data-bin", models_runs_path="runs",
                  models_checkpoints_path="checkpoints", model_logs_path="logs", models_eval_path="eval",
-                 models_beam_path="beams", models_scores_path="scores", vocab_path=os.path.join("vocabs"),
-                 plots_path="plots"):
+                 models_eval_data_path="data", models_beam_path="beams", models_scores_path="scores",
+                 vocab_path=os.path.join("vocabs"), plots_path="plots"):
         # Add properties
         self.base_path = base_path
         self.parent_ds = parent_ds
@@ -42,7 +42,7 @@ class Dataset:
         self.data_raw_path = raw_path
         self.data_splits_path = splits_path
         self.data_encoded_path = encoded_path
-        self.data_preprocessed_path = preprocessed_path
+        self.data_normalized_path = normalized_path
         self.data_pretokenized_path = pretokenized_path
         self.models_path = models_path
         self.models_data_bin_path = models_data_bin_path
@@ -50,6 +50,7 @@ class Dataset:
         self.models_checkpoints_path = models_checkpoints_path
         self.model_logs_path = model_logs_path
         self.models_eval_path = models_eval_path
+        self.models_eval_data_path = models_eval_data_path
         self.models_beam_path = models_beam_path
         self.models_scores_path = models_scores_path
         self.vocab_path = vocab_path
@@ -76,11 +77,13 @@ class Dataset:
         else:
             return self.subword_model, self.vocab_size
 
-    def id(self):
-        return self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
+    def id(self, as_path=False):
+        t = self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
+        return os.path.join(*t) if as_path else t
 
-    def id2(self):
-        return list(self.id()) + list(self.vocab_size_id())
+    def id2(self, as_path=False):
+        t = list(self.id()) + list(self.vocab_size_id())
+        return os.path.join(*t) if as_path else t
 
     def get_path(self):
         return os.path.join(self.base_path, *self.id())
@@ -88,8 +91,8 @@ class Dataset:
     def get_raw_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_raw_path, fname)
 
-    def get_preprocessed_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
+    def get_normalized_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_normalized_path, fname)
 
     def get_pretok_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
@@ -124,14 +127,8 @@ class Dataset:
     def get_model_eval_path(self, toolkit, run_name, eval_name):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name)
 
-    def get_model_eval_data_split_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_splits_path, fname)
-
-    def get_model_eval_data_pretok_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_pretokenized_path, fname)
-
-    def get_model_eval_data_encoded_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.data_encoded_path, fname)
+    def get_model_eval_data_path(self, toolkit, run_name, eval_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_eval_data_path, fname)
 
     def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_data_bin_path, fname)

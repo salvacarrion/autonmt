@@ -7,7 +7,7 @@ from autonmt.bundle.utils import *
 
 from abc import ABC, abstractmethod
 from autonmt.preprocessing.dataset import Dataset
-from autonmt.preprocessing.processors import pretokenize_file, encode_file, decode_file
+from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file, decode_file
 from autonmt.api import py_cmd_api
 
 
@@ -221,7 +221,7 @@ class BaseTranslator(ABC):
         pass
 
     def preprocess(self, ds: Dataset, **kwargs):
-        print(f"=> [Preprocess]: Started. ({os.path.join(*ds.id2())})")
+        print(f"=> [Preprocess]: Started. ({ds.id2(as_path=True)})")
 
         # Set vars
         src_lang = ds.src_lang
@@ -254,7 +254,7 @@ class BaseTranslator(ABC):
         pass
 
     def train(self, train_ds: Dataset, **kwargs):
-        print(f"=> [Train]: Started. ({os.path.join(*train_ds.id2())})")
+        print(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
 
         # Check preprocessing
         _check_datasets(train_ds=train_ds)
@@ -291,7 +291,7 @@ class BaseTranslator(ABC):
 
     def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length,
                   batch_size, max_tokens, num_workers, **kwargs):
-        print(f"=> [Translate]: Started. ({os.path.join(*model_ds.id2())})")
+        print(f"=> [Translate]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
@@ -307,11 +307,11 @@ class BaseTranslator(ABC):
         # [Trained model]: Create eval folder
         model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
         model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
-        model_eval_data_encoded_path = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
         model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
 
         # Create dirs
-        make_dir([model_eval_data_encoded_path, model_eval_data_bin_path])
+        make_dir([model_eval_data_path, model_eval_data_bin_path])
 
         # Checks: Make sure the directory exist, and it is empty
         is_empty = self._make_empty_path(path=model_eval_data_bin_path, safe_seconds=self.safe_seconds)
@@ -322,21 +322,31 @@ class BaseTranslator(ABC):
             for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
                 lang = ts_fname.split('.')[-1]
                 input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-                output_file = model_ds.get_model_eval_data_encoded_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
+                output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
 
-                # Add pretokenization (if needed)
-                output_file_pretok = None
+                # Normalize data
+                norm_file = output_file + ".norm"
+                encoding_dict = dict(letter_case=model_ds.letter_case, collapse_whitespace=model_ds.collapse_whitespace,
+                                     strip_whitespace=model_ds.strip_whitespace, normalization=model_ds.normalization)
+                normalize_file(input_file=input_file, output_file=norm_file, force_overwrite=self.force_overwrite,
+                               encoding=self.model_ds.file_encoding, **encoding_dict)
+                input_file = norm_file
+
+                # Pretokenize data (if needed)
+                pretok_file = output_file + ".tok"
                 if model_ds.pretok_flag:
-                    output_file_pretok = output_file + ".tok"
+                    pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
+                                     force_overwrite=self.force_overwrite, use_cmd=self.use_cmd,
+                                     conda_env_name=self.conda_env_name)
+                    input_file = pretok_file
 
                 # Encode file
                 encode_file(ds=model_ds, input_file=input_file, output_file=output_file,
-                            output_file_pretok=output_file_pretok,
                             lang=lang, merge_vocabs=model_ds.merge_vocabs, force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             # Preprocess external data
-            test_path = os.path.join(model_eval_data_encoded_path, eval_ds.test_name)
+            test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
             self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                              output_path=model_eval_data_bin_path,
                              train_path=None, val_path=None, test_path=test_path,
@@ -377,7 +387,7 @@ class BaseTranslator(ABC):
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
-        print(f"=> [Score]: Started. ({os.path.join(*model_ds.id2())})")
+        print(f"=> [Score]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
@@ -452,7 +462,7 @@ class BaseTranslator(ABC):
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
-        print(f"=> [Parsing]: Started. ({os.path.join(*model_ds.id2())})")
+        print(f"=> [Parsing]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
