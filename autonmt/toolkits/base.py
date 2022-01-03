@@ -104,9 +104,6 @@ class BaseTranslator(ABC):
         is_empty = os.listdir(path) == []
         return is_empty
 
-    def _get_run_name(self, ds):
-        return f"{self.run_prefix}_{ds.subword_model}_{ds.vocab_size}".lower()
-
     def _get_metrics_tool(self, metrics):
         tools = set()
         for m in metrics:
@@ -157,7 +154,7 @@ class BaseTranslator(ABC):
         # Store config (and save file)
         self._add_config(key="fit", values=locals(), reset=False)
         self._add_config(key="fit", values=kwargs, reset=False)
-        logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=train_ds))
+        logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=train_ds.get_run_name(self.run_prefix))
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, "config_train.json"))
 
@@ -200,7 +197,7 @@ class BaseTranslator(ABC):
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
         self._add_config(key="predict", values=kwargs, reset=False)
-        logs_path = model_ds.get_model_logs_path(toolkit=self.engine, run_name=self._get_run_name(ds=model_ds))
+        logs_path = model_ds.get_model_logs_path(toolkit=self.engine, run_name=model_ds.get_run_name(self.run_prefix))
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, "config_predict.json"))
 
@@ -260,7 +257,7 @@ class BaseTranslator(ABC):
         _check_datasets(train_ds=train_ds)
 
         # Set run name
-        run_name = self._get_run_name(ds=train_ds)
+        run_name = train_ds.get_run_name(self.run_prefix)
 
         # Set paths
         data_bin_path = train_ds.get_model_data_bin(toolkit=self.engine)
@@ -298,7 +295,7 @@ class BaseTranslator(ABC):
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
         # Set run names
-        run_name = self._get_run_name(ds=model_ds)
+        run_name = model_ds.get_run_name(self.run_prefix)
         eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Checkpoint path
@@ -399,7 +396,7 @@ class BaseTranslator(ABC):
             return
 
         # Set run names
-        run_name = self._get_run_name(ds=model_ds)
+        run_name = model_ds.get_run_name(self.run_prefix)
         eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Iterate over beams
@@ -477,7 +474,7 @@ class BaseTranslator(ABC):
         metric_tools = self._get_metrics_tool(metrics)
 
         # Set run names
-        run_name = self._get_run_name(ds=model_ds)
+        run_name = model_ds.get_run_name(self.run_prefix)
         eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Walk through beams

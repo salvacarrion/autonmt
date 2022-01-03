@@ -68,11 +68,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_loader, val_loader)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
-                   data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path,
-                   num_workers, **kwargs):
-        # Load model
-        model_state_dict = torch.load(checkpoint_path)['state_dict']
-        self.model.load_state_dict(model_state_dict)
+                   data_bin_path, output_path, num_workers, **kwargs):
+        # Set evaluation model
+        self.model.eval()
 
         # Iterative decoding
         search_algorithm = beam_search if beam_width > 1 else greedy_search

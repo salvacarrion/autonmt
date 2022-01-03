@@ -66,6 +66,10 @@ class Vocabulary(BaseVocabulary):
         self._assert_vocab()
         return self
 
+    def get_tokens(self):
+        # Tokens must be returned in their correct order
+        return [self.idx2voc[i] for i in range(len(self.idx2voc))]
+
     def encode(self, text, add_special_tokens=True):
         tokens = text.strip().split(' ')
         idxs = [self.voc2idx.get(tok, self.unk_id) for tok in tokens]

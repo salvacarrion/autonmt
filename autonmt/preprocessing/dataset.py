@@ -181,3 +181,6 @@ class Dataset:
             return [eval_ds for eval_ds in compatible_datasets if eval_ds.dataset_name == self.dataset_name]
         else:
             raise ValueError(f"Unknown 'eval_mode' ({str(self.eval_mode)})")
+
+    def get_run_name(self, run_prefix):
+        return f"{run_prefix}_{self.subword_model}_{self.vocab_size}".lower()
