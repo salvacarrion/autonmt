@@ -48,7 +48,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             self.test_tds = Seq2SeqDataset(file_prefix=test_path, **params, **kwargs)
 
     def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, monitor, run_name,
-               num_workers, patience, **kwargs):
+               num_workers, patience, ds_alias, **kwargs):
         # Define dataloaders
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
         val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
@@ -79,7 +79,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Add wandb logger (if requested)
         if self.wandb_params:
-            wandb_logger = WandbLogger(name=run_name, **self.wandb_params)
+            wandb_logger = WandbLogger(name=f"{ds_alias}_{run_name}", **self.wandb_params)
             loggers.append(wandb_logger)
 
             # Monitor

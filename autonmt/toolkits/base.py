@@ -270,7 +270,7 @@ class BaseTranslator(ABC):
 
         start_time = time.time()
         self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path,
-                    run_name=run_name, **kwargs)
+                    run_name=run_name, ds_alias='_'.join(train_ds.id()), **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
