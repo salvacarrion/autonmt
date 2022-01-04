@@ -6,7 +6,10 @@
 
 --------------------------------------------------------------------------------
 
+[![Build](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml/badge.svg)](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml)
 ![GitHub](https://img.shields.io/github/license/salvacarrion/autonmt)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/salvacarrion/autonmt)
+
 
 **AutoNMT** is a Python library that allows you to research seq2seq models by providing two high-level features:
 
