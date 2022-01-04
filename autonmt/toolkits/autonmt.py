@@ -29,8 +29,13 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.val_tds = None
         self.test_tds = None
 
-    def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, subword_model, **kwargs):
+    def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, subword_model,
+                    src_vocab_path, trg_vocab_path, **kwargs):
         # Create preprocessing
+        self.subword_model = subword_model
+        self.src_vocab_path = src_vocab_path
+        self.trg_vocab_path = trg_vocab_path
+
         # Set common params
         params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
         if not kwargs.get("external_data"):  # Training
@@ -48,6 +53,13 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Loggers
         tb_logger = TensorBoardLogger(save_dir=logs_path, name=run_name)
         loggers = [tb_logger]
+
+        # Additional information for metrics
+        self.model._src_vocab = self.train_tds.src_vocab
+        self.model._trg_vocab = self.train_tds.trg_vocab
+        self.model._subword_model = self.subword_model
+        self.model._src_model_vocab_path = self.src_vocab_path
+        self.model._trg_model_vocab_path = self.trg_vocab_path
 
         # Callbacks: Checkpoint
         callbacks = []

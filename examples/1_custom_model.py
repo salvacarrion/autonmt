@@ -14,11 +14,11 @@ def main():
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
-        vocab_sizes=[1000, 2000, 4000, 8000],
+        vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
@@ -43,7 +43,7 @@ def main():
 
         # Train model
         model = AutonmtTranslator(model=model, model_ds=ds, src_vocab=src_vocab, trg_vocab=trg_vocab, run_prefix="model256emb", force_overwrite=True)
-        # model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=16, patience=10)
+        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=0, patience=10)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], max_gen_length=100, load_best_checkpoint=True)
         scores.append(m_scores)
 

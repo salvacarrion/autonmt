@@ -3,6 +3,8 @@ from abc import ABC
 import torch
 from torch import nn
 import pytorch_lightning as pl
+from autonmt.api.py_cmd_api import _sacrebleu, _spm_decode
+from autonmt.preprocessing.processors import decode_lines
 
 
 class LitSeq2Seq(pl.LightningModule):
@@ -67,4 +69,27 @@ class LitSeq2Seq(pl.LightningModule):
         # Log params
         self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+        # Compute metrics for validaiton
+        if log_prefix == "val":
+            self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, log_prefix=log_prefix)
         return loss
+
+    def _compute_metrics(self, y_hat, y, metrics, log_prefix):
+        # Decode lines
+        hyp_lines = [self._trg_vocab.decode(list(x)) for x in y_hat.detach().cpu().numpy()]
+        ref_lines = [self._trg_vocab.decode(list(x)) for x in y.detach().cpu().numpy()]
+
+        # Full decoding
+        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._trg_model_vocab_path,  remove_unk_hyphen=True)
+        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._trg_model_vocab_path,  remove_unk_hyphen=True)
+
+        # Compute metrics
+        scores = []
+
+        # Compute sacrebleu
+        scores += _sacrebleu(hyp_lines=hyp_lines, ref_lines=ref_lines, metrics=metrics)
+
+        # Log metrics
+        for score in scores:
+            self.log(f"{log_prefix}_{score['name'].lower()}", score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)

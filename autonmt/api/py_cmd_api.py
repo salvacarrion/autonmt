@@ -57,6 +57,11 @@ def py_moses_detokenizer(input_file, output_file, lang):
     utils.write_file_lines(lines=lines, filename=output_file)
 
 
+def _moses_detokenizer(lines, lang):
+    mt = MosesDetokenizer(lang=lang)
+    return [mt.detokenize(line.split()) for line in lines]
+
+
 def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, conda_env_name):
     # Enable
     byte_fallback = False
@@ -118,6 +123,11 @@ def py_spm_decode(spm_model_path, input_file, output_file):
 
     # Save file
     utils.write_file_lines(lines=lines, filename=output_file)
+
+
+def _spm_decode(lines, spm_model_path):
+    s = spm.SentencePieceProcessor(model_file=spm_model_path)
+    return [s.decode_pieces(line.split(' ')) for line in lines]
 
 
 def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, conda_env_name):
@@ -187,6 +197,14 @@ def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     if not hyp_lines or not ref_lines:
         raise ValueError("Files empty (hyp/ref)")
 
+    # Compute scores
+    scores = _sacrebleu(hyp_lines, ref_lines, metrics)
+
+    # Save json
+    utils.save_json(scores, output_file)
+
+
+def _sacrebleu(hyp_lines, ref_lines, metrics):
     scores = []
     if "bleu" in metrics:
         bleu = sacrebleu.metrics.BLEU()
@@ -205,9 +223,7 @@ def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
         d = ter.corpus_score(hyp_lines, [ref_lines]).__dict__
         d["signature"] = str(ter.get_signature())
         scores.append(d)
-
-    # Save json
-    utils.save_json(scores, output_file)
+    return scores
 
 
 def compute_bertscore(ref_file, hyp_file, output_file, trg_lang, use_cmd, conda_env_name):
@@ -227,9 +243,17 @@ def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
     # Check if files have content
     if not hyp_lines or not ref_lines:
         raise ValueError("Files empty (hyp/ref)")
-    
+
+    # Compute scores
+    scores = _bertscore(hyp_lines, ref_lines, trg_lang)
+
+    # Save json
+    utils.save_json(scores, output_file)
+
+
+def _bertscore(hyp_lines, ref_lines, lang):
     # Score
-    precision, recall, f1 = bert_score.score(hyp_lines, ref_lines, lang=trg_lang)
+    precision, recall, f1 = bert_score.score(hyp_lines, ref_lines, lang=lang)
 
     scores = [
         {"name": "bertscore",
@@ -238,9 +262,7 @@ def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
          "f1": float(f1.mean()),
          }
     ]
-
-    # Save json
-    utils.save_json(scores, output_file)
+    return scores
 
 
 def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, conda_env_name):
@@ -262,6 +284,14 @@ def py_comet(src_file, ref_file, hyp_file, output_file):
     if not hyp_lines or not ref_lines or not src_file:
         raise ValueError("Files empty (hyp/ref/src)")
 
+    # Compute scores
+    scores = _comet(src_lines, hyp_lines, ref_lines)
+
+    # Save json
+    utils.save_json(scores, output_file)
+
+
+def _comet(src_lines, hyp_lines, ref_lines):
     # Get model
     model_path = comet.download_model("wmt20-comet-da")
     model = comet.load_from_checkpoint(model_path)
@@ -277,9 +307,7 @@ def py_comet(src_file, ref_file, hyp_file, output_file):
          "score": sys_score,
          }
     ]
-
-    # Save json
-    utils.save_json(scores, output_file)
+    return scores
 
 
 def compute_beer(ref_file, hyp_file, output_file, use_cmd, conda_env_name):
@@ -288,3 +316,5 @@ def compute_beer(ref_file, hyp_file, output_file, use_cmd, conda_env_name):
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         print("\t- [INFO]: No python interface for 'Beer'. Command-line version only ('use_cmd=True').")
+
+
