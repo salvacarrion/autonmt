@@ -16,13 +16,16 @@ import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
+import wandb
+from pytorch_lightning.loggers import WandbLogger
+
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, model_ds, **kwargs):
+    def __init__(self, model, model_ds, wandb_params, **kwargs):
         super().__init__(engine="autonmt", model_ds=model_ds, **kwargs)
         self.model = model
-        self.fit_checkpoint_path = None
+        self.wandb_params = wandb_params
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
@@ -50,10 +53,6 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
         val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
 
-        # Loggers
-        tb_logger = TensorBoardLogger(save_dir=logs_path, name=run_name)
-        loggers = [tb_logger]
-
         # Additional information for metrics
         self.model._src_vocab = self.train_tds.src_vocab
         self.model._trg_vocab = self.train_tds.trg_vocab
@@ -74,11 +73,26 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             early_stop = EarlyStopping(monitor=f"val_{monitor}", patience=patience, mode=mode)
             callbacks += [early_stop]
 
+        # Loggers
+        tb_logger = TensorBoardLogger(save_dir=logs_path, name=run_name)
+        loggers = [tb_logger]
+
+        # Add wandb logger (if requested)
+        if self.wandb_params:
+            wandb_logger = WandbLogger(name=run_name, **self.wandb_params)
+            loggers.append(wandb_logger)
+
+            # Monitor
+            wandb_logger.watch(self.model)
+
         # Training
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate'}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
         trainer.fit(self.model, train_loader, val_loader)
+
+        # Force finish
+        wandb.finish()
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
                    data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,

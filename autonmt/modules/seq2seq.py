@@ -5,7 +5,7 @@ from torch import nn
 import pytorch_lightning as pl
 from autonmt.api.py_cmd_api import _sacrebleu, _spm_decode
 from autonmt.preprocessing.processors import decode_lines
-
+from collections import defaultdict
 
 class LitSeq2Seq(pl.LightningModule):
 
@@ -26,6 +26,7 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Other
         self.save_hyperparameters()
+        self.best_scores = defaultdict(float)
 
     def configure_optimizers(self):
         if self.optimizer == "adam":
@@ -92,4 +93,10 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Log metrics
         for score in scores:
-            self.log(f"{log_prefix}_{score['name'].lower()}", score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            # Get score and keep best score
+            score_name = score['name'].lower()
+            best_score = max(score['score'], self.best_scores[score_name])
+            self.best_scores[score_name] = best_score
+
+            self.log(f"{log_prefix}_{score_name}", score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log(f"{log_prefix}_best_{score_name}", best_score, on_step=True, on_epoch=True, prog_bar=True, logger=True)
