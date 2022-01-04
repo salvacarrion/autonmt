@@ -19,9 +19,10 @@ import pytorch_lightning as pl
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, **kwargs):
-        super().__init__(engine="autonmt", **kwargs)
+    def __init__(self, model, model_ds, **kwargs):
+        super().__init__(engine="autonmt", model_ds=model_ds, **kwargs)
         self.model = model
+        self.fit_checkpoint_path = None
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
@@ -68,9 +69,18 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_loader, val_loader)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
-                   data_bin_path, output_path, num_workers, **kwargs):
+                   data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,
+                   **kwargs):
+        # Checkpoint
+        if load_best_checkpoint:
+            model_state_dict = torch.load(kwargs.get("checkpoint_path"))
+            model_state_dict = model_state_dict.get("state_dict", model_state_dict)
+            self.model.load_state_dict(model_state_dict)
+
         # Set evaluation model
-        self.model.eval()
+        if accelerator in {"auto", "cuda", "gpu"} and self.model.device.type != "cuda":
+            print(f"\t-[INFO]: Setting 'cuda' as the model's device")
+            self.model = self.model.cuda()
 
         # Iterative decoding
         search_algorithm = beam_search if beam_width > 1 else greedy_search
@@ -87,19 +97,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Decode: hyp
         hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
 
-        # Decode: src
-        src_tok = []
-        for line in self.test_tds.src_lines:
-            line_enc = self.test_tds.src_vocab.encode(line)
-            line_dec = self.test_tds.src_vocab.decode(line_enc)
-            src_tok.append(line_dec)
-
-        # Decode: ref
-        ref_tok = []
-        for line in self.test_tds.trg_lines:
-            line_enc = self.test_tds.trg_vocab.encode(line)
-            line_dec = self.test_tds.trg_vocab.decode(line_enc)
-            ref_tok.append(line_dec)
+        # Decode: src/ref
+        # Not: Do not add <unk>. Else, a model with a vocabulary of zero words would have a BLEU of 1
+        src_tok = self.test_tds.src_lines
+        ref_tok = self.test_tds.trg_lines
 
         # Write file: hyp, src, ref
         for lines, fname in [(hyp_tok, "hyp.tok"), (src_tok, "src.tok"), (ref_tok, "ref.tok")]:

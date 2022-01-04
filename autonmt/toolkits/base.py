@@ -166,20 +166,10 @@ class BaseTranslator(ABC):
                    criterion=criterion, patience=patience, seed=seed, devices=devices, accelerator=accelerator,
                    num_workers=num_workers, monitor=monitor, **kwargs)
 
-    def predict(self, eval_datasets: List[Dataset], model_ds: Dataset = None, beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, num_workers=0, **kwargs):
+    def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
+                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, devices="auto",
+                accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
         print("=> [Predict]: Started.")
-
-        # Get model_ds
-        if not model_ds and not self.model_ds:
-            raise ValueError("'model_ds' is missing. You can either specify it in the constructor ('model_ds') or "
-                             "pass it as an argument to this function")
-        elif not model_ds and self.model_ds:
-            print("\t- [INFO]: Using the 'model_ds' specified in the constructor")
-            model_ds = self.model_ds
-        else:
-            print("\t- [INFO]: Setting the 'model_ds' as the 'model_ds")
-            self.model_ds = model_ds
 
         # Set default values
         if beams is None:
@@ -197,18 +187,19 @@ class BaseTranslator(ABC):
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
         self._add_config(key="predict", values=kwargs, reset=False)
-        logs_path = model_ds.get_model_logs_path(toolkit=self.engine, run_name=model_ds.get_run_name(self.run_prefix))
+        logs_path = self.model_ds.get_model_logs_path(toolkit=self.engine, run_name=self.model_ds.get_run_name(self.run_prefix))
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, "config_predict.json"))
 
         # Translate and score
         eval_scores = []
-        eval_datasets = model_ds.get_eval_datasets(eval_datasets)
+        eval_datasets = self.model_ds.get_eval_datasets(eval_datasets)
         for eval_ds in eval_datasets:
-            self.translate(model_ds=model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
-                           batch_size=batch_size, max_tokens=max_tokens, num_workers=num_workers, **kwargs)
-            self.score(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
-            model_scores = self.parse_metrics(model_ds=model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
+            self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
+                           batch_size=batch_size, max_tokens=max_tokens, devices=devices, accelerator=accelerator,
+                           num_workers=num_workers, load_best_checkpoint=load_best_checkpoint, **kwargs)
+            self.score(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
+            model_scores = self.parse_metrics(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
                                               engine=self.engine, **kwargs)
             eval_scores.append(model_scores)
         return eval_scores
@@ -367,7 +358,7 @@ class BaseTranslator(ABC):
                     beam_width=beam, max_gen_length=max_gen_length, batch_size=batch_size, max_tokens=max_tokens,
                     data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoint_path=checkpoint_path,
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                    num_workers=num_workers, **kwargs)
+                    num_workers=num_workers, model_ds=model_ds, **kwargs)
 
             # Postprocess tokenized files
             for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang), ("hyp", model_ds.trg_lang)]:
@@ -378,7 +369,8 @@ class BaseTranslator(ABC):
                 # Post-process files
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
                             subword_model=model_ds.subword_model,
-                            model_vocab_path=model_vocab_path, force_overwrite=self.force_overwrite,
+                            model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
+                            force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
             print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
