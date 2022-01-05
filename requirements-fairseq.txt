@@ -5,6 +5,7 @@
 git+git://github.com/pytorch/fairseq.git@ee177fc4fa06dcb3d5fd466559af1b46893c00e8
 tensorboard
 tensorboardX
+setuptools==59.5.*
 
 #torch==1.8.*  # Not needed for 1 GPU
 #sacrebleu==1.4.*
