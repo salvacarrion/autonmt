@@ -12,7 +12,7 @@ def main(fairseq_args):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["word"],
@@ -32,9 +32,9 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(force_overwrite=True, conda_fairseq_env_name="fairseq", run_prefix="model")
-        model.fit(train_ds=ds, max_epochs=5, batch_size=128, seed=1234, num_workers=16, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, model_ds=ds, metrics={"bleu"}, beams=[1])
+        model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
+        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=16, patience=10, devices=1, fairseq_args=fairseq_args)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it

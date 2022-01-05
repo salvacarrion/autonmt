@@ -5,7 +5,7 @@ import shutil
 import autonmt as al
 
 from autonmt.modules.models.transfomer import Transformer
-from autonmt.toolkits.autonmt import Translator
+from autonmt.toolkits.autonmt import AutonmtTranslator
 from autonmt.toolkits.fairseq import FairseqTranslator
 from autonmt.preprocessing.builder import DatasetBuilder
 from autonmt.bundle.report import generate_report, summarize_scores
@@ -35,7 +35,7 @@ def train_and_score_autonmt(train_datasets, train_params, test_params, test_data
     # Train and score model/s
     scores = []
     for ds in train_datasets:
-        model = Translator(model=model, model_ds=ds, safe_seconds=0,
+        model = AutonmtTranslator(model=model, model_ds=ds, safe_seconds=0,
                            force_overwrite=True, interactive=False, use_cmd=False)
         model.fit(**train_params)
         eval_scores = model.predict(test_datasets, **test_params)

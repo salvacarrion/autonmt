@@ -42,9 +42,8 @@ def main():
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
         # Train model
-        wandb_params = dict(project="autonmt-tests", entity="salvacarrion")
-        model = AutonmtTranslator(model=model, model_ds=ds, src_vocab=src_vocab, trg_vocab=trg_vocab, run_prefix="model256emb", wandb_params=wandb_params, force_overwrite=True)
-        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=0, patience=10)
+        model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=False)
+        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=16, patience=10, devices=1)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], max_gen_length=100, load_best_checkpoint=True)
         scores.append(m_scores)
 

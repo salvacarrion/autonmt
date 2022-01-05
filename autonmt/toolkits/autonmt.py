@@ -22,7 +22,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, model_ds, wandb_params, **kwargs):
+    def __init__(self, model, model_ds, wandb_params=None, **kwargs):
         super().__init__(engine="autonmt", model_ds=model_ds, **kwargs)
         self.model = model
         self.wandb_params = wandb_params

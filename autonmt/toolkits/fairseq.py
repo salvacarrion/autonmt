@@ -173,7 +173,7 @@ class FairseqTranslator(BaseTranslator):
         # cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Parse gpu flag
-        num_gpus = kwargs.get('num_gpus')
+        num_gpus = kwargs.get('devices')
         num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if num_gpus else ""
 
         # Run command
