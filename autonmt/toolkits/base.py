@@ -366,6 +366,11 @@ class BaseTranslator(ABC):
                 output_file = os.path.join(output_path, f"{fname}.txt")
                 model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
 
+                # Copy preprocessed files (unknowns can be tricky to handle consistently between toolkits)
+                if fname in {"src", "ref"}:
+                    raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=f"test.{lang}")
+                    shutil.copyfile(raw_file, input_file)
+
                 # Post-process files
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
                             subword_model=model_ds.subword_model,
@@ -373,7 +378,7 @@ class BaseTranslator(ABC):
                             force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
 
-            print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+            print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
         print(f"=> [Score]: Started. ({model_ds.id2(as_path=True)})")
@@ -448,7 +453,7 @@ class BaseTranslator(ABC):
                 output_file = os.path.join(scores_path, f"beer_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
-            print(f"\t- [INFO]: Translate time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+            print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
         print(f"=> [Parsing]: Started. ({model_ds.id2(as_path=True)})")

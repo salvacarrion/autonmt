@@ -65,6 +65,9 @@ def _parse_args(**kwargs):
 
 
 def _postprocess_output(output_path):
+    """
+    Important: src and ref will be overwritten with the original preprocessed files to avoid problems with unknowns
+    """
     # Extract sentences from generate-test.txt
     gen_test_path = os.path.join(output_path, "generate-test.txt")
     src_tok_path = os.path.join(output_path, "src.tok")

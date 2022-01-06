@@ -120,6 +120,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self._postprocess_output(predictions=predictions, output_path=output_path)
 
     def _postprocess_output(self, predictions, output_path):
+        """
+        Important: src and ref will be overwritten with the original preprocessed files to avoid problems with unknowns
+        """
+
         # Decode: hyp
         hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
 
