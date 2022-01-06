@@ -15,7 +15,7 @@ def main(fairseq_args):
             {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
-        subword_models=["word"],
+        subword_models=["unigram", "word"],
         vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
@@ -33,7 +33,7 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
-        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=16, patience=10, devices=1, fairseq_args=fairseq_args)
+        # model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 

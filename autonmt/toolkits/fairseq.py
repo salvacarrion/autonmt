@@ -14,42 +14,51 @@ def _parse_args(**kwargs):
     reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate", "--save-dir", "--tensorboard-logdir"}
     # reserved_args.update(autonmt2fairseq.keys())
 
-    # Check fairseq args
-    fairseq_args = kwargs.get("fairseq_args")
-    if not fairseq_args or not isinstance(fairseq_args, list):
-        raise ValueError("No fairseq args were provided.\n"
-                         "You can add them with 'model.fit(fairseq_args=FARSEQ_ARGS)', where 'FAIRSEQ_ARGS' is a "
-                         "list with the fairseq parameters (['--arch transformer', '--lr 0.001',...])")
-    else:
-        if any([x in fairseq_args for x in reserved_args]):
-            raise ValueError(f"A reserved fairseq arg was used. List of reserved args: {str(reserved_args)}")
-
-    # Convert AutoNLP args to Fairseq
+    # Check: autonmt args (proposal)
     autonmt2fairseq = {
-        'learning_rate': "--lr",
-        'criterion': "--criterion",
-        'optimizer': "--optimizer",
-        'gradient_clip_val': "--clip-norm",
-        'accumulate_grad_batches': "--update-freq",
-        'max_epochs': "--max-epoch",
-        'max_tokens': "--max-tokens",
-        'batch_size': "--batch-size",
-        'patience': "--patience",
-        'seed': "--seed",
-        'monitor': "--best-checkpoint-metric",
+        'learning_rate': "--lr",  # Default: 0.25
+        'criterion': "--criterion",  # Default: "cross_entropy". (cross_entropy, ctc, hubert, ...)
+        'optimizer': "--optimizer",  # No default. (adadelta, adafactor, adagrad, adam, adamax, nag, sgd,...)
+        'gradient_clip_val': "--clip-norm",  # Default: 0.0
+        'accumulate_grad_batches': "--update-freq",  # Default: 1
+        'max_epochs': "--max-epoch",  # No default
+        'max_tokens': "--max-tokens",  # No default
+        'batch_size': "--batch-size",  # No default
+        'patience': "--patience",  # Default: -1
+        'seed': "--seed",  # Default: 1
+        'monitor': "--best-checkpoint-metric",  # Default: "loss"
+        'num_workers': "--num-workers",  # Default: 1
+    }
+    autonmt_fix_values = {
+        "patience": lambda x: -1 if x <= 0 else x,
+        "num_workers": lambda x: 1 if x <= 0 else x
     }
     proposed_args = []  # From AutoNMTBase
     for autonmt_arg_name, autonmt_arg_value in kwargs.items():
-        faisreq_arg_name = autonmt2fairseq.get(autonmt_arg_name)
-        if autonmt_arg_value is not None and faisreq_arg_name:
-            proposed_args.append(f"{faisreq_arg_name} {str(autonmt_arg_value)}")
+        fairseq_arg_name = autonmt2fairseq.get(autonmt_arg_name)
+        if autonmt_arg_value is not None and fairseq_arg_name:  # Has value and exists translation
+            # Is the value valid?
+            if autonmt_arg_name in autonmt_fix_values:
+                new_value = autonmt_fix_values[autonmt_arg_name](autonmt_arg_value)
+            else:
+                new_value = autonmt_arg_value
+            proposed_args.append(f"{fairseq_arg_name} {str(new_value)}")
 
-    # Add params: Fairseq params have preference over the autonmt params, but autonmt params have preference over
-    # the default fairseq params
+    # Check: fairseq args
+    fairseq_args = kwargs.get("fairseq_args", [])
+    if fairseq_args is not None and isinstance(fairseq_args, (list, set, dict)):
+        if any([x in fairseq_args for x in reserved_args]):  # Check for reserved values
+            raise ValueError(f"A reserved fairseq arg was used. List of reserved args: {str(reserved_args)}")
+    else:
+        raise ValueError("No valid fairseq args were provided.\n"
+                         "You can add them with 'model.fit(fairseq_args=FARSEQ_ARGS)', where 'FAIRSEQ_ARGS' is a "
+                         "list with the fairseq parameters (['--arch transformer', '--lr 0.001',...])")
+
+    # Add proposed args if they were not explicitly set fairseq_args
+    fairseq_args_keys = set([arg.split(' ')[0] for arg in fairseq_args])
     proposed_fairseq_keys = [arg.split(' ')[0] for arg in proposed_args]
-    fairseq_keys = set([arg.split(' ')[0] for arg in fairseq_args])
     for autonmt_arg, autonmt_key in zip(proposed_args, proposed_fairseq_keys):
-        if autonmt_key not in fairseq_keys:
+        if autonmt_key not in fairseq_args_keys:
             cmd += [autonmt_arg]
     cmd += fairseq_args
     return cmd
@@ -120,8 +129,8 @@ class FairseqTranslator(BaseTranslator):
         cmd += [f" --srcdict '{new_src_vocab_path}'"] if new_src_vocab_path else []
         cmd += [f" --tgtdict '{new_trg_vocab_path}'"] if new_trg_vocab_path else []
 
-        # Parse fairseq args
-        # cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
+        # Parse fairseq args (will throw "error: unrecognized arguments")
+        # cmd += _parse_args(**kwargs)
 
         # Run command
         cmd = " ".join([] + cmd)
@@ -140,6 +149,7 @@ class FairseqTranslator(BaseTranslator):
 
         # Parse gpu flag
         num_gpus = kwargs.get('devices')
+        num_gpus = None if num_gpus == "auto" else num_gpus
         num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
 
         # Run command
@@ -167,14 +177,15 @@ class FairseqTranslator(BaseTranslator):
             f"--skip-invalid-size-inputs-valid-test",
             f"--batch-size {batch_size}",
         ]
-        cmd += [f"--max-tokens '{max_tokens}'"] if max_tokens else []
+        # cmd += [f"--max-tokens '{max_tokens}'"] if max_tokens else []
 
         # Parse fairseq args
-        # cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
+        cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Parse gpu flag
         num_gpus = kwargs.get('devices')
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if num_gpus else ""
+        num_gpus = None if num_gpus == "auto" else num_gpus
+        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
 
         # Run command
         cmd = " ".join([num_gpus] + cmd)
