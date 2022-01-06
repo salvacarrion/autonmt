@@ -40,7 +40,7 @@ def main():
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
         # Train model
-        wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
+        wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
         model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, model_ds=ds, wandb_params=wandb_params, force_overwrite=True)
         model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)
