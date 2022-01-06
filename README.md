@@ -104,20 +104,21 @@ from autonmt.toolkits import AutonmtTranslator
 from autonmt.modules.models import Transformer
 from autonmt.vocabularies import Vocabulary
 
+# Build datasets
+# tr_datasets, ts_datasets = ...
+
 # Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    
     # Instantiate vocabs and model
-    src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.src_lang)
-    trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.trg_lang)
+    src_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.src_lang)
+    trg_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.trg_lang)
     model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
     # Train model
-    model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
-    model.fit(train_ds=ds, max_epochs=10, learning_rate=0.001, criterion="cross_entropy", optimizer="adam", 
-              max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1)
-    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1])
+    model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=True)
+    model.fit(max_epochs=5, learning_rate=0.001, batch_size=128, seed=1234, patience=10, num_workers=12)
+    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True)
     scores.append(m_scores)
 ```
 
@@ -141,11 +142,15 @@ This code will save the score of the multiple training (as json and csv), will c
 make a few plots to visualize the performance of the models.
 
 ```python
+import datetime
 from autonmt.bundle.report import generate_report
 
-# Make report
-df_report, df_summary = generate_report(scores=scores, output_path=".outputs", plot_metric="beam1__sacrebleu_bleu_score")
+# Train models
+# scores = ...
 
+# Make report and print it
+output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
 print("Summary:")
 print(df_summary.to_string(index=False))
 ```
@@ -153,19 +158,20 @@ print(df_summary.to_string(index=False))
 **Single toolkit output:**
 
 ```text
-train_dataset eval_dataset subword_model vocab_size  fairseq_bleu
-     europarl     europarl          word       1000     17.465943
-     europarl     europarl          word       8000     11.431010
+train_dataset  eval_dataset subword_model vocab_size  fairseq_bleu
+multi30k_test multi30k_test       unigram       4000     35.123375
+multi30k_test multi30k_test          word       4000     34.706139
 ```
 
 **Multi-toolkit output:**
 
 ```text
-train_dataset eval_dataset subword_model vocab_size  custom_bleu  fairseq_bleu
-     europarl     europarl          word       1000     17.218436     17.465943
-     europarl     europarl          word       8000     12.080312     11.431010
+train_dataset  eval_dataset subword_model vocab_size  fairseq_bleu  autonmt_bleu
+multi30k_test multi30k_test       unigram       4000     35.123375     32.816378
+multi30k_test multi30k_test          word       4000     34.706139     34.682657
 ```
 
+> **Note:** AutoNMT didn't have some of the training parameters that Fairseq had.
 
 ### Toolkit abstraction
 
@@ -189,17 +195,22 @@ class CustomModel(LitSeq2Seq):
     def forward_decoder(self, y, memory):
         pass  # output = (Batch, Length, probabilities)
 
-# Train & Score a model for each dataset
-for train_ds in tr_datasets:
-    
-        # Instantiate vocabs and model
-        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.src_lang)
-        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.trg_lang)
-        model = CustomModel(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+# Build datasets
+# tr_datasets, ts_datasets = ...
 
-        # Train model
-        model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
-        model.fit(train_ds=ds)
+# Train & Score a model for each dataset
+scores = []
+for ds in tr_datasets:
+    # Instantiate vocabs and model
+    src_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.src_lang)
+    trg_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.trg_lang)
+    model = CustomModel(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+
+    # Train model
+    model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=True)
+    model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12)
+    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)
+    scores.append(m_scores)
 ```
 
 **Custom trainer/evaluator**
@@ -228,6 +239,8 @@ model = AutonmtTranslator(model= CustomModel(...), ...)
 When using a Fairseq model, you can use it through the fairseq command-line tools:
 
 ```python
+from autonmt.toolkits.fairseq import FairseqTranslator
+
 # These args are pass to fairseq using our pipeline
 # Fairseq Command-line tools: https://fairseq.readthedocs.io/en/latest/command_line_tools.html
 fairseq_args = [
@@ -243,13 +256,15 @@ fairseq_args = [
     "--dropout 0.1",
 ]
 
-# Train & Score a fairseq model for each dataset
+# Build datasets
+# tr_datasets, ts_datasets = ...
+
+# Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = FairseqTranslator(conda_fairseq_env_name="fairseq")  # conda envs will be soon deprecated
-    model.fit(train_ds=ds, max_epochs=1, learning_rate=0.001, criterion="cross_entropy", optimizer="adam",
-              max_tokens=None, batch_size=64, patience=10, seed=1234, devices=1, fairseq_args=fairseq_args)
-    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore", "comet"}, beams=[1, 5])
+    model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
+    model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
+    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
     scores.append(m_scores)
 ```
 
