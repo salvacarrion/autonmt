@@ -1,12 +1,11 @@
-# Output path
-.outputs/
-tests/data
-
 # Development
 *.json
 .idea/
 .DS_Store
 *logs/
+.outputs/
+tests/data
+wandb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
