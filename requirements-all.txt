@@ -7,7 +7,6 @@ argon2-cffi==21.3.0
 argon2-cffi-bindings==21.2.0
 async-timeout==4.0.2
 attrs==21.4.0
--e git+ssh://git@github.com/salvacarrion/autonmt.git@73ec6a5d276e7feee820983eb6f5f0d3dda27fe4#egg=autonmt
 Babel==2.9.1
 backcall==0.2.0
 bert-score==0.3.11

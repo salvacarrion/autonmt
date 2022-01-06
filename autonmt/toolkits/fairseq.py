@@ -11,7 +11,8 @@ def _parse_args(**kwargs):
     cmd = []
 
     # Set reserved args
-    reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate", "--save-dir", "--tensorboard-logdir"}
+    reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate",
+                     "--save-dir", "--tensorboard-logdir", "--wandb-project"}
     # reserved_args.update(autonmt2fairseq.keys())
 
     # Check: autonmt args (proposal)
@@ -33,6 +34,7 @@ def _parse_args(**kwargs):
         "patience": lambda x: -1 if x <= 0 else x,
         "num_workers": lambda x: 1 if x <= 0 else x
     }
+
     proposed_args = []  # From AutoNMTBase
     for autonmt_arg_name, autonmt_arg_value in kwargs.items():
         fairseq_arg_name = autonmt2fairseq.get(autonmt_arg_name)
@@ -47,7 +49,7 @@ def _parse_args(**kwargs):
     # Check: fairseq args
     fairseq_args = kwargs.get("fairseq_args", [])
     if fairseq_args is not None and isinstance(fairseq_args, (list, set, dict)):
-        if any([x in fairseq_args for x in reserved_args]):  # Check for reserved values
+        if any([x.split(' ')[0] in reserved_args for x in fairseq_args]):  # Check for reserved params
             raise ValueError(f"A reserved fairseq arg was used. List of reserved args: {str(reserved_args)}")
     else:
         raise ValueError("No valid fairseq args were provided.\n"
@@ -83,11 +85,12 @@ def _postprocess_output(output_path):
 
 class FairseqTranslator(BaseTranslator):
 
-    def __init__(self, conda_fairseq_env_name=None, **kwargs):
+    def __init__(self, conda_fairseq_env_name=None, wandb_params=None, **kwargs):
         super().__init__(engine="fairseq", **kwargs)
 
         # Vars
         self.conda_fairseq_env_name = conda_fairseq_env_name
+        self.wandb_params = wandb_params
 
         # Check conda environment
         if conda_fairseq_env_name is None:
@@ -141,7 +144,7 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, **kwargs):
+    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, run_name, ds_alias, **kwargs):
         # Write command
         cmd = [f"fairseq-train '{data_bin_path}'"]
         cmd += [f"--save-dir '{checkpoints_path}'"] if checkpoints_path else []
@@ -150,13 +153,21 @@ class FairseqTranslator(BaseTranslator):
         # Parse fairseq args
         cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
+        # Add wandb logger (if requested)
+        wandb_env = ""
+        if self.wandb_params:
+            wandb_run_name = f"{ds_alias}_{run_name}"
+            wandb_env = f"WANDB_NAME={wandb_run_name}"
+            wandb_project = self.wandb_params['project']
+            cmd += [f"--wandb-project {wandb_project}"]
+
         # Parse gpu flag
         num_gpus = kwargs.get('devices')
         num_gpus = None if num_gpus == "auto" else num_gpus
         num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
 
         # Run command
-        cmd = " ".join([num_gpus] + cmd)
+        cmd = "; ".join([wandb_env, num_gpus] + cmd)
         env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else NO_CONDA_MSG
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])

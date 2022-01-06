@@ -32,8 +32,9 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
-        model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
+        wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
+        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, conda_fairseq_env_name="fairseq")
+        model.fit(max_epochs=1, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
@@ -67,6 +68,7 @@ if __name__ == "__main__":
         "--eval-bleu-print-samples",
         "--scoring sacrebleu",
         "--log-format simple",
+        "--task translation",
         "--task translation",
     ]
 
