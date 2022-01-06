@@ -14,7 +14,7 @@ def main():
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
         subword_models=["unigram", "word"],
