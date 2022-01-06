@@ -34,7 +34,6 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
-        # try:
         # Instantiate vocabs and model
         src_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.src_lang)
         trg_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.trg_lang)
