@@ -25,8 +25,11 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
             dec_idxs = torch.full((x.shape[0], 1), sos_id, dtype=torch.long).to(device)  # Sentence tokens
             # dec_probs = torch.zeros(x.shape[0]).to(device)  # Sentence probability
 
+            # Run encoder
+            memory = model.forward_encoder(x)
+
             # Get top k word predictions
-            next_probabilities = model.forward(x, dec_idxs)[:, -1, :]
+            next_probabilities =  model.forward_decoder(dec_idxs, memory)[:, -1, :]
             topk_next_probabilities, topk_next_idxs = next_probabilities.squeeze().log_softmax(-1).topk(k=beam_width, axis=-1)
 
             # Create top k hypothesis: Dec => [Dec + k0, Dec + k1, Dec + k3]
@@ -34,8 +37,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
             topk_next_idxs = topk_next_idxs.reshape(-1, 1)
             dec_idxs = torch.cat((dec_idxs, topk_next_idxs), axis=-1)
 
-            # Run encoder
-            memory = model.forward_encoder(x)
+
 
             # Iterative decoder
             all_eos = False
