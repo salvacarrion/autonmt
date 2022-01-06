@@ -131,9 +131,9 @@ class FairseqTranslator(BaseTranslator):
         ]
 
         # Optional params
-        cmd += [f" --validpref '{val_path}'"] if val_path else []
-        cmd += [f" --srcdict '{new_src_vocab_path}'"] if new_src_vocab_path else []
-        cmd += [f" --tgtdict '{new_trg_vocab_path}'"] if new_trg_vocab_path else []
+        cmd += [f"--validpref '{val_path}'"] if val_path else []
+        cmd += [f"--srcdict '{new_src_vocab_path}'"] if new_src_vocab_path else []
+        cmd += [f"--tgtdict '{new_trg_vocab_path}'"] if new_trg_vocab_path else []
 
         # Parse fairseq args (will throw "error: unrecognized arguments")
         # cmd += _parse_args(**kwargs)
@@ -154,12 +154,12 @@ class FairseqTranslator(BaseTranslator):
         cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
         # Add wandb logger (if requested)
-        wandb_env = ""
+        wandb_env = []
         if self.wandb_params:
             wandb_run_name = f"{ds_alias}_{run_name}"
-            wandb_env = f"WANDB_NAME={wandb_run_name}"
+            wandb_env = f"WANDB_NAME='{wandb_run_name}'"
             wandb_project = self.wandb_params['project']
-            cmd += [f"--wandb-project {wandb_project}"]
+            cmd += [f"--wandb-project '{wandb_project}'"]
 
         # Parse gpu flag
         num_gpus = kwargs.get('devices')
@@ -167,7 +167,10 @@ class FairseqTranslator(BaseTranslator):
         num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
 
         # Run command
-        cmd = "; ".join([wandb_env, num_gpus] + cmd)
+        cmd_env = [wandb_env, num_gpus]
+        cmd_env = " ".join([x for x in cmd_env if x])  # Needs spaces. It doesn't work with ";" or "&&"
+        cmd_env = cmd_env + " " if cmd_env else cmd_env
+        cmd = " ".join([cmd_env] + cmd)
         env = f"conda activate {self.conda_fairseq_env_name}" if self.conda_fairseq_env_name else NO_CONDA_MSG
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-i', '-c', f"{env} && {cmd}"])
