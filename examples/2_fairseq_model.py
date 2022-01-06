@@ -23,7 +23,7 @@ def main(fairseq_args):
         eval_mode="same",
         conda_env_name="mltests",
         letter_case="lower",
-    ).build(make_plots=False, safe=True)
+    ).build(make_plots=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
@@ -33,7 +33,7 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
-        # model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
+        model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
@@ -59,7 +59,6 @@ if __name__ == "__main__":
         "--decoder-ffn-embed-dim 512",
         "--dropout 0.1",
 
-        # "--max-tokens 4096",
         "--no-epoch-checkpoints",
         "--maximize-best-checkpoint-metric",
         "--best-checkpoint-metric bleu",

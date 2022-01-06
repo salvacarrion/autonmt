@@ -17,7 +17,7 @@ def main():
             {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
-        subword_models=["word"],
+        subword_models=["unigram", "word"],
         vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
@@ -25,7 +25,7 @@ def main():
         eval_mode="same",
         conda_env_name="mltests",
         letter_case="lower",
-    ).build(make_plots=False, safe=True)
+    ).build(make_plots=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_ds()
@@ -33,7 +33,6 @@ def main():
 
     # Train & Score a model for each dataset
     scores = []
-    errors = []
     for ds in tr_datasets:
         # try:
         # Instantiate vocabs and model
@@ -42,9 +41,9 @@ def main():
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
         # Train model
-        model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=False)
-        model.fit(max_epochs=5, batch_size=128, seed=1234, num_workers=16, patience=10, devices=1)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], max_gen_length=100, load_best_checkpoint=True)
+        model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=True)
+        model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)
         scores.append(m_scores)
 
     # Make report and print it
@@ -52,9 +51,6 @@ def main():
     df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
-
-    print(f"Errors: {len(errors)}")
-    print(errors)
 
 
 if __name__ == "__main__":
