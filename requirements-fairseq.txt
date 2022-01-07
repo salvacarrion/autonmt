@@ -1,7 +1,7 @@
 # conda create --name fairseq python=3.8
 
 # Custom fork
-git+git://github.com/salvacarrion/fairseq.git@master
+git+git://github.com/salvacarrion/fairseq.git@main
 
 # => Install latest fairseq from Github but fix code
 # ee177fc4fa06dcb3d5fd466559af1b46893c00e8
