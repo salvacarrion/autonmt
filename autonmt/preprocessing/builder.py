@@ -428,6 +428,7 @@ class DatasetBuilder:
                         spm_vocab_lines = spm_vocab_lines[4:]  # Remove special tokens
                         spm_vocab = {l.split('\t')[0]: 0 for l in spm_vocab_lines}
 
+                        # Important: SPM might end with words that won't use during the encoding (of the training)
                         # Only count tokens that exists in the vocabulary
                         c = Counter({k: v for k, v in vocabf.items() if k in spm_vocab})
                         vocabs.append(c)

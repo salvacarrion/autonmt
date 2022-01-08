@@ -83,6 +83,20 @@ def _postprocess_output(output_path):
     utils.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
 
 
+def vocab_spm2fairseq(filename):
+    # Read file
+    lines = utils.read_file_lines(filename, strip=False, remove_break_lines=False)
+
+    # Drop headers
+    lines = lines[4:]  # <unk>, <s>, </s>, <pad>
+
+    # Clean lines
+    lines = [line.split('\t')[0] + f" {1}" for line in lines]
+
+    # Write file
+    utils.write_file_lines(lines, filename)
+
+
 class FairseqTranslator(BaseTranslator):
 
     def __init__(self, fairseq_venv_path=None, wandb_params=None, **kwargs):
@@ -103,14 +117,13 @@ class FairseqTranslator(BaseTranslator):
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
         if src_vocab_path:
-            # Careful with *.vocabf. It is the original code is not correct, it will not be equivalent to *.vocab
             new_src_vocab_path = os.path.join(output_path, f"dict.{src_lang}.txt")
-            shutil.copyfile(f"{src_vocab_path}.vocabf", new_src_vocab_path)
-            utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_src_vocab_path)
+            shutil.copyfile(f"{src_vocab_path}.vocab", new_src_vocab_path)
+            vocab_spm2fairseq(filename=new_src_vocab_path)
         if trg_vocab_path:
             new_trg_vocab_path = os.path.join(output_path, f"dict.{trg_lang}.txt")
-            shutil.copyfile(f"{trg_vocab_path}.vocabf", new_trg_vocab_path)
-            utils.replace_in_file(search_string='\t', replace_string=' ', filename=new_trg_vocab_path)
+            shutil.copyfile(f"{trg_vocab_path}.vocab", new_trg_vocab_path)
+            vocab_spm2fairseq(filename=new_trg_vocab_path)
 
         # Trick for generation.
         # Fairseq always requires a train path, but during evaluation there is no need.

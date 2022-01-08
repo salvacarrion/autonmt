@@ -245,14 +245,18 @@ def write_file_lines(lines, filename, encoding="utf8"):
         f.writelines(lines)
 
 
-def replace_in_file(search_string, replace_string, filename):
+def replace_in_file(search_string, replace_string, filename, drop_headers=0):
     # Read file
-    with open(filename, 'r') as f:
-        lines = [line.replace(search_string, replace_string) for line in f.readlines()]
+    lines = read_file_lines(filename, strip=False, remove_break_lines=False)
+
+    # Drop headers
+    lines = lines[drop_headers:]
+
+    # Clean lines
+    lines = [line.replace(search_string, replace_string) for line in lines]
 
     # Write file
-    with open(filename, 'w') as f:
-        f.writelines(lines)
+    write_file_lines(lines, filename)
 
 
 def flatten(lst):
