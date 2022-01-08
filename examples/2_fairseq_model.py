@@ -21,7 +21,7 @@ def main(fairseq_args):
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
-        conda_env_name="mltests",
+        venv_path="mltests",
         letter_case="lower",
     ).build(make_plots=False)
 
@@ -33,7 +33,7 @@ def main(fairseq_args):
     scores = []
     for ds in tr_datasets:
         wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
-        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, conda_fairseq_env_name="fairseq")
+        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, fairseq_venv_path="fairseq")
         model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)

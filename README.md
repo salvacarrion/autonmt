@@ -262,7 +262,7 @@ fairseq_args = [
 # Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = FairseqTranslator(model_ds=ds, force_overwrite=True, conda_fairseq_env_name="fairseq")
+    model = FairseqTranslator(model_ds=ds, force_overwrite=True, fairseq_venv_path="fairseq")
     model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
     m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
     scores.append(m_scores)
@@ -296,10 +296,10 @@ By enabling this flag, AutoNMT will use the command line tools as a typical user
 - Command used: sacrebleu /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
 ...
 ```
-By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `conda_env_name="myenv"`
+By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `venv_path="myenv"`
 
 ```python
-model = AutonmtTranslator(model=Transformer(...), ..., conda_env_name="myenv")
+model = AutonmtTranslator(model=Transformer(...), ..., venv_path="myenv")
 ```
 
 ### Plots & Stats

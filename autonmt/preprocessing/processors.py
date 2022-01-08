@@ -60,7 +60,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, force_overwrite
 
 
 def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, force_overwrite,
-                use_cmd, conda_env_name, remove_unk_hyphen=False, **kwargs):
+                use_cmd, venv_path, remove_unk_hyphen=False, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
 
         # Detokenize
@@ -79,12 +79,12 @@ def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, 
         else:
             # Decode files
             py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
-                                  use_cmd=use_cmd, conda_env_name=conda_env_name)
+                                  use_cmd=use_cmd, venv_path=venv_path)
 
             # Detokenize with moses
             if subword_model in {"word"}:
                 py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
-                                             use_cmd=use_cmd, conda_env_name=conda_env_name)
+                                             use_cmd=use_cmd, venv_path=venv_path)
 
             # Remove the hyphen of unknown words when needed
             if remove_unk_hyphen:

@@ -1,1 +1,1 @@
-NO_CONDA_MSG = "echo \"=> [WARNING]: No conda env. Using '/bin/bash'\""
+NO_VENV_MSG = "echo \"=> [WARNING]: No virtual environment set. Using '/bin/bash'\""

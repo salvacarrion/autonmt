@@ -23,7 +23,7 @@ def main():
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
-        conda_env_name="mltests",
+        venv_path="mltests",
         letter_case="lower",
     ).build(make_plots=False)
 

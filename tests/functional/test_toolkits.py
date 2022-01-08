@@ -12,7 +12,7 @@
 #
 # import pytest
 #
-# CONDA_FAIRSEQ_ENV_NAME = "fairseq"
+# fairseq_venv_path = "fairseq"
 #
 #
 # @pytest.fixture
@@ -73,7 +73,7 @@
 #     for ds in train_datasets:
 #         model = FairseqTranslator(model_ds=ds, safe_seconds=0,
 #                                   force_overwrite=True, interactive=False, use_cmd=False,
-#                                   conda_fairseq_env_name=CONDA_FAIRSEQ_ENV_NAME)
+#                                   fairseq_venv_path=fairseq_venv_path)
 #         model.fit(**train_params, fairseq_args=fairseq_args)
 #         eval_scores = model.predict(test_datasets, **test_params)
 #         scores.append(eval_scores)

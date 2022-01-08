@@ -17,7 +17,7 @@ class DatasetBuilder:
 
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
                  normalization="NFKC", strip_whitespace=True, collapse_whitespace=True, letter_case=None,
-                 file_encoding="utf8", force_overwrite=False, interactive=True, use_cmd=False, conda_env_name=None):
+                 file_encoding="utf8", force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
@@ -27,7 +27,7 @@ class DatasetBuilder:
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
-        self.conda_env_name = conda_env_name
+        self.venv_path = venv_path
 
         # Set preprocessing flags
         self.normalization = normalization
@@ -297,7 +297,7 @@ class DatasetBuilder:
             # Pretokenize
             pretokenize_file(input_file=input_file, output_file=output_file, lang=lang,
                              force_overwrite=self.force_overwrite,
-                             use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                             use_cmd=self.use_cmd, venv_path=self.venv_path)
 
     def _train_tokenizer(self, input_sentence_size=1000000):
         print(f"=> Building vocabularies...")
@@ -349,7 +349,7 @@ class DatasetBuilder:
                 if self.force_overwrite or not os.path.exists(f"{output_file}.model"):
                     py_cmd_api.spm_train(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
                                          vocab_size=ds.vocab_size, input_sentence_size=input_sentence_size,
-                                         use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                                         use_cmd=self.use_cmd, venv_path=self.venv_path)
                     assert os.path.exists(f"{output_file}.model")
 
     def _encode_datasets(self):
@@ -374,7 +374,7 @@ class DatasetBuilder:
                 # Encode file
                 encode_file(ds=ds, input_file=input_file, output_file=output_file,
                             lang=lang, merge_vocabs=self.merge_vocabs, force_overwrite=self.force_overwrite,
-                            use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                            use_cmd=self.use_cmd, venv_path=self.venv_path)
 
     def _export_vocab_frequencies(self, normalize=False):
         """

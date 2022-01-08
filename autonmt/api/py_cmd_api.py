@@ -17,9 +17,9 @@ except ImportError as e:
     print("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
 
 
-def moses_tokenizer(input_file, output_file, lang, use_cmd, conda_env_name):
+def moses_tokenizer(input_file, output_file, lang, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_moses_tokenizer(input_file, output_file, lang, conda_env_name)
+        cmd = cmd_moses_tokenizer(input_file, output_file, lang, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_moses_tokenizer(input_file, output_file, lang)
@@ -37,9 +37,9 @@ def py_moses_tokenizer(input_file, output_file, lang):
     utils.write_file_lines(lines=lines, filename=output_file)
 
 
-def moses_detokenizer(input_file, output_file, lang, use_cmd, conda_env_name):
+def moses_detokenizer(input_file, output_file, lang, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_moses_detokenizer(input_file, output_file, lang, conda_env_name)
+        cmd = cmd_moses_detokenizer(input_file, output_file, lang, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_moses_detokenizer(input_file, output_file, lang)
@@ -62,7 +62,7 @@ def _moses_detokenizer(lines, lang):
     return [mt.detokenize(line.split()) for line in lines]
 
 
-def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, conda_env_name):
+def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, venv_path):
     # Enable
     byte_fallback = False
     if "+bytes" in subword_model:
@@ -70,7 +70,7 @@ def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentenc
         byte_fallback = True
 
     if use_cmd:
-        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback, conda_env_name)
+        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback)
@@ -85,9 +85,9 @@ def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sent
                                    pad_id=3)
 
 
-def spm_encode(spm_model_path, input_file, output_file, use_cmd, conda_env_name):
+def spm_encode(spm_model_path, input_file, output_file, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_spm_encode(spm_model_path, input_file, output_file, conda_env_name)
+        cmd = cmd_spm_encode(spm_model_path, input_file, output_file, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_spm_encode(spm_model_path, input_file, output_file)
@@ -105,9 +105,9 @@ def py_spm_encode(spm_model_path, input_file, output_file):
     utils.write_file_lines(lines=lines, filename=output_file)
 
 
-def spm_decode(spm_model_path, input_file, output_file, use_cmd, conda_env_name):
+def spm_decode(spm_model_path, input_file, output_file, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_spm_decode(spm_model_path, input_file, output_file, conda_env_name)
+        cmd = cmd_spm_decode(spm_model_path, input_file, output_file, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_spm_decode(spm_model_path, input_file, output_file)
@@ -130,7 +130,7 @@ def _spm_decode(lines, spm_model_path):
     return [s.decode_pieces(line.split(' ')) for line in lines]
 
 
-def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, conda_env_name):
+def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, venv_path):
     if not metrics:
         return
 
@@ -176,12 +176,12 @@ def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
     utils.save_json(scores, output_file)
 
 
-def compute_sacrebleu(ref_file, hyp_file, output_file, metrics, use_cmd, conda_env_name):
+def compute_sacrebleu(ref_file, hyp_file, output_file, metrics, use_cmd, venv_path):
     if not metrics:
         return
 
     if use_cmd:
-        cmd = cmd_sacrebleu(ref_file, hyp_file, output_file, metrics, conda_env_name)
+        cmd = cmd_sacrebleu(ref_file, hyp_file, output_file, metrics, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_sacrebleu(ref_file, hyp_file, output_file, metrics)
@@ -226,9 +226,9 @@ def _sacrebleu(hyp_lines, ref_lines, metrics):
     return scores
 
 
-def compute_bertscore(ref_file, hyp_file, output_file, trg_lang, use_cmd, conda_env_name):
+def compute_bertscore(ref_file, hyp_file, output_file, trg_lang, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_bertscore(ref_file, hyp_file, output_file, trg_lang, conda_env_name)
+        cmd = cmd_bertscore(ref_file, hyp_file, output_file, trg_lang, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_bertscore(ref_file, hyp_file, output_file, trg_lang)
@@ -265,9 +265,9 @@ def _bertscore(hyp_lines, ref_lines, lang):
     return scores
 
 
-def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, conda_env_name):
+def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_cometscore(src_file, ref_file, hyp_file, output_file, conda_env_name)
+        cmd = cmd_cometscore(src_file, ref_file, hyp_file, output_file, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         py_comet(src_file, ref_file, hyp_file, output_file)
@@ -310,9 +310,9 @@ def _comet(src_lines, hyp_lines, ref_lines):
     return scores
 
 
-def compute_beer(ref_file, hyp_file, output_file, use_cmd, conda_env_name):
+def compute_beer(ref_file, hyp_file, output_file, use_cmd, venv_path):
     if use_cmd:
-        cmd = cmd_beer(ref_file, hyp_file, output_file, conda_env_name)
+        cmd = cmd_beer(ref_file, hyp_file, output_file, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         print("\t- [INFO]: No python interface for 'Beer'. Command-line version only ('use_cmd=True').")

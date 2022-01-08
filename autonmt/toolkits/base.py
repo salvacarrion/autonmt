@@ -67,7 +67,7 @@ class BaseTranslator(ABC):
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
     def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None, safe_seconds=0,
-                 force_overwrite=False, interactive=False, use_cmd=False, conda_env_name=None, **kwargs):
+                 force_overwrite=False, interactive=False, use_cmd=False, venv_path=None, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
@@ -76,7 +76,7 @@ class BaseTranslator(ABC):
         self.force_overwrite = force_overwrite
         self.interactive = interactive
         self.use_cmd = use_cmd
-        self.conda_env_name = conda_env_name
+        self.venv_path = venv_path
         self.config = {}
 
         # Set vocab (optional)
@@ -325,13 +325,13 @@ class BaseTranslator(ABC):
                 if model_ds.pretok_flag:
                     pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
                                      force_overwrite=self.force_overwrite, use_cmd=self.use_cmd,
-                                     conda_env_name=self.conda_env_name)
+                                     venv_path=self.venv_path)
                     input_file = pretok_file
 
                 # Encode file
                 encode_file(ds=model_ds, input_file=input_file, output_file=output_file,
                             lang=lang, merge_vocabs=model_ds.merge_vocabs, force_overwrite=self.force_overwrite,
-                            use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                            use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # Preprocess external data
             test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
@@ -376,7 +376,7 @@ class BaseTranslator(ABC):
                             subword_model=model_ds.subword_model,
                             model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
                             force_overwrite=self.force_overwrite,
-                            use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                            use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
@@ -424,35 +424,35 @@ class BaseTranslator(ABC):
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
                                                    output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
-                                                   use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                                                   use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: bleu, chrf and ter
             if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
                 ext = "json" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"sacrebleu_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: bertscore
             if self.TOOL2METRICS["bertscore"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"bertscore_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: comet
             if self.TOOL2METRICS["comet"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"comet_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: beer
             if self.TOOL2METRICS["beer"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"beer_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, conda_env_name=self.conda_env_name)
+                    py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
             print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
