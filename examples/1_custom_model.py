@@ -21,9 +21,7 @@ def main():
         vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
-        use_cmd=True,
         eval_mode="same",
-        venv_path="mltests",
         letter_case="lower",
     ).build(make_plots=False)
 
