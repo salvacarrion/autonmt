@@ -12,7 +12,7 @@ def _parse_args(**kwargs):
 
     # Set reserved args
     reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate",
-                     "--save-dir", "--tensorboard-logdir", "--wandb-project"}
+                     "--save-dir", "--tensorboard-logdir", "--wandb-project", "--skip-invalid-size-inputs-valid-test"}
     # reserved_args.update(autonmt2fairseq.keys())
 
     # Check: autonmt args (proposal)
@@ -203,8 +203,8 @@ class FairseqTranslator(BaseTranslator):
             f"--max-len-b {max_gen_length}",
             f"--nbest 1",
             f"--scoring sacrebleu",
-            f"--skip-invalid-size-inputs-valid-test",
             f"--batch-size {batch_size}",
+            # f"--skip-invalid-size-inputs-valid-test",  #DISABLE!!! (else, the ref and hyp might not match)
         ]
         # cmd += [f"--max-tokens '{max_tokens}'"] if max_tokens else []
 

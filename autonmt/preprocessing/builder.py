@@ -17,7 +17,7 @@ class DatasetBuilder:
 
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
                  normalization="NFKC", strip_whitespace=True, collapse_whitespace=True, letter_case=None,
-                 file_encoding="utf8", force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
+                 file_encoding="utf8", truncate_at=None, force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
@@ -35,6 +35,7 @@ class DatasetBuilder:
         self.collapse_whitespace = collapse_whitespace
         self.letter_case = letter_case
         self.file_encoding = file_encoding
+        self.truncate_at = truncate_at
 
         self.ref_size_name = "original"
 
@@ -375,6 +376,12 @@ class DatasetBuilder:
                 encode_file(ds=ds, input_file=input_file, output_file=output_file,
                             lang=lang, merge_vocabs=self.merge_vocabs, force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
+
+                # Truncate if needed
+                if self.truncate_at:
+                    lines = read_file_lines(output_file)
+                    lines = [" ".join(line.split(' ')[:self.truncate_at]).strip() for line in lines]
+                    write_file_lines(lines, output_file)
 
     def _export_vocab_frequencies(self, normalize=False):
         """
