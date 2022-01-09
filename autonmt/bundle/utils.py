@@ -126,14 +126,15 @@ def get_frequencies(filename):
     return vocab_frequencies
 
 
-def get_tokens_by_sentence(filename, split_fn=None):
+def count_tokens_per_sentence(filename, split_fn=None):
     if split_fn is None:
         split_fn = lambda x: x.strip().split(' ')
 
+    # Count tokens
     with open(filename, 'r') as f:
-        lines = f.readlines()
-        token_sizes = [len(split_fn(line)) for line in lines]
-    return token_sizes
+        token_per_sentence = [len(split_fn(line)) for line in f.readlines()]
+    return token_per_sentence
+
 
 
 def human_format(num, decimals=2):

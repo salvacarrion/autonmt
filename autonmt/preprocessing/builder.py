@@ -1,3 +1,4 @@
+import os.path
 import shutil
 from itertools import islice
 
@@ -124,6 +125,9 @@ class DatasetBuilder:
         if encode:
             self._encode_datasets()
             self._export_vocab_frequencies()
+
+        # Compute stats
+        self._compute_stats()
 
         # Make plot
         if make_plots:
@@ -450,6 +454,21 @@ class DatasetBuilder:
                         lines = [f"{pair[0]}\t{pair[1]}\n" for pair in vocab_frequencies]
                         write_file_lines(lines=lines, filename=vocab_path)
 
+    def _compute_stats(self):
+        print(f"=> Computing stats... (base_path={self.base_path})")
+
+        # Walk through preprocessing
+        for ds in self:
+            # Get path
+            make_dir(ds.get_stats_path())
+
+            # Save file
+            savepath = ds.get_stats_path("stats.json")
+            if self.force_overwrite or not os.path.exists(savepath):
+                # Compute and save stats
+                stats = ds.get_stats(count_unknowns=True)
+                save_json(stats, savepath=savepath)
+
     def _plot_datasets(self, save_figures=True, show_figures=False, add_dataset_title=True, vocab_top_k=None):
         print(f"=> Plotting started... (base_path={self.base_path})")
         print(f"- [WARNING]: Matplotlib might miss some images if the loop is too fast")
@@ -487,29 +506,27 @@ class DatasetBuilder:
                 split_name, split_lang = fname.split('.')
 
                 # Ignore dataset
-                tokens_by_sentence = utils.get_tokens_by_sentence(filename=os.path.join(encoded_path, fname))
-
-                # List to array
-                tokens_by_sentence = np.array(tokens_by_sentence)
+                tokens_per_sentence = utils.count_tokens_per_sentence(filename=ds.get_encoded_path(fname))
+                tokens_per_sentence = np.array(tokens_per_sentence)
 
                 # Compute data
                 row = {
-                    "total_sentences": len(tokens_by_sentence),
-                    "total_tokens": int(tokens_by_sentence.sum()),
-                    "max_tokens": int(np.max(tokens_by_sentence)),
-                    "min_tokens": int(np.min(tokens_by_sentence)),
-                    "avg_tokens": float(np.average(tokens_by_sentence)),
-                    "std_tokens": float(np.std(tokens_by_sentence)),
-                    "percentile5_tokens": int(np.percentile(tokens_by_sentence, 5)),
-                    "percentile50_tokens": int(np.percentile(tokens_by_sentence, 50)),
-                    "percentile95_tokens": int(np.percentile(tokens_by_sentence, 95)),
+                    "total_sentences": len(tokens_per_sentence),
+                    "total_tokens": int(tokens_per_sentence.sum()),
+                    "max_tokens": int(np.max(tokens_per_sentence)),
+                    "min_tokens": int(np.min(tokens_per_sentence)),
+                    "avg_tokens": float(np.average(tokens_per_sentence)),
+                    "std_tokens": float(np.std(tokens_per_sentence)),
+                    "percentile5_tokens": int(np.percentile(tokens_per_sentence, 5)),
+                    "percentile50_tokens": int(np.percentile(tokens_per_sentence, 50)),
+                    "percentile95_tokens": int(np.percentile(tokens_per_sentence, 95)),
                     "split": split_name,
                     "lang": split_lang,
                 }
                 split_stats[fname] = row
 
                 # Plot sentence length distribution (by tokens' length)
-                df = pd.DataFrame(tokens_by_sentence, columns=["frequency"])
+                df = pd.DataFrame(tokens_per_sentence, columns=["frequency"])
                 title = f"Sentence length distribution ({split_name.title()} - {split_lang})"
                 title = title if not add_dataset_title else f"{ds_title}:\n{title}"
                 p_fname = f"sent_distr_{split_name}_{split_lang}__{suffix_fname}".lower()
