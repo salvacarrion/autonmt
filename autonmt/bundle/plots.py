@@ -141,11 +141,12 @@ def lineplot(data, x, y_left, title, xlabel, ylabel_left, leyend_title, output_d
     # Plot lines
     colors = sns.color_palette()
     g1 = sns.lineplot(data=data, x=x, y=y_left, marker="o", color=colors[0], label=ylabel_left)
-    g1.set(xlabel=xlabel)
+    g1.set(xlabel=xlabel, ylabel=ylabel_left)
 
     if y_right:
         ax2 = plt.twinx()
         g2 = sns.lineplot(data=data, x=x, y=y_right, ax=ax2, marker="o", color=colors[1], label=ylabel_right)
+        g2.set(xlabel=xlabel, ylabel=ylabel_right)
         g2.set(ylim=(0, None))
 
         # Handle legends (combine and remove)
@@ -160,7 +161,7 @@ def lineplot(data, x, y_left, title, xlabel, ylabel_left, leyend_title, output_d
 
     # Show/Save/Close figure
     _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
-    eas=3
+
 
 def _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig=None):
     # Save image
@@ -227,7 +228,7 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
 
 
-def plot_vocabs_report(output_path, df_vocabs, x, y_left, y_right=None, save_figures=True, show_figures=False):
+def plot_vocabs_report(output_path, df_vocabs, x, y_left, y_right=None, prefix="", save_figures=True, show_figures=False):
     # Check if the metrics are in the dataframe
     if y_left not in df_vocabs.columns:
         raise ValueError(f"'{y_left}' was not found in the given dataframe")
@@ -246,11 +247,11 @@ def plot_vocabs_report(output_path, df_vocabs, x, y_left, y_right=None, save_fig
     print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
     # Set other values
-    title = f"{y_left.title()} {'and ' + y_right.title() if y_right else ''} depending on the {x.title()}".replace('_', ' ')
+    title = f"{y_left.title()} {'and ' + y_right.title() if y_right else ''} depending on the {x.title()}".replace('_', ' ').replace('  ', ' ')
     xlabel = "Vocab sizes"
     ylabel_left = f"{y_left}".title().replace('_', ' ')
     ylabel_right = f"{y_right}".title().replace('_', ' ') if y_right else None
-    fname = f"vocabs_report__{y_left}{'_' + y_right if y_right else ''}".lower()
+    fname = f"{prefix}vocabs_report__{y_left}{'_' + y_right if y_right else ''}".lower()
 
     # Plot data
     lineplot(data=df_vocabs, x=x, y_left=y_left, y_right=y_right,

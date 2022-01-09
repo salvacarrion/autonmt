@@ -53,9 +53,9 @@ def main(fairseq_args, fairseq_venv_path):
         stats.append(row)
 
     # Make report and print it
-    output_path = f".outputs/fairseq/{str(datetime.datetime.now())}/report_vocabs"
+    output_path = f".outputs/fairseq"
     df_vocabs_report = generate_vocabs_report(data=stats, output_path=output_path,
-                                              y_left="avg_tokens", y_right="bleu",
+                                              y_left="avg_tokens", y_right="bleu", prefix=str(tr_datasets[0]),
                                               save_figures=True, show_figures=False)
     print("Summary:")
     print(df_vocabs_report.to_string(index=False))
