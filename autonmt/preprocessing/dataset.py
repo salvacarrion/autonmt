@@ -225,7 +225,7 @@ class Dataset:
             row.update(basic_stats(tokens_per_sentence, prefix=""))
 
             # Count unknowns
-            if count_unknowns:
+            if count_unknowns and self.subword_model not in {None, "none", "bytes"}:
                 vocab_path = self.get_vocab_path(split_lang) + ".vocab"
                 vocab_keys = set([line.split('\t')[0] for line in utils.read_file_lines(vocab_path)][4:])
                 lines = utils.read_file_lines(self.get_encoded_path(fname))
