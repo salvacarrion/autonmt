@@ -374,14 +374,10 @@ class DatasetBuilder:
 
                 # Encode file
                 encode_file(ds=ds, input_file=input_file, output_file=output_file,
-                            lang=lang, merge_vocabs=self.merge_vocabs, force_overwrite=self.force_overwrite,
+                            lang=lang, merge_vocabs=self.merge_vocabs, truncate_at=self.truncate_at,
+                            force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
 
-                # Truncate if needed
-                if self.truncate_at:
-                    lines = read_file_lines(output_file)
-                    lines = [" ".join(line.split(' ')[:self.truncate_at]).strip() for line in lines]
-                    write_file_lines(lines, output_file)
 
     def _export_vocab_frequencies(self, normalize=False):
         """

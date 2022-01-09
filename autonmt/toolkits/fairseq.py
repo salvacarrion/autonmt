@@ -203,10 +203,8 @@ class FairseqTranslator(BaseTranslator):
             f"--max-len-b {max_gen_length}",
             f"--nbest 1",
             f"--scoring sacrebleu",
-            f"--batch-size {batch_size}",
             # f"--skip-invalid-size-inputs-valid-test",  #DISABLE!!! (else, the ref and hyp might not match)
         ]
-        # cmd += [f"--max-tokens '{max_tokens}'"] if max_tokens else []
 
         # Parse fairseq args
         cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)

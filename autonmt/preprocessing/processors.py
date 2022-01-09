@@ -27,7 +27,7 @@ def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
         assert os.path.exists(output_file)
 
 
-def encode_file(ds, input_file, output_file, lang, merge_vocabs, force_overwrite, **kwargs):
+def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, force_overwrite, **kwargs):
     # Check if file exists
     if force_overwrite or not os.path.exists(output_file):
 
@@ -54,6 +54,12 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, force_overwrite
             # Encode files
             py_cmd_api.spm_encode(spm_model_path=model_path,
                                   input_file=input_file, output_file=output_file, **kwargs)
+
+        # Truncate if needed
+        if truncate_at:
+            lines = read_file_lines(output_file)
+            lines = [" ".join(line.split(' ')[:truncate_at]).strip() for line in lines]
+            write_file_lines(lines, output_file)
 
         # Check that the output file exist
         assert os.path.exists(output_file)

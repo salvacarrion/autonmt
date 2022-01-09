@@ -167,8 +167,8 @@ class BaseTranslator(ABC):
                    num_workers=num_workers, monitor=monitor, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, devices="auto",
-                accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
+                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, truncate_at=None,
+                devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
         print("=> [Predict]: Started.")
 
         # Set default values
@@ -196,8 +196,9 @@ class BaseTranslator(ABC):
         eval_datasets = self.model_ds.get_eval_datasets(eval_datasets)
         for eval_ds in eval_datasets:
             self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
-                           batch_size=batch_size, max_tokens=max_tokens, devices=devices, accelerator=accelerator,
-                           num_workers=num_workers, load_best_checkpoint=load_best_checkpoint, **kwargs)
+                           truncate_at=truncate_at, batch_size=batch_size, max_tokens=max_tokens,
+                           devices=devices, accelerator=accelerator, num_workers=num_workers,
+                           load_best_checkpoint=load_best_checkpoint, **kwargs)
             self.score(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
             model_scores = self.parse_metrics(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
                                               engine=self.engine, **kwargs)
@@ -277,7 +278,7 @@ class BaseTranslator(ABC):
     def _translate(self, *args, **kwargs):
         pass
 
-    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length,
+    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length, truncate_at,
                   batch_size, max_tokens, num_workers, **kwargs):
         print(f"=> [Translate]: Started. ({model_ds.id2(as_path=True)})")
 
@@ -330,7 +331,8 @@ class BaseTranslator(ABC):
 
                 # Encode file
                 encode_file(ds=model_ds, input_file=input_file, output_file=output_file,
-                            lang=lang, merge_vocabs=model_ds.merge_vocabs, force_overwrite=self.force_overwrite,
+                            lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
+                            force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # Preprocess external data
