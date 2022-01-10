@@ -62,7 +62,7 @@ def _moses_detokenizer(lines, lang):
     return [mt.detokenize(line.split()) for line in lines]
 
 
-def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, use_cmd, venv_path):
+def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, use_cmd, venv_path):
     # Enable
     byte_fallback = False
     if "+bytes" in subword_model:
@@ -70,18 +70,19 @@ def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentenc
         byte_fallback = True
 
     if use_cmd:
-        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback, venv_path)
+        cmd = cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, byte_fallback, venv_path)
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
-        py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback)
+        py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, byte_fallback)
 
 
-def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback):
+def py_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, byte_fallback):
     # Train model
     # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
     spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
                                    model_type=subword_model, vocab_size=vocab_size,
                                    input_sentence_size=input_sentence_size, byte_fallback=byte_fallback,
+                                   character_coverage=character_coverage,
                                    pad_id=3)
 
 

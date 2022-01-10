@@ -20,7 +20,7 @@ def cmd_spm_decode(model_path, input_file, output_file, venv_path=None):
     return cmd
 
 
-def cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, byte_fallback, venv_path=None):
+def cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, byte_fallback, venv_path=None):
     print("\t- [INFO]: Using 'SentencePiece' from the command line.")
 
     # Add extra options
@@ -30,7 +30,7 @@ def cmd_spm_train(input_file, model_prefix, subword_model, vocab_size, input_sen
     # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
     # https://github.com/google/sentencepiece/blob/master/doc/options.md
     env = f"{venv_path}" if venv_path else NO_VENV_MSG
-    cmd = f"spm_train --input={input_file} --model_prefix={model_prefix} --vocab_size={vocab_size} --model_type={subword_model} --input_sentence_size={input_sentence_size} --pad_id=3 {extra}"
+    cmd = f"spm_train --input={input_file} --model_prefix={model_prefix} --vocab_size={vocab_size} --model_type={subword_model} --input_sentence_size={input_sentence_size} --character_coverage={character_coverage} --pad_id=3 {extra}"
     subprocess.call(['/bin/bash', '-c', f"{env} && {cmd}"])
     return cmd
 

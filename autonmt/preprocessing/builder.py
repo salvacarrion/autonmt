@@ -18,7 +18,8 @@ class DatasetBuilder:
 
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
                  normalization="NFKC", strip_whitespace=True, collapse_whitespace=True, letter_case=None,
-                 file_encoding="utf8", truncate_at=None, force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
+                 file_encoding="utf8", truncate_at=None, character_coverage=1.0,
+                 force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
@@ -29,6 +30,9 @@ class DatasetBuilder:
         self.interactive = interactive
         self.use_cmd = use_cmd
         self.venv_path = venv_path
+
+        # Set trainer flags
+        self.character_coverage = character_coverage
 
         # Set preprocessing flags
         self.normalization = normalization
@@ -354,6 +358,7 @@ class DatasetBuilder:
                 if self.force_overwrite or not os.path.exists(f"{output_file}.model"):
                     py_cmd_api.spm_train(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
                                          vocab_size=ds.vocab_size, input_sentence_size=input_sentence_size,
+                                         character_coverage=self.character_coverage,
                                          use_cmd=self.use_cmd, venv_path=self.venv_path)
                     assert os.path.exists(f"{output_file}.model")
 
