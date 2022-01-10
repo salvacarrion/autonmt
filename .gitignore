@@ -6,7 +6,7 @@
 .outputs/
 tests/data
 wandb/
-examples/*_test.py
+#examples/*_test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
