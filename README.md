@@ -308,8 +308,32 @@ AutoNMT will automatically generate plots for the split sizes, the sentence leng
 token frequencies, the evaluated models, etc. All these plots can be found along with either a .json or a .csv 
 containing its data, summary and statistics
 
+#### Plot model comparison
+
+![](docs/images/reports/bleu_scores.png)
+
+#### Plot statistics and model scores (...per vocab size)
+
+**Avg. tokens vs BLEU:**
+
+![](docs/images/reports/vocabs_report__avg_tokens_bleu.png)
+
+**Number of <UNK>s:**
+
+![](docs/images/reports/unknowns_avg_tokens.png)
+
+#### Plot distributions
+
+**Vocabulary distributions:**
+
 ![](docs/images/multi30k/vocab_distr_top100__multi30k_original_de-en__word_16000.png)
+
+**Sentence length distributions:**
+
 ![](docs/images/multi30k/sent_distr_test_de__multi30k_original_de-en__word_16000.png)
+
+**Split sizes:**
+
 ![](docs/images/multi30k/split_size_tok__multi30k_original_de-en__word_16000.png)
 
 
@@ -324,7 +348,7 @@ multi30k/
 │   └── de-en
 │       ├── data
 │       │   ├── encoded
-│       │   │   ├── char
+│       │   │   ├── char+bytes
 │       │   │   │   └── 16000
 │       │   │   │       ├── test.de
 │       │   │   │       ├── test.en
@@ -348,6 +372,13 @@ multi30k/
 │       │   │           ├── train.en
 │       │   │           ├── val.de
 │       │   │           └── val.en
+│       │   ├── normalized
+│       │   │   ├── test.de
+│       │   │   ├── test.en
+│       │   │   ├── train.de
+│       │   │   ├── train.en
+│       │   │   ├── val.de
+│       │   │   └── val.en
 │       │   ├── pretokenized
 │       │   │   ├── test.de
 │       │   │   ├── test.en
