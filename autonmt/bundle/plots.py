@@ -123,8 +123,8 @@ def histogram(data, x, output_dir, fname, title="", xlabel="x", ylabel="y", bins
     _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
 
 
-def lineplot(data, x, y_left, title, xlabel, ylabel_left, leyend_title, output_dir,
-            fname, y_right=None, ylabel_right=None, aspect_ratio=(12, 8), size=1.0, show_values=True, dpi=150,
+def lineplot(df_left, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_title, output_dir,
+            fname, df_right=None, y_right=None, y_right_hue=None, ylabel_right=None, aspect_ratio=(12, 8), size=1.0, show_values=True, dpi=150,
              rotate_xlabels=0, show_fig=False, save_fig=True, formats=None, overwrite=True, data_format='{:.0f}'):
     if formats is None:
         formats = ["png", "pdf"]
@@ -135,25 +135,30 @@ def lineplot(data, x, y_left, title, xlabel, ylabel_left, leyend_title, output_d
         return False
 
     # Create subplot
-    fig = plt.figure(figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))
-    sns.set(font_scale=size)
+    fig, ax = plt.subplots(1, 1, figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))
+
+    # sns.set(font_scale=size)
 
     # Plot lines
-    colors = sns.color_palette()
-    g1 = sns.lineplot(data=data, x=x, y=y_left, marker="o", color=colors[0], label=ylabel_left)
-    g1.set(xlabel=xlabel, ylabel=ylabel_left)
+    g1 = sns.lineplot(data=df_left, x=x, y=y_left, hue=y_left_hue, ax=ax, marker="o", legend=True)
+    g1.set(ylim=(0, None))
+    g1.set(ylabel=ylabel_left)
+    h1, l1 = g1.get_legend_handles_labels()
 
+    # Set secondary plot
+    _g, _ax = g1, ax
+    h2, l2 = [], []
     if y_right:
         ax2 = plt.twinx()
-        g2 = sns.lineplot(data=data, x=x, y=y_right, ax=ax2, marker="o", color=colors[1], label=ylabel_right)
-        g2.set(xlabel=xlabel, ylabel=ylabel_right)
-        g2.set(ylim=(0, None))
-
-        # Handle legends (combine and remove)
-        h1, l1 = g1.get_legend_handles_labels()
+        ax2.grid(False)
+        g2 = sns.lineplot(data=df_right, x=x, y=y_right, ax=ax2, color="grey", linestyle="dashed", label=ylabel_right, legend=False)
+        g2.set(ylabel=ylabel_right)
         h2, l2 = g2.get_legend_handles_labels()
-        g1.legend(loc="upper right", handles=h1 + h2, labels=l1 + l2)
-        ax2.get_legend().remove()
+        _g, _ax = g2, ax2
+        ax.get_legend().remove()
+
+    # Set legend
+    _g.legend(loc="lower right", handles=h1 + h2, labels=l1 + l2)
 
     # properties
     plt.title(title)
@@ -161,6 +166,7 @@ def lineplot(data, x, y_left, title, xlabel, ylabel_left, leyend_title, output_d
 
     # Show/Save/Close figure
     _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
+    asd = 33
 
 
 def _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig=None):
@@ -228,13 +234,15 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
 
 
-def plot_vocabs_report(output_path, df_vocabs, x, y_left, y_right=None, prefix="", save_figures=True, show_figures=False):
+def plot_vocabs_report(output_path, df_left, df_right, x, y_left, y_right=None, prefix="", save_figures=True, show_figures=False):
     # Check if the metrics are in the dataframe
-    if y_left not in df_vocabs.columns:
+    y_left, y_left_hue = y_left if isinstance(y_left, tuple) else (y_left, None)
+    if y_left not in df_left.columns:
         raise ValueError(f"'{y_left}' was not found in the given dataframe")
 
     # Check if the metrics are in the dataframe
-    if y_right and y_right not in df_vocabs.columns:
+    y_right, y_right_hue = y_right if isinstance(y_right, tuple) else (y_right, None)
+    if y_right and y_right not in df_right.columns:
         raise ValueError(f"'{y_right}' was not found in the given dataframe")
 
     # Set backend
@@ -254,7 +262,9 @@ def plot_vocabs_report(output_path, df_vocabs, x, y_left, y_right=None, prefix="
     fname = f"{prefix}vocabs_report__{y_left}{'_' + y_right if y_right else ''}".lower()
 
     # Plot data
-    lineplot(data=df_vocabs, x=x, y_left=y_left, y_right=y_right,
+    lineplot(df_left=df_left, df_right=df_right, x=x,
+             y_left=y_left, y_left_hue=y_left_hue,
+             y_right=y_right, y_right_hue=y_right_hue,
              title=title, xlabel=xlabel, ylabel_left=ylabel_left, ylabel_right=ylabel_right,
              leyend_title=None, output_dir=output_path, fname=fname, aspect_ratio=(12, 4), size=1.0, rotate_xlabels=0,
              save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")

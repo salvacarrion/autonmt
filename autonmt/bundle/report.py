@@ -87,22 +87,13 @@ def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
     return df
 
 
-def generate_vocabs_report(data, output_path, y_left, y_right=None, x="vocab_size", prefix="", **kwargs):
+def generate_vocabs_report(data_left, output_path, y_left, y_right=None, data_right=None, x="vocab_size", prefix="", **kwargs):
     # Create logs path
     reports_path = os.path.join(output_path, "reports")
     plots_path = os.path.join(output_path, "plots")
     make_dir([reports_path, plots_path])
 
-    # Format data (if needed)
-    df_vocabs = pd.DataFrame(data) if isinstance(data, list) else data
-    df_vocabs[x] = df_vocabs[x].astype(int)
-
-    # Save report: pandas
-    csv_report_path = os.path.join(reports_path, f"{prefix}vocabs_report.csv")
-    df_vocabs.to_csv(csv_report_path, index=False)
-
     # Plot vocabs report
-    plots.plot_vocabs_report(output_path=plots_path, df_vocabs=df_vocabs, x=x, y_left=y_left, y_right=y_right,
+    plots.plot_vocabs_report(output_path=plots_path, df_left=data_left, df_right=data_right, x=x, y_left=y_left, y_right=y_right,
                              prefix=prefix, **kwargs)
 
-    return df_vocabs
