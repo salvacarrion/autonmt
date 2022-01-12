@@ -79,8 +79,11 @@ class Dataset:
         else:
             return self.subword_model, self.vocab_size
 
-    def id(self, as_path=False):
-        t = self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
+    def id(self, as_path=False, include_size=True):
+        if include_size:
+            t = self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
+        else:
+            t = self.dataset_name, self.dataset_lang_pair
         return os.path.join(*t) if as_path else t
 
     def id2(self, as_path=False):
@@ -162,8 +165,8 @@ class Dataset:
         compatible_datasets = []
         compatible_datasets_ids = set()
         for ds in ts_datasets:
-            ds_name = '_'.join(ds.id())
-            ds_ref_name = '_'.join(ds.id())
+            ds_name = '_'.join(ds.id(include_size=False))
+            ds_ref_name = '_'.join(ds.id(include_size=False))
 
             # Check language compatibility
             if ds.langs != self.langs:
@@ -179,11 +182,11 @@ class Dataset:
         return compatible_datasets
 
     def get_eval_datasets(self, ts_datasets):
-        compatible_datasets = self.get_compatible_datasets(ts_datasets)
         if self.eval_mode == "compatible":
+            compatible_datasets = self.get_compatible_datasets(ts_datasets)
             return compatible_datasets
         elif self.eval_mode == "same":
-            return [eval_ds for eval_ds in compatible_datasets if eval_ds.dataset_name == self.dataset_name]
+            return [eval_ds for eval_ds in ts_datasets if eval_ds.id() == self.id()]
         else:
             raise ValueError(f"Unknown 'eval_mode' ({str(self.eval_mode)})")
 

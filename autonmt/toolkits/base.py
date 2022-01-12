@@ -137,7 +137,7 @@ class BaseTranslator(ABC):
     def fit(self, train_ds: Dataset = None, max_tokens=None, batch_size=128, max_epochs=1,
             learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
-            monitor="loss", **kwargs):
+            monitor="loss", resume_training=False, **kwargs):
         print("=> [Fit]: Started.")
 
         # Get train_ds
@@ -164,7 +164,7 @@ class BaseTranslator(ABC):
                    learning_rate=learning_rate, optimizer=optimizer, weight_decay=weight_decay,
                    gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
                    criterion=criterion, patience=patience, seed=seed, devices=devices, accelerator=accelerator,
-                   num_workers=num_workers, monitor=monitor, **kwargs)
+                   num_workers=num_workers, monitor=monitor, resume_training=resume_training, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
                 metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, truncate_at=None,
@@ -242,7 +242,7 @@ class BaseTranslator(ABC):
     def _train(self, *args, **kwargs):
         pass
 
-    def train(self, train_ds: Dataset, **kwargs):
+    def train(self, train_ds: Dataset, resume_training=False, **kwargs):
         print(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
 
         # Check preprocessing
@@ -261,10 +261,11 @@ class BaseTranslator(ABC):
 
         # Checks: Make sure the directory exist, and it is empty
         # is_empty = os.listdir(checkpoints_path) == []  # Too dangerous to allow overwrite
-        is_empty = self._make_empty_path(path=checkpoints_path, safe_seconds=self.safe_seconds)
-        if not is_empty:
-            print("\t- [Train]: Skipped. The checkpoints directory is not empty")
-            return
+        if not resume_training:
+            is_empty = self._make_empty_path(path=checkpoints_path, safe_seconds=self.safe_seconds)
+            if not is_empty:
+                print("\t- [Train]: Skipped. The checkpoints directory is not empty")
+                return
 
         # Set seed
         self.manual_seed(seed=kwargs.get("seed"))
