@@ -108,7 +108,7 @@ class DatasetBuilder:
     def get_ds(self, ignore_variants=False):
         return self.ds_list_main if ignore_variants else self.ds_list
 
-    def build(self, encode=True, val_size=(0.1, 5000), test_size=(0.1, 5000), shuffle=True, force_pretok=False,
+    def build(self, encode=True, val_size=(0.1, 1000), test_size=(0.1, 1000), shuffle=True, force_pretok=False,
               make_plots=False, safe=True):
         print(f"=> Building datasets...")
         print(f"\t- base_path={self.base_path}")

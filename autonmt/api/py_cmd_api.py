@@ -11,11 +11,6 @@ import sacrebleu
 import bert_score
 from datasets import load_metric
 
-try:
-    import comet
-except ImportError as e:
-    print("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
-
 
 def moses_tokenizer(input_file, output_file, lang, use_cmd, venv_path):
     if use_cmd:
@@ -293,6 +288,11 @@ def py_comet(src_file, ref_file, hyp_file, output_file):
 
 
 def _comet(src_lines, hyp_lines, ref_lines):
+    try:
+        import comet
+    except ImportError as e:
+        print("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
+
     # Get model
     model_path = comet.download_model("wmt20-comet-da")
     model = comet.load_from_checkpoint(model_path)
