@@ -17,12 +17,12 @@ def main(fairseq_args, fairseq_venv_path):
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
             # {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000), ("50k_lc", 50000)]},
-            {"name": "ccaligned", "languages": ["ti-en"], "sizes": [("original_lc", None)]},
+            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000), ("50k_lc", 50000)]},
+            # {"name": "ccaligned", "languages": ["ti-en"], "sizes": [("original_lc", None)]},
 
         ],
-        subword_models=["unigram+bytes"],
-        vocab_sizes=[x+256 for x in [400, 1000, 2000, 4000, 8000]],
+        subword_models=["char+bytes"],
+        vocab_sizes=[x+256 for x in [1000]],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
@@ -44,7 +44,7 @@ def main(fairseq_args, fairseq_venv_path):
 
         # Get scores
         model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path, model_ds=ds, force_overwrite=False, run_prefix=run_prefix)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5], truncate_at=1023)
+        m_scores = model.predict(ts_datasets, metrics={"fairseq"}, beams=[5], truncate_at=1023)
 
         # Add stats
         ds_stats["scores"] = {}
@@ -52,26 +52,27 @@ def main(fairseq_args, fairseq_venv_path):
             "subword_model": ds.subword_model,
             "vocab_size": ds.vocab_size,
             "avg_tokens": ds_stats["train.en"]["avg_tokens"],
-            "bleu": m_scores[0]['beams']['beam5']['sacrebleu_bleu_score'],
+            "bleu": m_scores[0]['beams']['beam5']['fairseq_bleu_score'],
         }
         stats.append(row)
 
     # Create dataframes
-    assert len(ts_datasets) == 1
-    df_bleu = pd.DataFrame(stats)
-    df_bleu["dataset"] = str(ts_datasets[0])
-    df_avg_tokens = pd.DataFrame(stats)
+    # assert len(ts_datasets) == 1
+    df_report = pd.DataFrame(stats)
+    df_report["dataset"] = [f"{ds.dataset_name}-{ds.dataset_size_name}".replace("_lc", "").title() for ds in tr_datasets]
+    df_report["vocab_size"] = df_report["vocab_size"].astype(int)
 
     # Make report and print it
     output_path = f".outputs/fairseq"
-    # df_bleu = pd.read_csv(os.path.join(output_path, "reports", "my_report_vocab_bleu.csv"))
-    # df_avg_tokens = pd.read_csv(os.path.join(output_path, "reports", "my_report_vocab_avg_tokens.csv"))
-    generate_vocabs_report(data_left=df_bleu, data_right=df_avg_tokens,
-                                              y_left=("bleu", "dataset"), y_right=("avg_tokens", None),
-                                              output_path=output_path, prefix=str(ts_datasets[0]),
-                                              save_figures=True, show_figures=False)
+    prefix = "europarl_all_char"
+    # df_report = pd.read_csv(os.path.join(output_path, "reports", f"{prefix}_vocabs_report.csv"))
+    # df_report = df_report[df_report.subword_model != "char+bytes"]
+    generate_vocabs_report(data=df_report,
+                           y_left=("bleu", "dataset"), y_right=("avg_tokens", None),
+                           output_path=output_path, prefix=prefix,
+                           save_figures=True, show_figures=False, save_csv=True)
     print("Summary:")
-    print(df_bleu.to_string(index=False))
+    print(df_report.to_string(index=False))
 
 
 if __name__ == "__main__":

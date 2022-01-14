@@ -124,7 +124,7 @@ def histogram(data, x, output_dir, fname, title="", xlabel="x", ylabel="y", bins
 
 
 def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_title, output_dir,
-            fname, y_right=None, y_right_hue=None, ylabel_right=None, aspect_ratio=(12, 8), size=1.0, show_values=True, dpi=150,
+            fname, y_right=None, y_right_hue=None, ylabel_right=None, aspect_ratio=(12, 8), size=1.0, show_values=True, dpi=300,
              rotate_xlabels=0, show_fig=False, save_fig=True, formats=None, overwrite=True, data_format='{:.0f}'):
     if formats is None:
         formats = ["png", "pdf"]
@@ -135,14 +135,14 @@ def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_tit
         return False
 
     # Create subplot
-    fig, ax = plt.subplots(1, 1, figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))
+    fig, ax = plt.subplots(1, 1, figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))  # figsize(W, H)
 
-    # sns.set(font_scale=size)
+    sns.set(font_scale=1.5)
 
     # Plot lines
     g1 = sns.lineplot(data=data, x=x, y=y_left, hue=y_left_hue, ax=ax, marker="o", legend=True)
     g1.set(ylim=(0, None))
-    g1.set(ylabel=ylabel_left)
+    g1.set(xlabel=xlabel, ylabel=ylabel_left)
     h1, l1 = g1.get_legend_handles_labels()
 
     # Set secondary plot
@@ -152,13 +152,13 @@ def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_tit
         ax2 = plt.twinx()
         ax2.grid(False)
         g2 = sns.lineplot(data=data, x=x, y=y_right, ax=ax2, color="grey", linestyle="dashed", label=ylabel_right, legend=False)
-        g2.set(ylabel=ylabel_right)
+        g2.set(xlabel=xlabel, ylabel=ylabel_right)
         h2, l2 = g2.get_legend_handles_labels()
         _g, _ax = g2, ax2
         ax.get_legend().remove()
 
     # Set legend
-    _g.legend(loc="lower right", handles=h1 + h2, labels=l1 + l2)
+    _g.legend(loc="upper right", handles=h1 + h2, labels=l1 + l2)
 
     # properties
     plt.title(title)
@@ -266,5 +266,5 @@ def plot_vocabs_report(output_path, data, x, y_left, y_right=None, prefix="", sa
              y_left=y_left, y_left_hue=y_left_hue,
              y_right=y_right, y_right_hue=y_right_hue,
              title=title, xlabel=xlabel, ylabel_left=ylabel_left, ylabel_right=ylabel_right,
-             leyend_title=None, output_dir=output_path, fname=fname, aspect_ratio=(8, 8), size=1.0, rotate_xlabels=0,
+             leyend_title=None, output_dir=output_path, fname=fname, aspect_ratio=(8, 6), size=1.0, rotate_xlabels=0,
              save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")

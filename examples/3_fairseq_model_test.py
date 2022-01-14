@@ -12,13 +12,14 @@ def main(fairseq_args, fairseq_venv_path):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000)]},
+            # {"name": "wikimatrix", "languages": ["az-en"], "sizes": [("original", None)]},
+            {"name": "europarl", "languages": ["de-en"], "sizes": [("50k_lc", 50000), ("100k_lc", 100000)]},
         ],
-        subword_models=["unigram+bytes"],
-        vocab_sizes=[x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]],
+        subword_models=["char+bytes"],
+        vocab_sizes=[x+256 for x in [1000]],
         merge_vocabs=False,
         force_overwrite=False,
+        interactive=True,
         use_cmd=True,
         eval_mode="same",
         letter_case="lower",
@@ -38,7 +39,7 @@ def main(fairseq_args, fairseq_venv_path):
             wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
             model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path,
                                       model_ds=ds, wandb_params=wandb_params, force_overwrite=True, run_prefix=run_prefix)
-            model.fit(max_epochs=1, max_tokens=4096, batch_size=None, seed=1234, patience=10, num_workers=12, devices="auto", fairseq_args=fairseq_args)
+            model.fit(resume_training=False, max_epochs=250, max_tokens=4096, batch_size=None, seed=1234, patience=20, num_workers=12, devices="auto", fairseq_args=fairseq_args)
             m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5], truncate_at=1023)
             print(m_scores)
             scores.append(m_scores)
