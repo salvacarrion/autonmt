@@ -169,7 +169,7 @@ class BaseTranslator(ABC):
                    num_workers=num_workers, monitor=monitor, resume_training=resume_training, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_gen_length=150, truncate_at=None,
+                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_len_a=1.2, max_len_b=50,  truncate_at=None,
                 devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
         print("=> [Predict]: Started.")
 
@@ -197,7 +197,7 @@ class BaseTranslator(ABC):
         eval_scores = []
         eval_datasets = self.model_ds.get_eval_datasets(eval_datasets)
         for eval_ds in eval_datasets:
-            self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_gen_length=max_gen_length,
+            self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_len_a=max_len_a, max_len_b=max_len_b,
                            truncate_at=truncate_at, batch_size=batch_size, max_tokens=max_tokens,
                            devices=devices, accelerator=accelerator, num_workers=num_workers,
                            load_best_checkpoint=load_best_checkpoint, **kwargs)
@@ -281,7 +281,7 @@ class BaseTranslator(ABC):
     def _translate(self, *args, **kwargs):
         pass
 
-    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_gen_length, truncate_at,
+    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_len_a, max_len_b, truncate_at,
                   batch_size, max_tokens, num_workers, **kwargs):
         print(f"=> [Translate]: Started. ({model_ds.id2(as_path=True)})")
 
@@ -360,7 +360,7 @@ class BaseTranslator(ABC):
             if self.force_overwrite or not all(tok_flag):
                 self._translate(
                     src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                    beam_width=beam, max_gen_length=max_gen_length, batch_size=batch_size, max_tokens=max_tokens,
+                    beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
                     data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoint_path=checkpoint_path,
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
                     num_workers=num_workers, model_ds=model_ds, **kwargs)

@@ -3,7 +3,7 @@ import torch.utils.data as tud
 import tqdm
 
 
-def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_length, num_workers, **kwargs):
+def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
     model.eval()
     device = next(model.parameters()).device
 
@@ -29,6 +29,7 @@ def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_ge
 
             # Iterative decoder
             all_eos = False
+            max_gen_length = int(max_len_a*x.shape[1] + max_len_b)
             while not all_eos and dec_idxs.shape[1] <= max_gen_length:
                 # Get next token (probs + idx)
                 next_probabilities = model.forward_decoder(dec_idxs, memory)[:, -1].log_softmax(-1)

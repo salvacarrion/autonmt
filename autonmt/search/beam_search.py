@@ -3,7 +3,7 @@ import torch.utils.data as tud
 import tqdm
 
 
-def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_length, beam_width, num_workers, **kwargs):
+def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_a, max_len_b, beam_width, num_workers, **kwargs):
     model.eval()
     device = next(model.parameters()).device
 
@@ -37,10 +37,9 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_gen_
             topk_next_idxs = topk_next_idxs.reshape(-1, 1)
             dec_idxs = torch.cat((dec_idxs, topk_next_idxs), axis=-1)
 
-
-
             # Iterative decoder
             all_eos = False
+            max_gen_length = int(max_len_a*x.shape[1] + max_len_b)
             while not all_eos and dec_idxs.shape[1] <= max_gen_length:
                 # Create dataset of hypotheses: X=(batch*beams, lengths) and Y = (batch*beams, lengths)
                 beam_dataset = tud.TensorDataset(x.repeat((beam_width, 1, 1)).transpose(0, 1).flatten(end_dim=1), dec_idxs)

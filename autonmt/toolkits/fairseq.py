@@ -187,7 +187,7 @@ class FairseqTranslator(BaseTranslator):
         print(f"\t- [INFO]: Command used: {cmd}")
         subprocess.call(['/bin/bash', '-c', f"{env} && {cmd}"])
 
-    def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
+    def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path, **kwargs):
         # Write command
         cmd = [f"fairseq-generate {data_bin_path}"]
@@ -199,11 +199,11 @@ class FairseqTranslator(BaseTranslator):
             f"--path '{checkpoint_path}'",
             f"--results-path '{output_path}'",
             f"--beam {beam_width}",
-            f"--max-len-a {0}",  # max_len = ax+b
-            f"--max-len-b {max_gen_length}",
+            f"--max-len-a {max_len_a}",  # max_len = ax+b
+            f"--max-len-b {max_len_b}",
             f"--nbest 1",
             f"--scoring sacrebleu",
-            # f"--skip-invalid-size-inputs-valid-test",  #DISABLE!!! (else, the ref and hyp might not match)
+            # f"--skip-invalid-size-inputs-valid-test",  # DISABLE. (Else, ref and hyp might not match)
         ]
 
         # Parse fairseq args

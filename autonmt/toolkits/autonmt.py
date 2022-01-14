@@ -94,7 +94,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Force finish
         wandb.finish()
 
-    def _translate(self, src_lang, trg_lang, beam_width, max_gen_length, batch_size, max_tokens,
+    def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,
                    **kwargs):
         # Checkpoint
@@ -114,7 +114,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
                                                           sos_id=self.test_tds.src_vocab.sos_id,
                                                           eos_id=self.test_tds.src_vocab.eos_id,
                                                           batch_size=batch_size, max_tokens=max_tokens,
-                                                          beam_width=beam_width, max_gen_length=max_gen_length,
+                                                          beam_width=beam_width, max_len_a=max_len_a, max_len_b=max_len_b,
                                                           num_workers=num_workers)
         # Decode output
         self._postprocess_output(predictions=predictions, output_path=output_path)
