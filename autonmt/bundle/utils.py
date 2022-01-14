@@ -300,7 +300,7 @@ def parse_huggingface_json(text):
 
 
 def parse_huggingface_txt(text):
-    raise NotImplementedError("'Huggingface' is only available through the text file")
+    raise NotImplementedError("'Huggingface' is only available through the json file")
 
 
 def parse_sacrebleu_json(text):
@@ -308,7 +308,7 @@ def parse_sacrebleu_json(text):
 
 
 def parse_sacrebleu_txt(text):
-    raise NotImplementedError("'Sacrebleu' is only available through the text file")
+    raise NotImplementedError("'Sacrebleu' is only available through the json file")
 
 
 def parse_bertscore_json(text):
@@ -344,4 +344,13 @@ def parse_beer_txt(text):
     line = text[-1].strip()
     groups = re.search(pattern, line).groups()
     result = {"beer": {"score": float(groups[0])}}
+    return result
+
+
+def parse_fairseq_txt(text):
+    pattern = r"beam=(\d+): BLEU = (\d+.\d*)"
+    line = text[-1].strip()
+
+    groups = re.search(pattern, line).groups()
+    result = {"bleu": {"score": float(groups[1])}}
     return result

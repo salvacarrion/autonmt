@@ -1,3 +1,5 @@
+import os.path
+
 from sacremoses import MosesTokenizer, MosesDetokenizer
 import sentencepiece as spm
 
@@ -317,5 +319,17 @@ def compute_beer(ref_file, hyp_file, output_file, use_cmd, venv_path):
         print(f"\t- [INFO]: Command used: {cmd}")
     else:
         print("\t- [INFO]: No python interface for 'Beer'. Command-line version only ('use_cmd=True').")
+
+
+def compute_fairseq(ref_file, hyp_file, output_file, use_cmd, venv_path):
+    # Get generate-tests
+    generate_test_path = os.path.join(os.path.dirname(hyp_file), "generate-test.txt")
+    if os.path.exists(generate_test_path):
+        # Read, parse and save lines
+        lines = [utils.read_file_lines(generate_test_path)[-1]]
+        utils.write_file_lines(lines, output_file)
+    else:
+        print("\t- [INFO]: No 'generate-test.txt' was found.")
+
 
 

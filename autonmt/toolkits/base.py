@@ -57,11 +57,13 @@ class BaseTranslator(ABC):
                     "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json"), "cmd": (parse_comet_txt, "txt")},
                     "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json"), "cmd": (parse_beer_txt, "txt")},
                     "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json"), "cmd": (parse_huggingface_json, "json")},
+                    "fairseq": {"filename": "fairseq_scores", "py": (parse_fairseq_txt, "txt"), "cmd": (parse_fairseq_txt, "txt")},
                     }
     TOOL2METRICS = {"sacrebleu": {"bleu", "chrf", "ter"},
                     "bertscore": {"bertscore"},
                     "comet": {"comet"},
                     "beer": {"beer"},
+                    "fairseq": {"fairseq"},
                     # "huggingface": "huggingface",
                     }
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
@@ -456,6 +458,15 @@ class BaseTranslator(ABC):
                 output_file = os.path.join(scores_path, f"beer_scores.{ext}")
                 if self.force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
+
+            # [CMD] Score: fairseq
+            if self.TOOL2METRICS["fairseq"].intersection(metrics):
+                ext = "txt" if self.use_cmd else "txt"
+                output_file = os.path.join(scores_path, f"fairseq_scores.{ext}")
+                if self.force_overwrite or not os.path.exists(output_file):
+                    py_cmd_api.compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
+
+
             print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
