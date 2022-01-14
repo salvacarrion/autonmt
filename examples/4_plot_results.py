@@ -17,12 +17,12 @@ def main(fairseq_args, fairseq_venv_path):
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
             # {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
-            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000), ("50k_lc", 50000)]},
+            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000)]},
             # {"name": "ccaligned", "languages": ["ti-en"], "sizes": [("original_lc", None)]},
 
         ],
-        subword_models=["char+bytes"],
-        vocab_sizes=[x+256 for x in [1000]],
+        subword_models=["unigram+bytes"],
+        vocab_sizes=[x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
@@ -42,17 +42,17 @@ def main(fairseq_args, fairseq_venv_path):
         # Get ds stats
         ds_stats = utils.load_json(ds.get_stats_path("stats.json"))
 
-        # Get scores
-        model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path, model_ds=ds, force_overwrite=False, run_prefix=run_prefix)
-        m_scores = model.predict(ts_datasets, metrics={"fairseq"}, beams=[5], truncate_at=1023)
+        # # Get scores
+        # model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path, model_ds=ds, force_overwrite=False, run_prefix=run_prefix)
+        # m_scores = model.predict(ts_datasets, metrics={"fairseq"}, beams=[5], truncate_at=1023)
 
         # Add stats
         ds_stats["scores"] = {}
         row = {
             "subword_model": ds.subword_model,
             "vocab_size": ds.vocab_size,
-            "avg_tokens": ds_stats["train.en"]["avg_tokens"],
-            "bleu": m_scores[0]['beams']['beam5']['fairseq_bleu_score'],
+            "unknown_avg_tokens": ds_stats["val.en"]["unknown_avg_tokens"],
+            # "bleu": m_scores[0]['beams']['beam5']['fairseq_bleu_score'],
         }
         stats.append(row)
 
@@ -64,11 +64,11 @@ def main(fairseq_args, fairseq_venv_path):
 
     # Make report and print it
     output_path = f".outputs/fairseq"
-    prefix = "europarl_all_char"
+    prefix = "unknowns_"
     # df_report = pd.read_csv(os.path.join(output_path, "reports", f"{prefix}_vocabs_report.csv"))
     # df_report = df_report[df_report.subword_model != "char+bytes"]
     generate_vocabs_report(data=df_report,
-                           y_left=("bleu", "dataset"), y_right=("avg_tokens", None),
+                           y_left=("unknown_avg_tokens", "subword_model"), y_right=None,
                            output_path=output_path, prefix=prefix,
                            save_figures=True, show_figures=False, save_csv=True)
     print("Summary:")

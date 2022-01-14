@@ -234,7 +234,7 @@ class Dataset:
                 lines = utils.read_file_lines(self.get_encoded_path(fname))
                 unknowns = [len(set(line.split(' ')).difference(vocab_keys)) for line in lines]
                 unknowns = np.array(unknowns)
-                row.update(basic_stats(unknowns, prefix="unknowns_"))
+                row.update(basic_stats(unknowns, prefix="unknown_"))
 
             # Add stats
             split_stats[fname] = row
