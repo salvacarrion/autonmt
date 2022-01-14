@@ -232,9 +232,9 @@ class DatasetBuilder:
                 # Notify about the preprocessing missing
                 print(f"You need to add your dataset to at least one of these folders:")
                 print(
-                    f"\t- The '{ds.data_raw_path}' folder is used when you have two files (e.g. 'data.ru' and 'data.en')")
+                    f"\t- The '{ds.data_raw_path}' folder is used when you have two files (e.g. 'data.{ds.src_lang}' and 'data.{ds.trg_lang}')")
                 print(
-                    f"\t- The '{ds.data_splits_path}' folder is used when you have the train, val and test splits (e.g. '[train,val,test].[ru,en]'")
+                    f"\t- The '{ds.data_splits_path}' folder is used when you have the train, val and test splits (e.g. '[train,val,test].[{ds.src_lang},{ds.trg_lang}]'")
                 print("*** Restart the program when these files are added ***")
                 exit(0)
 
