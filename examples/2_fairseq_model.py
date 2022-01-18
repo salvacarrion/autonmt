@@ -33,14 +33,14 @@ def main(fairseq_args, fairseq_venv_path):
     scores = []
     for ds in tr_datasets:
         wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
-        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=False, fairseq_venv_path=fairseq_venv_path)
+        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, fairseq_venv_path=fairseq_venv_path)
         model.fit(max_epochs=1, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
         scores.append(m_scores)
 
     # Make report and print it
     output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam5__sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 

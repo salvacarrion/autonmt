@@ -107,7 +107,10 @@ class Dataset:
 
     def get_encoded_path(self, fname=""):
         if self.subword_model in {None, "none"}:
-            return os.path.join(self.base_path, *self.id(), self.data_encoded_path, fname)
+            if self.pretok_flag:
+                return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
+            else:
+                return os.path.join(self.base_path, *self.id(), self.data_normalized_path, fname)
         else:
             return os.path.join(self.base_path, *self.id(), self.data_encoded_path, *self.vocab_size_id(), fname)
 
