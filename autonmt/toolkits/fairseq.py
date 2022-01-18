@@ -72,15 +72,17 @@ def _postprocess_output(output_path):
     """
     # Extract sentences from generate-test.txt
     gen_test_path = os.path.join(output_path, "generate-test.txt")
-    src_tok_path = os.path.join(output_path, "src.tok")
-    ref_tok_path = os.path.join(output_path, "ref.tok")
     hyp_tok_path = os.path.join(output_path, "hyp.tok")
-    subprocess.call(['/bin/bash', '-c', f"grep ^S {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {src_tok_path}"])
-    subprocess.call(['/bin/bash', '-c', f"grep ^T {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {ref_tok_path}"])
     subprocess.call(['/bin/bash', '-c', f"grep ^H {gen_test_path} | LC_ALL=C sort -V | cut -f3- > {hyp_tok_path}"])
 
+    # Do not decode src/ref from fairseq as the <unk> would biases the score
+    # src_tok_path = os.path.join(output_path, "src.tok")
+    # ref_tok_path = os.path.join(output_path, "ref.tok")
+    # subprocess.call(['/bin/bash', '-c', f"grep ^S {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {src_tok_path}"])
+    # subprocess.call(['/bin/bash', '-c', f"grep ^T {gen_test_path} | LC_ALL=C sort -V | cut -f2- > {ref_tok_path}"])
+
     # Replace "<<unk>>" with "<unk>" in ref.tok
-    utils.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
+    # utils.replace_in_file(search_string="<<unk>>", replace_string="<unk>", filename=ref_tok_path)
 
 
 def vocab_spm2fairseq(filename):

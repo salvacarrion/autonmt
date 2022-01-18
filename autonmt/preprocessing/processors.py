@@ -12,10 +12,11 @@ from collections import Counter
 from autonmt.api import py_cmd_api
 
 
-def normalize_file(input_file, output_file, encoding, force_overwrite, **kwargs):
+def normalize_file(input_file, output_file, encoding, force_overwrite, limit=None, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
         lines = read_file_lines(input_file)
         lines = [preprocess_text(line, **kwargs) for line in lines]
+        limit = lines if not limit else lines[:limit]
         write_file_lines(lines=lines, filename=output_file, encoding=encoding)
         assert os.path.exists(output_file)
 
@@ -65,7 +66,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
         assert os.path.exists(output_file)
 
 
-def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, force_overwrite,
+def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model_vocab_path, force_overwrite,
                 use_cmd, venv_path, remove_unk_hyphen=False, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
 
@@ -87,14 +88,15 @@ def decode_file(input_file, output_file, lang, subword_model, model_vocab_path, 
             py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
                                   use_cmd=use_cmd, venv_path=venv_path)
 
-            # Detokenize with moses
-            if subword_model in {"word"}:
-                py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
-                                             use_cmd=use_cmd, venv_path=venv_path)
-
             # Remove the hyphen of unknown words when needed
             if remove_unk_hyphen:
                 replace_in_file('▁', ' ', output_file)
+
+        # Detokenize with moses
+        if pretok_flag:
+            py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
+                                         use_cmd=use_cmd, venv_path=venv_path)
+
 
         # Check that the output file exist
         assert os.path.exists(output_file)

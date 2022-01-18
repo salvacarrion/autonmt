@@ -123,18 +123,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         """
         Important: src and ref will be overwritten with the original preprocessed files to avoid problems with unknowns
         """
-
         # Decode: hyp
         hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
-
-        # Decode: src/ref
-        # Not: Do not add <unk>. Else, a model with a vocabulary of zero words would have a BLEU of 1
-        src_tok = self.test_tds.src_lines
-        ref_tok = self.test_tds.trg_lines
-
-        # Write file: hyp, src, ref
-        for lines, fname in [(hyp_tok, "hyp.tok"), (src_tok, "src.tok"), (ref_tok, "ref.tok")]:
-            write_file_lines(lines=lines, filename=os.path.join(output_path, fname))
+        write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"))
 
     @staticmethod
     def _count_model_parameters(model):

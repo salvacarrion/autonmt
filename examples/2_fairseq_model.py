@@ -15,13 +15,14 @@ def main(fairseq_args, fairseq_venv_path):
             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
             # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
-        subword_models=["unigram", "word"],
+        subword_models=["unigram"],
         vocab_sizes=[4000],
         merge_vocabs=False,
         force_overwrite=False,
         use_cmd=True,
         eval_mode="same",
         letter_case="lower",
+        venv_path="source /home/scarrion/.venvs/mltests_venv/bin/activate",
     ).build(make_plots=False)
 
     # Create preprocessing for training and testing
@@ -32,14 +33,14 @@ def main(fairseq_args, fairseq_venv_path):
     scores = []
     for ds in tr_datasets:
         wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
-        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, fairseq_venv_path=fairseq_venv_path)
-        model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
+        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=False, fairseq_venv_path=fairseq_venv_path)
+        model.fit(max_epochs=1, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5])
         scores.append(m_scores)
 
     # Make report and print it
     output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam5__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 
@@ -73,7 +74,7 @@ if __name__ == "__main__":
 
     # Set venv path
     # To create new venvs: virtualenv -p $(which python) VENV_NAME
-    fairseq_venv_path = "source /home/scarrion/venvs/fairseq_venv/bin/activate"
+    fairseq_venv_path = "source /home/scarrion/.venvs/fairseq_venv/bin/activate"
 
     # Run grid
     main(fairseq_args=fairseq_cmd_args, fairseq_venv_path=fairseq_venv_path)

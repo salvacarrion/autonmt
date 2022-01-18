@@ -314,10 +314,23 @@ class BaseTranslator(ABC):
             for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
                 lang = ts_fname.split('.')[-1]
                 input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-                output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=ts_fname)
+                output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+
+                # Create directories
+                make_dir([
+                    os.path.join(output_file, "raw"),
+                    os.path.join(output_file, "normalized"),
+                    os.path.join(output_file, "tokenized"),
+                    os.path.join(output_file, "encoded"),
+                ])
+
+                # Copy raw
+                raw_file = os.path.join(output_file, "raw", ts_fname)
+                shutil.copyfile(input_file, raw_file)
+                input_file = raw_file
 
                 # Normalize data
-                norm_file = output_file + ".norm"
+                norm_file = os.path.join(output_file, "normalized", ts_fname)
                 encoding_dict = dict(letter_case=model_ds.letter_case, collapse_whitespace=model_ds.collapse_whitespace,
                                      strip_whitespace=model_ds.strip_whitespace, normalization=model_ds.normalization)
                 normalize_file(input_file=input_file, output_file=norm_file, force_overwrite=self.force_overwrite,
@@ -325,21 +338,22 @@ class BaseTranslator(ABC):
                 input_file = norm_file
 
                 # Pretokenize data (if needed)
-                pretok_file = output_file + ".tok"
                 if model_ds.pretok_flag:
+                    pretok_file = os.path.join(output_file, "tokenized", ts_fname)
                     pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
                                      force_overwrite=self.force_overwrite, use_cmd=self.use_cmd,
                                      venv_path=self.venv_path)
                     input_file = pretok_file
 
                 # Encode file
-                encode_file(ds=model_ds, input_file=input_file, output_file=output_file,
+                enc_file = os.path.join(output_file, "encoded", ts_fname)
+                encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
                             lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
                             force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # Preprocess external data
-            test_path = os.path.join(model_eval_data_path, eval_ds.test_name)
+            test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
             self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                              output_path=model_eval_data_bin_path,
                              train_path=None, val_path=None, test_path=test_path,
@@ -365,20 +379,21 @@ class BaseTranslator(ABC):
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
                     num_workers=num_workers, model_ds=model_ds, **kwargs)
 
+            # Copy src/ref raw
+            for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
+                raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=f"normalized/test.{lang}")
+                output_file = os.path.join(output_path, f"{fname}.txt")
+                shutil.copyfile(raw_file, output_file)
+
             # Postprocess tokenized files
-            for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang), ("hyp", model_ds.trg_lang)]:
+            for fname, lang in [("hyp", model_ds.trg_lang)]:
                 input_file = os.path.join(output_path, f"{fname}.tok")
                 output_file = os.path.join(output_path, f"{fname}.txt")
                 model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
 
-                # Copy preprocessed files (unknowns can be tricky to handle consistently between toolkits)
-                if fname in {"src", "ref"}:
-                    raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=f"test.{lang}")
-                    shutil.copyfile(raw_file, input_file)
-
                 # Post-process files
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                            subword_model=model_ds.subword_model,
+                            subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
                             model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
                             force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
