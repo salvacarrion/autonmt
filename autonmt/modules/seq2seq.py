@@ -78,12 +78,13 @@ class LitSeq2Seq(pl.LightningModule):
 
     def _compute_metrics(self, y_hat, y, metrics, log_prefix):
         # Decode lines
+        # Since ref lines are encoded, unknowns can appear. Therefore, for small vocabularies the scores could be strongly biased
         hyp_lines = [self._trg_vocab.decode(list(x)) for x in y_hat.detach().cpu().numpy()]
         ref_lines = [self._trg_vocab.decode(list(x)) for x in y.detach().cpu().numpy()]
 
         # Full decoding
-        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._trg_model_vocab_path,  remove_unk_hyphen=True)
-        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._trg_model_vocab_path,  remove_unk_hyphen=True)
+        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
+        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
 
         # Compute metrics
         scores = []

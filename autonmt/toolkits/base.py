@@ -237,7 +237,7 @@ class BaseTranslator(ABC):
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=ds.subword_model, **kwargs)
+                         subword_model=ds.subword_model, pretok_flag=ds.pretok_flag, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -305,7 +305,7 @@ class BaseTranslator(ABC):
         # Create dirs
         make_dir([model_eval_data_path, model_eval_data_bin_path])
 
-        # Checks: Make sure the directory exist, and it is empty
+        # Checks: Make sure the directory exist, and it is empty (...AutoNMT doesn't need it)
         is_empty = self._make_empty_path(path=model_eval_data_bin_path, safe_seconds=self.safe_seconds)
         if not is_empty:
             print("\t- [Translate]: Skipped preprocessing. The output directory for the preprocessing data is not empty")
@@ -358,7 +358,7 @@ class BaseTranslator(ABC):
                              output_path=model_eval_data_bin_path,
                              train_path=None, val_path=None, test_path=test_path,
                              src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                             subword_model=model_ds.subword_model,
+                             subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
                              external_data=True,
                              **kwargs)
 
@@ -370,7 +370,7 @@ class BaseTranslator(ABC):
             make_dir(output_path)
 
             # Translate
-            tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["src.tok", "ref.tok", "hyp.tok"]]
+            tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
             if self.force_overwrite or not all(tok_flag):
                 self._translate(
                     src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,

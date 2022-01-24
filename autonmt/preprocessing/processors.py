@@ -16,7 +16,7 @@ def normalize_file(input_file, output_file, encoding, force_overwrite, limit=Non
     if force_overwrite or not os.path.exists(output_file):
         lines = read_file_lines(input_file)
         lines = [preprocess_text(line, **kwargs) for line in lines]
-        limit = lines if not limit else lines[:limit]
+        lines = lines if not limit else lines[:limit]
         write_file_lines(lines=lines, filename=output_file, encoding=encoding)
         assert os.path.exists(output_file)
 
@@ -102,26 +102,26 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
         assert os.path.exists(output_file)
 
 
-def decode_lines(lines, lang, subword_model, model_vocab_path,  remove_unk_hyphen=False):
+def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  remove_unk_hyphen=False):
     # Detokenize
     if subword_model in {None, "none"}:
         # Rename or copy files (tok==txt)
-        return lines
+        lines = lines
 
     elif subword_model in {"bytes"}:
         # Decode files
-        return [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
+        lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
 
     else:
         # Decode files
         lines = py_cmd_api._spm_decode(lines, model_vocab_path + ".model")
 
-        # Detokenize with moses
-        if subword_model in {"word"}:
-            lines = py_cmd_api._moses_detokenizer(lines, lang=lang)
-
         # Remove the hyphen of unknown words when needed
         if remove_unk_hyphen:
             lines = [line.replace('▁', ' ') for line in lines]
 
-        return lines
+    # Detokenize with moses
+    if pretok_flag:
+        lines = py_cmd_api._moses_detokenizer(lines, lang=lang)
+
+    return lines

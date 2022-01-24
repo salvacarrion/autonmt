@@ -82,13 +82,13 @@ class Vocabulary(BaseVocabulary):
         if remove_special_tokens:
             try:
                 # Remove <sos>
-                sos_pos = idxs.index(self.sos_id)
+                sos_pos = idxs.index(self.sos_id)  # Get first sos (important!)
                 idxs = idxs[sos_pos+1:]
             except ValueError:
                 pass
             try:
                 # Remove <eos>
-                eos_pos = idxs.index(self.eos_id)
+                eos_pos = idxs.index(self.eos_id)   # Get first eos (important!)
                 idxs = idxs[:eos_pos]
             except ValueError:
                 pass

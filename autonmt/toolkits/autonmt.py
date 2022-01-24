@@ -33,9 +33,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.test_tds = None
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, subword_model,
-                    src_vocab_path, trg_vocab_path, **kwargs):
+                    pretok_flag, src_vocab_path, trg_vocab_path, **kwargs):
         # Create preprocessing
         self.subword_model = subword_model
+        self.pretok_flag = pretok_flag
         self.src_vocab_path = src_vocab_path
         self.trg_vocab_path = trg_vocab_path
 
@@ -57,6 +58,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._src_vocab = self.train_tds.src_vocab
         self.model._trg_vocab = self.train_tds.trg_vocab
         self.model._subword_model = self.subword_model
+        self.model._pretok_flag = self.pretok_flag
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
 
