@@ -240,9 +240,9 @@ def read_file_lines(filename, strip=False, remove_break_lines=True):
     return lines
 
 
-def write_file_lines(lines, filename, encoding="utf8"):
+def write_file_lines(lines, filename, encoding="utf8", strip=False):
     with open(filename, 'w', encoding=encoding.lower()) as f:
-        lines = [line.strip() + '\n' for line in lines]
+        lines = [line.strip() + '\n' for line in lines] if strip else [line + '\n' for line in lines]
         f.writelines(lines)
 
 

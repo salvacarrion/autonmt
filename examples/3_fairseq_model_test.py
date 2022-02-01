@@ -12,16 +12,16 @@ def main(fairseq_args, fairseq_venv_path):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            # {"name": "wikimatrix", "languages": ["az-en"], "sizes": [("original", None)]},
-            {"name": "europarl", "languages": ["de-en"], "sizes": [("50k_lc", 50000), ("100k_lc", 100000)]},
+            # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
+            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)]},
+            {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("100k", 100000)]},
         ],
-        subword_models=["char+bytes"],
-        vocab_sizes=[x+256 for x in [1000]],
+        subword_models=["word", "unigram+bytes"],
+        vocab_sizes=[8000, 16000],
         merge_vocabs=False,
         force_overwrite=False,
-        interactive=True,
-        use_cmd=True,
-        eval_mode="same",
+        eval_mode="compatible",
         letter_case="lower",
         venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
     ).build(make_plots=False)
@@ -36,10 +36,10 @@ def main(fairseq_args, fairseq_venv_path):
     run_prefix = "transformer256emb"
     for ds in tr_datasets:
         try:
-            wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
+            wandb_params = dict(project="fairseq", entity="salvacarrion")
             model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path,
                                       model_ds=ds, wandb_params=wandb_params, force_overwrite=True, run_prefix=run_prefix)
-            model.fit(resume_training=False, max_epochs=250, max_tokens=4096, batch_size=None, seed=1234, patience=20, num_workers=12, devices="auto", fairseq_args=fairseq_args)
+            model.fit(resume_training=False, max_epochs=300, max_tokens=4096*2, batch_size=None, seed=1234, patience=10, num_workers=12, devices="auto", fairseq_args=fairseq_args)
             m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5], truncate_at=1023)
             print(m_scores)
             scores.append(m_scores)

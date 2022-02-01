@@ -7,7 +7,7 @@ from autonmt.bundle.utils import read_file_lines
 
 
 class Seq2SeqDataset(Dataset):
-    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None,  **kwargs):
+    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None, **kwargs):
         # Set vocabs
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
@@ -19,8 +19,11 @@ class Seq2SeqDataset(Dataset):
         # Read files
         self.src_lines = read_file_lines(filename=src_file_path)
         self.trg_lines = read_file_lines(filename=trg_file_path)
-        assert len(self.src_lines) == len(self.trg_lines)
 
+        # Limit lines
+        self.src_lines = self.src_lines[:limit] if limit else self.src_lines
+        self.trg_lines = self.trg_lines[:limit] if limit else self.trg_lines
+        assert len(self.src_lines) == len(self.trg_lines)
 
     def __len__(self):
         return len(self.src_lines)

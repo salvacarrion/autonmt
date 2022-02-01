@@ -456,8 +456,8 @@ class DatasetBuilder:
 
                     # Save vocab
                     if self.force_overwrite or not os.path.exists(vocab_path):
-                        lines = [f"{pair[0]}\t{pair[1]}\n" for pair in vocab_frequencies]
-                        write_file_lines(lines=lines, filename=vocab_path)
+                        lines = [f"{pair[0]}\t{pair[1]}" for pair in vocab_frequencies]
+                        write_file_lines(lines=lines, filename=vocab_path, strip=False)
 
     def _compute_stats(self):
         print(f"=> Computing stats... (base_path={self.base_path})")
@@ -496,7 +496,7 @@ class DatasetBuilder:
             # Set base path
             ds_title = f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
             vocab_name = f"_{ds.vocab_size}" if ds.vocab_size else ""
-            suffix_fname = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}{vocab_name}".lower()
+            suffix_fname = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}{vocab_name}".lower().replace('/', '_')
             print(f"\t- Creating plots for: {ds.id2(as_path=True)}")
 
             # Set paths and create dirs
@@ -584,7 +584,7 @@ class DatasetBuilder:
                     with open(vocab_freq_path, 'r') as f:
                         rows = [line.split('\t') for line in f.readlines()]
                         df = pd.DataFrame(rows, columns=["token", "frequency"])
-                        df["frequency"] = df["frequency"].astype(int)
+                        df["frequency"] = df["frequency"].apply(lambda x: int(x.strip())).astype(int)
                         df = df.sort_values(by='frequency', ascending=False, na_position='last')
 
                     for top_k in vocab_top_k:
