@@ -19,7 +19,7 @@ class DatasetBuilder:
     def __init__(self, base_path, datasets, subword_models, vocab_sizes, merge_vocabs=True, eval_mode="same",
                  normalization="NFKC", strip_whitespace=True, collapse_whitespace=True, letter_case=None,
                  file_encoding="utf8", truncate_at=None, character_coverage=1.0,
-                 force_overwrite=False, interactive=True, use_cmd=False, venv_path=None):
+                 force_overwrite=False, interactive=True, use_cmd=False, venv_path=None, normalizers=[]):
         self.base_path = base_path
         self.datasets = datasets
         self.subword_models = [x.strip().lower() for x in subword_models]
@@ -480,7 +480,7 @@ class DatasetBuilder:
 
         # Set default vars
         if vocab_top_k is None:
-            vocab_top_k = [100, 150]
+            vocab_top_k = [50]
 
         # Set backend
         if save_figures:
@@ -555,7 +555,7 @@ class DatasetBuilder:
             plots.catplot(data=df, x="split", y="total_sentences", hue="lang",
                           title=title, xlabel="Dataset partitions", ylabel="Num. of sentences",
                           leyend_title=None,
-                          output_dir=plots_encoded_path, fname=p_fname, aspect_ratio=(8, 4), size=1.0,
+                          output_dir=plots_encoded_path, fname=p_fname, aspect_ratio=(6, 4), size=1.0,
                           save_fig=save_figures, show_fig=show_figures, overwrite=self.force_overwrite)
 
             # Plot split size (by token number)
@@ -565,7 +565,7 @@ class DatasetBuilder:
                 p_fname = f"split_size_tok__{suffix_fname}".lower()
                 plots.catplot(data=df, x="split", y="total_tokens", hue="lang",
                               title=title, xlabel="Dataset partitions", ylabel="Num. of tokens", leyend_title=None,
-                              output_dir=plots_encoded_path, fname=p_fname, aspect_ratio=(8, 4), size=1.0,
+                              output_dir=plots_encoded_path, fname=p_fname, aspect_ratio=(6, 4), size=1.0,
                               save_fig=save_figures, show_fig=show_figures, overwrite=self.force_overwrite)
 
             # Plot vocabulary frequency
@@ -593,6 +593,6 @@ class DatasetBuilder:
                         p_fname = f"vocab_distr_{lang_file}_top{str(top_k)}__{suffix_fname}".lower()
                         plots.barplot(data=df.head(top_k), x="token", y="frequency",
                                       output_dir=plots_encoded_path, fname=p_fname,
-                                      title=title, xlabel="Tokens", ylabel="Frequency",
-                                      aspect_ratio=(12, 4), size=1.5, save_fig=save_figures, show_fig=show_figures,
+                                      title=title, xlabel="Token frequency", ylabel="Frequency",
+                                      aspect_ratio=(6, 4), size=1.25, save_fig=save_figures, show_fig=show_figures,
                                       overwrite=self.force_overwrite)
