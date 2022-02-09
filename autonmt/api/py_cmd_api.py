@@ -24,14 +24,14 @@ def moses_tokenizer(input_file, output_file, lang, use_cmd, venv_path):
 
 def py_moses_tokenizer(input_file, output_file, lang):
     # Read lines
-    lines = utils.read_file_lines(input_file)
+    lines = utils.read_file_lines(input_file, strip=True)
 
     # Tokenize
     mt = MosesTokenizer(lang=lang)
     lines = [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(lines=lines, filename=output_file)
+    utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 
 def moses_detokenizer(input_file, output_file, lang, use_cmd, venv_path):
@@ -44,14 +44,14 @@ def moses_detokenizer(input_file, output_file, lang, use_cmd, venv_path):
 
 def py_moses_detokenizer(input_file, output_file, lang):
     # Read lines
-    lines = utils.read_file_lines(input_file)
+    lines = utils.read_file_lines(input_file, strip=True)
 
     # Detokenize
     mt = MosesDetokenizer(lang=lang)
     lines = [mt.detokenize(line.split()) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(lines=lines, filename=output_file)
+    utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 
 def _moses_detokenizer(lines, lang):
@@ -93,14 +93,14 @@ def spm_encode(spm_model_path, input_file, output_file, use_cmd, venv_path):
 
 def py_spm_encode(spm_model_path, input_file, output_file):
     # Read lines
-    lines = utils.read_file_lines(input_file)
+    lines = utils.read_file_lines(input_file, strip=True)
 
     # Encode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
     lines = [' '.join(s.encode(line, out_type=str)) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(lines=lines, filename=output_file)
+    utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 
 def spm_decode(spm_model_path, input_file, output_file, use_cmd, venv_path):
@@ -113,14 +113,14 @@ def spm_decode(spm_model_path, input_file, output_file, use_cmd, venv_path):
 
 def py_spm_decode(spm_model_path, input_file, output_file):
     # Read lines
-    lines = utils.read_file_lines(input_file)
+    lines = utils.read_file_lines(input_file, strip=True)
 
     # Decode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
     lines = [s.decode_pieces(line.split(' ')) for line in tqdm(lines, total=len(lines))]
 
     # Save file
-    utils.write_file_lines(lines=lines, filename=output_file)
+    utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 
 def _spm_decode(lines, spm_model_path):
@@ -142,8 +142,8 @@ def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
     scores = []
 
     # Read files
-    hyp_lines = utils.read_file_lines(hyp_file)
-    ref_lines = utils.read_file_lines(ref_file)
+    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
+    ref_lines = utils.read_file_lines(ref_file, strip=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Load metric
@@ -187,8 +187,8 @@ def compute_sacrebleu(ref_file, hyp_file, output_file, metrics, use_cmd, venv_pa
 
 def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     # Read files
-    hyp_lines = utils.read_file_lines(hyp_file)
-    ref_lines = utils.read_file_lines(ref_file)
+    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
+    ref_lines = utils.read_file_lines(ref_file, strip=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
@@ -234,8 +234,8 @@ def compute_bertscore(ref_file, hyp_file, output_file, trg_lang, use_cmd, venv_p
 
 def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
     # Read file
-    ref_lines = utils.read_file_lines(ref_file)
-    hyp_lines = utils.read_file_lines(hyp_file)
+    ref_lines = utils.read_file_lines(ref_file, strip=True)
+    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
@@ -273,9 +273,9 @@ def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, venv_path)
 
 def py_comet(src_file, ref_file, hyp_file, output_file):
     # Read file
-    src_lines = utils.read_file_lines(src_file)
-    ref_lines = utils.read_file_lines(ref_file)
-    hyp_lines = utils.read_file_lines(hyp_file)
+    src_lines = utils.read_file_lines(src_file, strip=True)
+    ref_lines = utils.read_file_lines(ref_file, strip=True)
+    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
     assert len(ref_lines) == len(hyp_lines) == len(src_lines)
 
     # Check if files have content
@@ -326,8 +326,8 @@ def compute_fairseq(ref_file, hyp_file, output_file, use_cmd, venv_path):
     generate_test_path = os.path.join(os.path.dirname(hyp_file), "generate-test.txt")
     if os.path.exists(generate_test_path):
         # Read, parse and save lines
-        lines = [utils.read_file_lines(generate_test_path)[-1]]
-        utils.write_file_lines(lines, output_file)
+        lines = [utils.read_file_lines(generate_test_path, strip=True)[-1]]
+        utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
     else:
         print("\t- [INFO]: No 'generate-test.txt' was found.")
 

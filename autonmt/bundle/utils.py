@@ -233,22 +233,26 @@ def parse_split_size(ds_size, max_ds_size):
         raise TypeError("'ds_size' can be a tuple(float, int), float or int")
 
 
-def read_file_lines(filename, strip=False, remove_break_lines=True):
-    with open(filename, 'r') as f:
-        lines = [line.strip() for line in f.readlines()] if strip else f.readlines()
-        lines = [line.replace('\n', '') for line in lines] if remove_break_lines else lines
+def read_file_lines(filename, strip=False, ignore_empty=False, encoding="utf8"):
+    with open(filename, 'r', encoding=encoding.lower()) as f:
+        lines = []
+        for line in f.readlines():
+            line = line.strip() if strip else line
+            if line or not ignore_empty:
+                lines.append(line)
     return lines
 
 
-def write_file_lines(lines, filename, encoding="utf8", strip=False):
+def write_file_lines(lines, filename, strip=False, insert_break_line=False, encoding="utf8"):
+    tail = '\n' if insert_break_line else ''
     with open(filename, 'w', encoding=encoding.lower()) as f:
-        lines = [line.strip() + '\n' for line in lines] if strip else [line + '\n' for line in lines]
+        lines = [(line.strip() if strip else line) + tail for line in lines]
         f.writelines(lines)
 
 
 def replace_in_file(search_string, replace_string, filename, drop_headers=0):
     # Read file
-    lines = read_file_lines(filename, strip=False, remove_break_lines=False)
+    lines = read_file_lines(filename, strip=False)
 
     # Drop headers
     lines = lines[drop_headers:]
@@ -257,7 +261,7 @@ def replace_in_file(search_string, replace_string, filename, drop_headers=0):
     lines = [line.replace(search_string, replace_string) for line in lines]
 
     # Write file
-    write_file_lines(lines, filename)
+    write_file_lines(lines=lines, filename=filename, insert_break_line=False)
 
 
 def flatten(lst):

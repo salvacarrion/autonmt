@@ -340,14 +340,14 @@ class DatasetBuilder:
                 # Concat files
                 if self.force_overwrite or not os.path.exists(concat_train_path):
                     # Read files
-                    lines = read_file_lines(src_train_path)
-                    lines += read_file_lines(trg_train_path)
+                    lines = read_file_lines(src_train_path, strip=True)
+                    lines += read_file_lines(trg_train_path, strip=True)
 
                     # Shuffle lines: Just in case because can spm_train load the first X lines of corpus by default
                     random.shuffle(lines)
 
                     # Save file
-                    write_file_lines(lines=lines, filename=concat_train_path)
+                    write_file_lines(lines=lines, filename=concat_train_path, insert_break_line=True)
                 files = [(concat_train_path, f"{src_lang}-{trg_lang}")]
             else:  # Two models
                 files = [(src_train_path, f"{src_lang}"), (trg_train_path, f"{trg_lang}")]
@@ -436,7 +436,7 @@ class DatasetBuilder:
                     vocabs = []
                     for vocabf, lang_file in vocabf_lang:
                         # Get the exact vocab from SPM
-                        spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab")
+                        spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab", strip=False)
                         spm_vocab_lines = spm_vocab_lines[4:]  # Remove special tokens
                         spm_vocab = {l.split('\t')[0]: 0 for l in spm_vocab_lines}
 
@@ -457,7 +457,7 @@ class DatasetBuilder:
                     # Save vocab
                     if self.force_overwrite or not os.path.exists(vocab_path):
                         lines = [f"{pair[0]}\t{pair[1]}" for pair in vocab_frequencies]
-                        write_file_lines(lines=lines, filename=vocab_path, strip=False)
+                        write_file_lines(lines=lines, filename=vocab_path, insert_break_line=True)
 
     def _compute_stats(self):
         print(f"=> Computing stats... (base_path={self.base_path})")

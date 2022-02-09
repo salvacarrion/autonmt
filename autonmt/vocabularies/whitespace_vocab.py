@@ -44,7 +44,7 @@ class Vocabulary(BaseVocabulary):
 
     def build_from_vocab(self, filename, includes_special_tokes=True):
         # Parse file. Special tokens must appear first in the file
-        tokens = [line.split('\t') for line in read_file_lines(filename)]
+        tokens = [line.split('\t') for line in read_file_lines(filename, strip=False)]
         special_tokens = [(tok, 0) for tok, tok_id in self.special_tokens] if not includes_special_tokes else []
         tokens = special_tokens + tokens  # Do not sort. It could lead to different idxs
         self.build_from_tokens(tokens)
@@ -52,7 +52,7 @@ class Vocabulary(BaseVocabulary):
         return self
 
     def build_from_dataset(self, filename):
-        tokens = Counter(flatten([line.strip().split(' ') for line in read_file_lines(filename)]))
+        tokens = Counter(flatten([line.strip().split(' ') for line in read_file_lines(filename, strip=True)]))
         special_tokens = [(tok, 0) for tok, tok_id in self.special_tokens]
         tokens = special_tokens + tokens.most_common()
         self.build_from_tokens(tokens)
@@ -113,5 +113,5 @@ class Vocabulary(BaseVocabulary):
             lines.append(f"{voc}\t{self.voc2freq.get(voc, 0)}")
 
         # Save file
-        write_file_lines(lines=lines, filename=filename)
+        write_file_lines(lines=lines, filename=filename, insert_break_line=True)
 

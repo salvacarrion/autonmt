@@ -87,7 +87,7 @@ def _postprocess_output(output_path):
 
 def vocab_spm2fairseq(filename):
     # Read file
-    lines = utils.read_file_lines(filename, strip=False, remove_break_lines=False)
+    lines = utils.read_file_lines(filename, strip=False)
 
     # Drop headers
     lines = lines[4:]  # <unk>, <s>, </s>, <pad>
@@ -96,7 +96,7 @@ def vocab_spm2fairseq(filename):
     lines = [line.split('\t')[0] + f" {1}" for line in lines]
 
     # Write file
-    utils.write_file_lines(lines, filename)
+    utils.write_file_lines(lines=lines, filename=filename, insert_break_line=True)
 
 
 class FairseqTranslator(BaseTranslator):

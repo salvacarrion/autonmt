@@ -127,7 +127,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         """
         # Decode: hyp
         hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
-        write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"))
+        write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"), insert_break_line=True)
 
     @staticmethod
     def _count_model_parameters(model):

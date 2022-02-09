@@ -233,8 +233,8 @@ class Dataset:
             # Count unknowns
             if count_unknowns and self.subword_model not in {None, "none", "bytes"}:
                 vocab_path = self.get_vocab_path(split_lang) + ".vocab"
-                vocab_keys = set([line.split('\t')[0] for line in utils.read_file_lines(vocab_path)][4:])
-                lines = utils.read_file_lines(self.get_encoded_path(fname))
+                vocab_keys = set([line.split('\t')[0] for line in utils.read_file_lines(vocab_path, strip=False)][4:])
+                lines = utils.read_file_lines(self.get_encoded_path(fname), strip=True)
                 unknowns = [len(set(line.split(' ')).difference(vocab_keys)) for line in lines]
                 unknowns = np.array(unknowns)
                 row.update(basic_stats(unknowns, prefix="unknown_"))

@@ -19,7 +19,7 @@ def set_non_gui_backend():
 
 def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fname, aspect_ratio=(12, 8), size=1.0,
             show_values=True, dpi=150, rotate_xlabels=0, show_fig=False, save_fig=True, formats=None,
-            overwrite=True, data_format='{:.0f}'):
+            overwrite=True, data_format='{:.0f}', loc="upper right"):
     if formats is None:
         formats = ["png", "pdf"]
 
@@ -29,7 +29,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
         return False
 
     # Create subplot
-    fig = plt.figure(figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))
+    fig = plt.figure(figsize=(aspect_ratio[0], aspect_ratio[1]))
     sns.set(font_scale=size)
 
     # Plot catplot
@@ -38,22 +38,22 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
 
     # Tweaks
     g.set(xlabel=xlabel, ylabel=ylabel)
-    # g.set_xticklabels(g.get_xticklabels(), rotation=rotate_xlabels)
-    # g.tick_params(axis='x', which='major', labelsize=8*size)
-    # g.tick_params(axis='y', which='major', labelsize=8*size)
-    g.axes.flat[0].yaxis.set_major_formatter(utils.human_format_int)  # only for catplot
+    g.ax.set_xticklabels(g.ax.get_xticklabels(), rotation=rotate_xlabels)
+    # g.ax.tick_params(axis='x', which='major', labelsize=8*size)
+    # g.ax.tick_params(axis='y', which='major', labelsize=8*size)
+    g.ax.yaxis.set_major_formatter(utils.human_format_int)  # only for catplot
 
     # Add values
     if show_values:
         ax = g.facet_axis(0, 0)
         for c in ax.containers:
             labels = [data_format.format(float(v.get_height())) for v in c]
-            ax.bar_label(c, labels=labels, label_type='edge', fontsize=8 * size)
+            ax.bar_label(c, labels=labels, label_type='edge')  #, fontsize=8 * size
 
     # properties
     g.set(xlabel=xlabel, ylabel=ylabel)
     plt.title(title)
-    plt.legend(title=leyend_title, loc='upper right')
+    plt.legend(title=leyend_title, loc=loc) if hue else None
     plt.tight_layout()
 
     # Show/Save/Close figure
@@ -225,13 +225,20 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
     fname = f"report__{plot_metric}"
 
     # Make run name smaller with break lines
-    df_report["alias"] = df_report["run_name"].apply(lambda x: '\n'.join(x.split('_')))
+    df_report["alias"] = [f"{row['subword_model']} - {row['vocab_size']}\nTr: {row['train_dataset'].replace('_', ' ')}" for i, row in df_report.iterrows()]
+
+    # Evals per model
+    num_same_tr_ts = int((df_report['train_dataset'] == df_report['eval_dataset']).values.sum())
+    total_tr = len(df_report['train_dataset'])
+    hue = None if num_same_tr_ts == total_tr else "eval_dataset"
 
     # Plot data
-    catplot(data=df_report, x="alias", y=plot_metric, hue="eval_dataset",
+    width = 16  #min(max(total_tr, 8), 24)
+    height = 8
+    catplot(data=df_report, x="alias", y=plot_metric, hue=hue,
             title=f"Model comparison", xlabel="Models", ylabel=ylabel, leyend_title=None,
-            output_dir=output_path, fname=fname, aspect_ratio=(8, 4), size=1.0, rotate_xlabels=0,
-            save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
+            output_dir=output_path, fname=fname, aspect_ratio=(width, height), size=1.5, rotate_xlabels=90,
+            save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}", loc="lower right")
 
 
 def plot_vocabs_report(output_path, data, x, y_left, y_right=None, prefix="", save_figures=True, show_figures=False):
