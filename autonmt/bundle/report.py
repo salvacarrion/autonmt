@@ -87,8 +87,8 @@ def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
     return df
 
 
-def generate_vocabs_report(data, output_path, y_left, y_right=None, x="vocab_size", prefix="",
-                           save_csv=False, **kwargs):
+def generate_multivariable_report(data, output_path, y_left, y_right=None, x="vocab_size", prefix="",
+                                  save_csv=False, **kwargs):
     # Create logs path
     reports_path = os.path.join(output_path, "reports")
     plots_path = os.path.join(output_path, "plots")

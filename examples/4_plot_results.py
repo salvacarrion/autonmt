@@ -1,7 +1,7 @@
 import pandas as pd
 
 from autonmt.preprocessing import DatasetBuilder
-from autonmt.bundle.report import generate_report, generate_vocabs_report
+from autonmt.bundle.report import generate_report, generate_multivariable_report
 
 from autonmt.toolkits.fairseq import FairseqTranslator
 from autonmt.bundle import utils
@@ -67,7 +67,7 @@ def main(fairseq_args, fairseq_venv_path):
     prefix = "unknowns_"
     # df_report = pd.read_csv(os.path.join(output_path, "reports", f"{prefix}_vocabs_report.csv"))
     # df_report = df_report[df_report.subword_model != "char+bytes"]
-    generate_vocabs_report(data=df_report,
+    generate_multivariable_report(data=df_report,
                            y_left=("unknown_avg_tokens", "subword_model"), y_right=None,
                            output_path=output_path, prefix=prefix,
                            save_figures=True, show_figures=False, save_csv=True)

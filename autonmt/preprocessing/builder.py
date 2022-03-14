@@ -108,6 +108,12 @@ class DatasetBuilder:
     def get_ds(self, ignore_variants=False):
         return self.ds_list_main if ignore_variants else self.ds_list
 
+    def get_train_ds(self):
+        return self.get_ds(ignore_variants=False)
+
+    def get_test_ds(self):
+        return self.get_ds(ignore_variants=False)
+
     def build(self, encode=True, val_size=(0.1, 1000), test_size=(0.1, 1000), shuffle=True, force_pretok=False,
               make_plots=False, safe=True):
         print(f"=> Building datasets...")
