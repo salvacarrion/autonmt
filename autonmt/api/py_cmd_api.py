@@ -202,10 +202,11 @@ def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     utils.save_json(scores, output_file)
 
 
-def _sacrebleu(hyp_lines, ref_lines, metrics):
+def _sacrebleu(hyp_lines, ref_lines, metrics, trg_lang="", tokenize=None):
     scores = []
     if "bleu" in metrics:
-        bleu = sacrebleu.metrics.BLEU()
+        # Score
+        bleu = sacrebleu.metrics.BLEU(trg_lang=trg_lang, tokenize=tokenize)  # Tokenizer automatically
         d = bleu.corpus_score(hyp_lines, [ref_lines]).__dict__
         d["signature"] = str(bleu.get_signature())
         scores.append(d)
