@@ -169,7 +169,7 @@ class BaseTranslator(ABC):
                    num_workers=num_workers, monitor=monitor, resume_training=resume_training, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=128, max_tokens=None, max_len_a=1.2, max_len_b=50,  truncate_at=None,
+                metrics: Set[str] = None, batch_size=64, max_tokens=None, max_len_a=1.2, max_len_b=50,  truncate_at=None,
                 devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
         print("=> [Predict]: Started.")
 
@@ -397,6 +397,14 @@ class BaseTranslator(ABC):
                             model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
                             force_overwrite=self.force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
+
+            # Check amount of lines
+            ref_lines = len(open(os.path.join(output_path, "ref.txt"), 'r').readlines())
+            hyp_lines = len(open(os.path.join(output_path, "hyp.txt"), 'r').readlines())
+            if ref_lines != hyp_lines:
+                raise ValueError(f"The number of lines in 'ref.txt' ({ref_lines}) and 'hyp.txt' ({hyp_lines}) "
+                                 f"does not match. If you see a 'CUDA out of memory' message, try again with "
+                                 f"smaller batch.")
 
             print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 

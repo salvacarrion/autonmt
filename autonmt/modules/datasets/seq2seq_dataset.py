@@ -17,8 +17,8 @@ class Seq2SeqDataset(Dataset):
         trg_file_path = file_prefix.strip() + f".{trg_lang}"
 
         # Read files
-        self.src_lines = read_file_lines(filename=src_file_path, strip=True)
-        self.trg_lines = read_file_lines(filename=trg_file_path, strip=True)
+        self.src_lines = read_file_lines(filename=src_file_path, autoclean=True)
+        self.trg_lines = read_file_lines(filename=trg_file_path, autoclean=True)
 
         # Limit lines
         self.src_lines = self.src_lines[:limit] if limit else self.src_lines

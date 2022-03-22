@@ -87,7 +87,7 @@ def _postprocess_output(output_path):
 
 def vocab_spm2fairseq(filename):
     # Read file
-    lines = utils.read_file_lines(filename, strip=False)
+    lines = utils.read_file_lines(filename, autoclean=False)
 
     # Drop headers
     lines = lines[4:]  # <unk>, <s>, </s>, <pad>
@@ -170,10 +170,11 @@ class FairseqTranslator(BaseTranslator):
         # Add wandb logger (if requested)
         wandb_env = []
         if self.wandb_params:
-            wandb_run_name = f"{ds_alias}_{run_name}"
-            wandb_env = f"WANDB_NAME='{wandb_run_name}'"
-            wandb_project = self.wandb_params['project']
-            cmd += [f"--wandb-project '{wandb_project}'"]
+            raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
+            # wandb_run_name = f"{ds_alias}_{run_name}"
+            # wandb_env = f"WANDB_NAME='{wandb_run_name}'"
+            # wandb_project = self.wandb_params['project']
+            # cmd += [f"--wandb-project '{wandb_project}'"]
 
         # Parse gpu flag
         num_gpus = kwargs.get('devices')
@@ -224,3 +225,5 @@ class FairseqTranslator(BaseTranslator):
 
         # Prepare output files (from fairseq to tokenized form)
         _postprocess_output(output_path=output_path)
+
+

@@ -26,7 +26,7 @@ class BytesVocabulary(BaseVocabulary):
         idxs = [self.sos_id] + idxs + [self.eos_id] if add_special_tokens else b_list
         return idxs
 
-    def decode(self, idxs, remove_special_tokens=True):
+    def decode(self, idxs, remove_special_tokens=True, encoding="utf-8"):
         # Remove special tokens
         if remove_special_tokens:
             try:
@@ -47,5 +47,5 @@ class BytesVocabulary(BaseVocabulary):
             text = " ".join([hex(x) for x in idxs])
         else:
             b_enc = bytes(idxs)
-            text = b_enc.decode()
+            text = b_enc.decode(encoding, errors="replace")
         return text

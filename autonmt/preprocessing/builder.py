@@ -114,7 +114,7 @@ class DatasetBuilder:
     def get_test_ds(self):
         return self.get_ds(ignore_variants=False)
 
-    def build(self, encode=True, val_size=(0.1, 1000), test_size=(0.1, 1000), shuffle=True, force_pretok=False,
+    def build(self, encode=True, val_size=1000, test_size=1000, shuffle=True, force_pretok=False,
               make_plots=False, safe=True):
         print(f"=> Building datasets...")
         print(f"\t- base_path={self.base_path}")
@@ -196,13 +196,13 @@ class DatasetBuilder:
                 # Read raw files
                 src_lines, trg_lines = None, None
                 for filename in raw_files:
-                    with open(os.path.join(raw_path, filename), 'r') as f:
-                        if filename[-2:].lower() == src_lang:  # Check extension
-                            src_lines = f.readlines()
-                        else:
-                            trg_lines = f.readlines()
+                    if filename[-2:].lower() == src_lang:  # Check extension
+                        src_lines = utils.read_file_lines(os.path.join(raw_path, filename))
+                    else:
+                        trg_lines = utils.read_file_lines(os.path.join(raw_path, filename))
 
                 # Clean lines
+                assert len(src_lines) == len(trg_lines)
                 lines = utils.preprocess_pairs(src_lines, trg_lines, shuffle=shuffle)
 
                 # Parse split sizes
@@ -217,14 +217,21 @@ class DatasetBuilder:
                 test_lines = lines[-test_size:]
 
                 # Save partitions
-                _splits = [(train_lines, ds.train_name), (val_lines, ds.val_name), (test_lines, ds.test_name)]
+                _splits = [(val_lines, ds.val_name), (test_lines, ds.test_name), (train_lines, ds.train_name)]
                 for split_lines, split_name in _splits:
                     for i, lang in enumerate([src_lang, trg_lang]):  # Languages
+                        # Save partition
                         savepath = os.path.join(splits_path, f"{split_name}.{lang}")
-                        with open(savepath, 'w') as fs:
-                            lines = [line[i] + '\n' for line in split_lines]  # split_lines is a tuple (src, trg)
-                            fs.writelines(lines)
-                            print(f"\t- Partition saved: {split_name}.{lang}")
+                        utils.write_file_lines(list(zip(*split_lines))[i], savepath, autoclean=True, insert_break_line=True)
+                        print(f"\t- Partition saved: {split_name}.{lang}")
+
+                        # Check encoding errors
+                        n_raw_lines = len(split_lines)
+                        n_enc_lines = len(open(savepath, 'r').readlines())
+                        if n_enc_lines != n_raw_lines:
+                            raise ValueError(f"The number of raw lines ({n_raw_lines}) does not match "
+                                             f"the number of encoded lines ({n_enc_lines}).")
+
             else:  # Create folders
                 if not flag_raw_exists or not flag_splits_exists:
                     print(f"=> [Missing data]: We couldn't find either the 'raw' folder or the 'splits' folder. ({ds.get_path()})")
@@ -265,9 +272,8 @@ class DatasetBuilder:
 
                 # Copy n lines efficiently
                 if self.force_overwrite or not os.path.exists(new_filename):
-                    with open(ori_filename, 'r') as fin, open(new_filename, 'w') as fout:
-                        lines = list(islice(fin, ds.dataset_lines))
-                        fout.writelines(lines)
+                    with open(ori_filename, 'rb') as fin:
+                        utils.write_file_lines(list(islice(fin, ds.dataset_lines)), new_filename, autoclean=True, insert_break_line=True)
                         print(f"\t\t=> Creating split file: {fname}")
 
     def _normalization(self):
@@ -346,8 +352,8 @@ class DatasetBuilder:
                 # Concat files
                 if self.force_overwrite or not os.path.exists(concat_train_path):
                     # Read files
-                    lines = read_file_lines(src_train_path, strip=True)
-                    lines += read_file_lines(trg_train_path, strip=True)
+                    lines = read_file_lines(src_train_path, autoclean=True)
+                    lines += read_file_lines(trg_train_path, autoclean=True)
 
                     # Shuffle lines: Just in case because can spm_train load the first X lines of corpus by default
                     random.shuffle(lines)
@@ -442,7 +448,7 @@ class DatasetBuilder:
                     vocabs = []
                     for vocabf, lang_file in vocabf_lang:
                         # Get the exact vocab from SPM
-                        spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab", strip=False)
+                        spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab", autoclean=False)
                         spm_vocab_lines = spm_vocab_lines[4:]  # Remove special tokens
                         spm_vocab = {l.split('\t')[0]: 0 for l in spm_vocab_lines}
 

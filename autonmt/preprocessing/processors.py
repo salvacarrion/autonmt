@@ -14,10 +14,10 @@ from autonmt.api import py_cmd_api
 
 def normalize_file(input_file, output_file, encoding, force_overwrite, limit=None, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
-        lines = read_file_lines(input_file, strip=True)
+        lines = read_file_lines(input_file, autoclean=True)
         lines = [preprocess_text(line, **kwargs) for line in lines]
         lines = lines if not limit else lines[:limit]
-        write_file_lines(lines=lines, filename=output_file, encoding=encoding, insert_break_line=True)
+        write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding=encoding)
         assert os.path.exists(output_file)
 
 
@@ -40,7 +40,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
 
         elif ds.subword_model in {"bytes"}:
             # Save file as UTF8 and make sure everything uses NFKC
-            lines = read_file_lines(input_file, strip=True)
+            lines = read_file_lines(input_file, autoclean=True)
             lines = [preprocess_text(line, normalization="NFKC") for line in lines]
             lines = [" ".join([hex(x) for x in line.encode()]) for line in lines]
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
@@ -58,7 +58,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
 
         # Truncate if needed
         if truncate_at:
-            lines = read_file_lines(output_file, strip=True)
+            lines = read_file_lines(output_file, autoclean=True)
             lines = [" ".join(line.split(' ')[:truncate_at]).strip() for line in lines]
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
@@ -77,8 +77,8 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         elif subword_model in {"bytes"}:
             # Decode files
-            lines = read_file_lines(input_file, strip=True)
-            lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
+            lines = read_file_lines(input_file, autoclean=True)
+            lines = [clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
 
             # Write files
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
@@ -110,7 +110,7 @@ def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  rem
 
     elif subword_model in {"bytes"}:
         # Decode files
-        lines = [bytes([int(x, base=16) for x in line.split(' ')]).decode() for line in lines]
+        lines = [utils.clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
 
     else:
         # Decode files

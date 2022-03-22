@@ -24,7 +24,7 @@ def moses_tokenizer(input_file, output_file, lang, use_cmd, venv_path):
 
 def py_moses_tokenizer(input_file, output_file, lang):
     # Read lines
-    lines = utils.read_file_lines(input_file, strip=True)
+    lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Tokenize
     mt = MosesTokenizer(lang=lang)
@@ -44,7 +44,7 @@ def moses_detokenizer(input_file, output_file, lang, use_cmd, venv_path):
 
 def py_moses_detokenizer(input_file, output_file, lang):
     # Read lines
-    lines = utils.read_file_lines(input_file, strip=True)
+    lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Detokenize
     mt = MosesDetokenizer(lang=lang)
@@ -93,7 +93,7 @@ def spm_encode(spm_model_path, input_file, output_file, use_cmd, venv_path):
 
 def py_spm_encode(spm_model_path, input_file, output_file):
     # Read lines
-    lines = utils.read_file_lines(input_file, strip=True)
+    lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Encode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
@@ -113,7 +113,7 @@ def spm_decode(spm_model_path, input_file, output_file, use_cmd, venv_path):
 
 def py_spm_decode(spm_model_path, input_file, output_file):
     # Read lines
-    lines = utils.read_file_lines(input_file, strip=True)
+    lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Decode
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
@@ -142,8 +142,8 @@ def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
     scores = []
 
     # Read files
-    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
-    ref_lines = utils.read_file_lines(ref_file, strip=True)
+    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
+    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Load metric
@@ -187,8 +187,8 @@ def compute_sacrebleu(ref_file, hyp_file, output_file, metrics, use_cmd, venv_pa
 
 def py_sacrebleu(ref_file, hyp_file, output_file, metrics, **kwargs):
     # Read files
-    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
-    ref_lines = utils.read_file_lines(ref_file, strip=True)
+    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
+    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
@@ -235,8 +235,8 @@ def compute_bertscore(ref_file, hyp_file, output_file, trg_lang, use_cmd, venv_p
 
 def py_bertscore(ref_file, hyp_file, output_file, trg_lang):
     # Read file
-    ref_lines = utils.read_file_lines(ref_file, strip=True)
-    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
+    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
+    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
     assert len(ref_lines) == len(hyp_lines)
 
     # Check if files have content
@@ -274,9 +274,9 @@ def compute_comet(src_file, ref_file, hyp_file, output_file, use_cmd, venv_path)
 
 def py_comet(src_file, ref_file, hyp_file, output_file):
     # Read file
-    src_lines = utils.read_file_lines(src_file, strip=True)
-    ref_lines = utils.read_file_lines(ref_file, strip=True)
-    hyp_lines = utils.read_file_lines(hyp_file, strip=True)
+    src_lines = utils.read_file_lines(src_file, autoclean=True)
+    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
+    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
     assert len(ref_lines) == len(hyp_lines) == len(src_lines)
 
     # Check if files have content
@@ -327,7 +327,7 @@ def compute_fairseq(ref_file, hyp_file, output_file, use_cmd, venv_path):
     generate_test_path = os.path.join(os.path.dirname(hyp_file), "generate-test.txt")
     if os.path.exists(generate_test_path):
         # Read, parse and save lines
-        lines = [utils.read_file_lines(generate_test_path, strip=True)[-1]]
+        lines = [utils.read_file_lines(generate_test_path, autoclean=True)[-1]]
         utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
     else:
         print("\t- [INFO]: No 'generate-test.txt' was found.")

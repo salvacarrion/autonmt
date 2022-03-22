@@ -94,7 +94,7 @@ def preprocess_pairs(src_lines, trg_lines, shuffle):
     assert len(src_lines) == len(trg_lines)
 
     lines = []
-    for _src_line, _trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_lines)):
+    for _src_line, _trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_lines)):  # TODO: SLOW!
         src_line = preprocess_text(_src_line)
         trg_line = preprocess_text(_trg_line)
 
@@ -132,8 +132,8 @@ def count_tokens_per_sentence(filename, split_fn=None):
 
     # Count tokens
     with open(filename, 'r') as f:
-        token_per_sentence = [len(split_fn(line)) for line in f.readlines()]
-    return token_per_sentence
+        tokens_per_sentence = [len(split_fn(line)) for line in f.readlines()]
+    return tokens_per_sentence
 
 
 
@@ -233,26 +233,39 @@ def parse_split_size(ds_size, max_ds_size):
         raise TypeError("'ds_size' can be a tuple(float, int), float or int")
 
 
-def read_file_lines(filename, strip=False, ignore_empty=False, encoding="utf8"):
-    with open(filename, 'r', encoding=encoding.lower()) as f:
+def clean_file_line(line, encoding="utf8"):
+    line = line.decode(encoding, errors="replace") if isinstance(line, bytes) else line
+    line = line.replace('\r', '')
+    line = line.strip()
+    return line
+
+
+def read_file_lines(filename, autoclean=True, remove_empty=False, encoding="utf8"):
+    with open(filename, 'rb') as f:  # Sometimes there are byte characters
         lines = []
         for line in f.readlines():
-            line = line.strip() if strip else line
-            if line or not ignore_empty:
+            # Clean line
+            if autoclean:
+                line = clean_file_line(line, encoding)
+            else:
+                line = line.decode(encoding.lower(), errors="replace")
+
+            # Add line
+            if line or not remove_empty:
                 lines.append(line)
     return lines
 
 
-def write_file_lines(lines, filename, strip=False, insert_break_line=False, encoding="utf8"):
+def write_file_lines(lines, filename, autoclean=False, insert_break_line=False, encoding="utf8"):
     tail = '\n' if insert_break_line else ''
     with open(filename, 'w', encoding=encoding.lower()) as f:
-        lines = [(line.strip() if strip else line) + tail for line in lines]
+        lines = [(clean_file_line(line) if autoclean else line) + tail for line in lines]
         f.writelines(lines)
 
 
 def replace_in_file(search_string, replace_string, filename, drop_headers=0):
     # Read file
-    lines = read_file_lines(filename, strip=False)
+    lines = read_file_lines(filename, autoclean=False)
 
     # Drop headers
     lines = lines[drop_headers:]
@@ -272,8 +285,7 @@ def build_counter_low_mem(filename, split_fn):
     c = Counter()
     with open(filename, 'r') as f:
         for line in tqdm(f):
-            line = line.strip()
-            tokens = split_fn(line)
+            tokens = split_fn(line.strip())
             c.update(tokens)
     return c
 
