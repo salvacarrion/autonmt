@@ -12,23 +12,26 @@ def main(fairseq_args, fairseq_venv_path):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            # {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
-            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)]},
-            {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("100k", 100000)]},
+            {"name": "europarl", "languages": ["fi-en", "lv-en", "et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
+            {"name": "newscommentary", "languages": ["ru-en"], "sizes": [("50k", 50000)]},  # "ru-en",
+
+            # {"name": "europarl", "languages": ["fi-en", "lv-en", "et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
+            # {"name": "newscommentary", "languages": ["ru-en", "zh-en"], "sizes": [("50k", 50000)]},  # "ru-en",
         ],
-        subword_models=["word", "unigram+bytes"],
-        vocab_sizes=[8000, 16000],
+        # subword_models=["unigram+bytes"],
+        # vocab_sizes=[x+256 for x in [250, 350, 450]],
+        subword_models=["char+bytes"],
+        vocab_sizes=[x for x in [1000]],
         merge_vocabs=False,
         force_overwrite=False,
-        eval_mode="compatible",
+        eval_mode="same",
         letter_case="lower",
-        venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
-    ).build(make_plots=False)
+        #venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
+    ).build(make_plots=True)
 
     # Create preprocessing for training and testing
-    tr_datasets = builder.get_ds()
-    ts_datasets = builder.get_ds(ignore_variants=True)
+    tr_datasets = builder.get_train_ds()
+    ts_datasets = builder.get_test_ds()
 
     # Train & Score a model for each dataset
     scores = []
@@ -36,11 +39,11 @@ def main(fairseq_args, fairseq_venv_path):
     run_prefix = "transformer256emb"
     for ds in tr_datasets:
         try:
-            wandb_params = dict(project="fairseq", entity="salvacarrion")
+            wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
             model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path,
                                       model_ds=ds, wandb_params=wandb_params, force_overwrite=True, run_prefix=run_prefix)
             model.fit(resume_training=False, max_epochs=300, max_tokens=4096*2, batch_size=None, seed=1234, patience=10, num_workers=12, devices="auto", fairseq_args=fairseq_args)
-            m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5], truncate_at=1023)
+            m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[5], truncate_at=1023, max_tokens=4096*2, batch_size=None)
             print(m_scores)
             scores.append(m_scores)
         except Exception as e:
@@ -49,7 +52,7 @@ def main(fairseq_args, fairseq_venv_path):
 
     try:
         # Make report and print it
-        output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
+        output_path = f".outputs/fairseq/chars"
         df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam5__sacrebleu_bleu_score")
         print("Summary:")
         print(df_summary.to_string(index=False))
@@ -102,7 +105,7 @@ if __name__ == "__main__":
 
     # Set venv path
     # To create new venvs: virtualenv -p $(which python) VENV_NAME
-    fairseq_venv_path = "source /home/scarrion/venvs/fairseq_venv/bin/activate"
+    fairseq_venv_path = "source /home/scarrion/venvs/fairseq/bin/activate"
 
     # Run grid
     main(fairseq_args=fairseq_cmd_args, fairseq_venv_path=fairseq_venv_path)

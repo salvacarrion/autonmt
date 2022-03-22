@@ -75,8 +75,8 @@ builder = DatasetBuilder(
 ).build(make_plots=True)
 
 # Create preprocessing for testing
-tr_datasets = builder.get_ds()
-ts_datasets = builder.get_ds(ignore_variants=True)
+tr_datasets = builder.get_train_ds()
+ts_datasets = builder.get_test_ds()
 ```
 
 > **Note:**

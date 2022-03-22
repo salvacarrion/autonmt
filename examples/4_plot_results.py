@@ -32,8 +32,8 @@ def main(fairseq_args, fairseq_venv_path):
     ).build(make_plots=False)
 
     # Create preprocessing for training and testing
-    tr_datasets = builder.get_ds()
-    ts_datasets = builder.get_ds(ignore_variants=True)
+    tr_datasets = builder.get_train_ds()
+    ts_datasets = builder.get_test_ds()
 
     # Train & Score a model for each dataset
     stats = []
