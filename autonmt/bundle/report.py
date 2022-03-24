@@ -64,7 +64,7 @@ def scores2pandas(scores):
 
 def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
     if cols is None:
-        cols = ["train_dataset", "eval_dataset", "subword_model", "vocab_size"]
+        cols = ["train_dataset", "eval_dataset", "lang_pair", "subword_model", "vocab_size"]
 
     collections = []
     for c in scores_collection:

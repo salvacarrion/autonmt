@@ -112,7 +112,7 @@ class DatasetBuilder:
         return self.get_ds(ignore_variants=False)
 
     def get_test_ds(self):
-        return self.get_ds(ignore_variants=False)
+        return self.get_ds(ignore_variants=True)
 
     def build(self, encode=True, val_size=1000, test_size=1000, shuffle=True, force_pretok=False,
               make_plots=False, safe=True):
