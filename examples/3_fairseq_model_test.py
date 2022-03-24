@@ -1,5 +1,5 @@
 from autonmt.preprocessing import DatasetBuilder
-from autonmt.bundle.report import generate_report
+from autonmt.bundle.report import generate_report, generate_multivariable_report
 
 from autonmt.toolkits.fairseq import FairseqTranslator
 
@@ -12,22 +12,22 @@ def main(fairseq_args, fairseq_venv_path):
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "europarl", "languages": ["fi-en", "lv-en", "et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
+            {"name": "europarl", "languages": ["et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
             {"name": "newscommentary", "languages": ["ru-en"], "sizes": [("50k", 50000)]},  # "ru-en",
 
             # {"name": "europarl", "languages": ["fi-en", "lv-en", "et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
             # {"name": "newscommentary", "languages": ["ru-en", "zh-en"], "sizes": [("50k", 50000)]},  # "ru-en",
         ],
-        # subword_models=["unigram+bytes"],
-        # vocab_sizes=[x+256 for x in [250, 350, 450]],
-        subword_models=["char+bytes"],
-        vocab_sizes=[x for x in [1000]],
+        subword_models=["unigram+bytes"],
+        vocab_sizes=[x+256 for x in [8000, 16000]],
+        # subword_models=["char+bytes"],
+        # vocab_sizes=[x for x in [1000]],
         merge_vocabs=False,
         force_overwrite=False,
         eval_mode="same",
         letter_case="lower",
         #venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
-    ).build(make_plots=True)
+    ).build(make_plots=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -52,8 +52,19 @@ def main(fairseq_args, fairseq_venv_path):
 
     try:
         # Make report and print it
-        output_path = f".outputs/fairseq/chars"
+        output_path = f".outputs/fairseq/unigram"
         df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam5__sacrebleu_bleu_score")
+
+        # Plot BLEU as a function of the vocab size (one line plot per language)
+        generate_multivariable_report(data=df_report,
+                                      x="vocab_size",
+                                      y_left=("beam5__sacrebleu_bleu_score", "lang_pair"), y_right=None,
+                                      output_path=output_path, prefix="vocsizes_",
+                                      save_figures=True, show_figures=False, save_csv=True)
+
+        print("Summary:")
+        print(df_report.to_string(index=False))
+
         print("Summary:")
         print(df_summary.to_string(index=False))
     except Exception as e:

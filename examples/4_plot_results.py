@@ -68,6 +68,7 @@ def main(fairseq_args, fairseq_venv_path):
     # df_report = pd.read_csv(os.path.join(output_path, "reports", f"{prefix}_vocabs_report.csv"))
     # df_report = df_report[df_report.subword_model != "char+bytes"]
     generate_multivariable_report(data=df_report,
+                           x="vocab_size",
                            y_left=("unknown_avg_tokens", "subword_model"), y_right=None,
                            output_path=output_path, prefix=prefix,
                            save_figures=True, show_figures=False, save_csv=True)
