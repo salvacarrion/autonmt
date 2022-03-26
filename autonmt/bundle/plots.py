@@ -123,9 +123,42 @@ def histogram(data, x, output_dir, fname, title="", xlabel="x", ylabel="y", bins
     _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
 
 
+def heatmap(data, xlabels, ylabels, output_dir, fname, title="", annot=True, cbar=False, aspect_ratio=(12, 12),
+            font_scale=1.0, dpi=150, show_fig=False, save_fig=True, formats=None, overwrite=True, annot_format=".2f"):
+    if formats is None:
+        formats = ["png", "pdf"]
+
+    # Check if the figures exists
+    if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
+        return False
+
+    # Create subplot
+    fig = plt.figure(figsize=(aspect_ratio[0], aspect_ratio[1]))
+    sns.set(font_scale=font_scale)
+
+    # Plot barplot
+    g = sns.heatmap(data, annot=annot, cbar=cbar, fmt=annot_format)
+    g.set_xticklabels([x.title() for x in xlabels], ha='center', minor=False)
+    g.set_yticklabels([y.title() for y in ylabels], va='center', minor=False)
+
+    # Tweaks
+    # g.set_xticklabels(g.get_xticklabels(), rotation=90)
+    # g.tick_params(axis='x', which='major', labelsize=8 * size)
+    # g.tick_params(axis='y', which='major', labelsize=8 * size)
+    # g.yaxis.set_major_formatter(utils.human_format_int)
+
+    # properties
+    plt.title(title, y=1.01) if title else None
+    plt.tight_layout()
+
+    # Show/Save/Close figure
+    _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
+
+
 def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_title, output_dir,
             fname, y_right=None, y_right_hue=None, ylabel_right=None, aspect_ratio=(12, 8), size=1.0, show_values=True, dpi=300,
-             rotate_xlabels=0, show_fig=False, save_fig=True, formats=None, overwrite=True, data_format='{:.0f}'):
+             rotate_xlabels=0, show_fig=False, save_fig=True, formats=None, overwrite=True, data_format='{:.0f}',
+             loc_legend="upper left"):
     if formats is None:
         formats = ["png", "pdf"]
 
@@ -158,7 +191,7 @@ def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_tit
         ax.get_legend().remove()
 
     # Set legend
-    _g.legend(loc="upper right", handles=h1 + h2, labels=l1 + l2)
+    _g.legend(loc=loc_legend, handles=h1 + h2, labels=l1 + l2)
 
     # properties
     plt.title(title)
@@ -241,7 +274,7 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}", loc="lower right")
 
 
-def plot_vocabs_report(output_path, data, x, y_left, y_right=None, prefix="", save_figures=True, show_figures=False):
+def plot_vocabs_report(output_path, data, x, y_left, y_right=None, loc_legend="upper left", prefix="", save_figures=True, show_figures=False):
     # Check if the metrics are in the dataframe
     y_left, y_left_hue = y_left if isinstance(y_left, tuple) else (y_left, None)
     if y_left not in data.columns:
@@ -274,4 +307,4 @@ def plot_vocabs_report(output_path, data, x, y_left, y_right=None, prefix="", sa
              y_right=y_right, y_right_hue=y_right_hue,
              title=title, xlabel=xlabel, ylabel_left=ylabel_left, ylabel_right=ylabel_right,
              leyend_title=None, output_dir=output_path, fname=fname, aspect_ratio=(8, 6), size=1.0, rotate_xlabels=0,
-             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}")
+             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}", loc_legend=loc_legend)

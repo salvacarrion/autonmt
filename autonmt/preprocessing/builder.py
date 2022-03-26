@@ -476,6 +476,8 @@ class DatasetBuilder:
 
         # Walk through preprocessing
         for ds in self:
+            print(f"\t- Computing stats for dataset: {ds.id2(as_path=True)}")
+
             # Get path
             make_dir(ds.get_stats_path())
 

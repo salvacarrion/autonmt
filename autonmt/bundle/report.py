@@ -87,8 +87,8 @@ def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
     return df
 
 
-def generate_multivariable_report(data, output_path, y_left, y_right=None, x="vocab_size", prefix="",
-                                  save_csv=False, **kwargs):
+def generate_multivariable_report(data, output_path, y_left, y_right=None, x="vocab_size", loc_legend="upper left",
+                                  prefix="", save_csv=False, **kwargs):
     # Create logs path
     reports_path = os.path.join(output_path, "reports")
     plots_path = os.path.join(output_path, "plots")
@@ -99,5 +99,6 @@ def generate_multivariable_report(data, output_path, y_left, y_right=None, x="vo
         data.to_csv(os.path.join(reports_path, f"{prefix}_vocabs_report.csv"), index=False)
 
     # Plot vocabs report
-    plots.plot_vocabs_report(output_path=plots_path, data=data, x=x, y_left=y_left, y_right=y_right, prefix=prefix, **kwargs)
+    plots.plot_vocabs_report(output_path=plots_path, data=data, x=x, y_left=y_left, y_right=y_right,
+                             loc_legend=loc_legend, prefix=prefix, **kwargs)
 
