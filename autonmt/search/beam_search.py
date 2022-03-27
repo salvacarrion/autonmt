@@ -29,7 +29,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
             memory = model.forward_encoder(x)
 
             # Get top k word predictions
-            next_probabilities =  model.forward_decoder(dec_idxs, memory)[:, -1, :]
+            next_probabilities = model.forward_decoder(dec_idxs, memory)[:, -1, :]
             topk_next_probabilities, topk_next_idxs = next_probabilities.squeeze().log_softmax(-1).topk(k=beam_width, axis=-1)
 
             # Create top k hypothesis: Dec => [Dec + k0, Dec + k1, Dec + k3]
@@ -43,7 +43,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
             while not all_eos and dec_idxs.shape[1] <= max_gen_length:
                 # Create dataset of hypotheses: X=(batch*beams, lengths) and Y = (batch*beams, lengths)
                 beam_dataset = tud.TensorDataset(x.repeat((beam_width, 1, 1)).transpose(0, 1).flatten(end_dim=1), dec_idxs)
-                tensor_dataloader = tud.DataLoader(beam_dataset, batch_size=batch_size)
+                tensor_dataloader = tud.DataLoader(beam_dataset, batch_size=x.shape[0])    # Do not 'batch_size' as there can be problem due to remainings
 
                 # Get next probs for each beam
                 beam_next_probabilities = []
