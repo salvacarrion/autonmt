@@ -7,6 +7,7 @@ from autonmt.api.py_cmd_api import _sacrebleu, _spm_decode
 from autonmt.preprocessing.processors import decode_lines
 from collections import defaultdict
 
+
 class LitSeq2Seq(pl.LightningModule):
 
     def __init__(self, src_vocab_size, trg_vocab_size, padding_idx,

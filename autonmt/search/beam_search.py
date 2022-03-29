@@ -4,6 +4,7 @@ import tqdm
 
 
 def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_a, max_len_b, beam_width, num_workers, **kwargs):
+    raise NotImplemented("Beam search with a width larger than '1' is currently disabled.")
     model.eval()
     device = next(model.parameters()).device
 

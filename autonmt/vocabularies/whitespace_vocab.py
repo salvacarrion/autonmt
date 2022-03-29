@@ -38,7 +38,7 @@ class Vocabulary(BaseVocabulary):
         # Tokens must include the special tokens
         self.voc2idx = {tok: idx for idx, (tok, log_prob) in enumerate(tokens)}
         self.idx2voc = {idx: tok for idx, (tok, log_prob) in enumerate(tokens)}
-        self.voc2freq = {tok: log_prob for idx, (tok, log_prob) in enumerate(tokens)}
+        self.voc2freq = {tok: log_prob.strip() for idx, (tok, log_prob) in enumerate(tokens)}
         self._assert_vocab()
         return self
 
