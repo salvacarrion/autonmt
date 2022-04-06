@@ -9,27 +9,25 @@ from autonmt.bundle import utils
 import os
 import datetime
 
+from tokenizers import normalizers
+from tokenizers.normalizers import NFKC, Strip, Lowercase
+
 
 def main(fairseq_args, fairseq_venv_path):
 
-    # Create preprocessing for training
+     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            # {"name": "multi30k_test", "languages": ["de-en"], "sizes": [("original", None)]},
-            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k_lc", 100000)]},
-            # {"name": "ccaligned", "languages": ["ti-en"], "sizes": [("original_lc", None)]},
-
+            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
         ],
-        subword_models=["unigram+bytes"],
-        vocab_sizes=[x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]],
+        encoding=[
+            {"subword_models": ["unigram+bytes"], "vocab_sizes": [x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]]},
+        ],
+        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
         merge_vocabs=False,
-        force_overwrite=False,
-        use_cmd=True,
-        eval_mode="same",
-        letter_case="lower",
-        venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
-    ).build(make_plots=False)
+        eval_mode="compatible",
+    ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -65,8 +63,6 @@ def main(fairseq_args, fairseq_venv_path):
     # Make report and print it
     output_path = f".outputs/fairseq"
     prefix = "unknowns_"
-    # df_report = pd.read_csv(os.path.join(output_path, "reports", f"{prefix}_vocabs_report.csv"))
-    # df_report = df_report[df_report.subword_model != "char+bytes"]
     generate_multivariable_report(data=df_report,
                            x="vocab_size",
                            y_left=("unknown_avg_tokens", "subword_model"), y_right=None,

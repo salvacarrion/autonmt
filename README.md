@@ -63,18 +63,20 @@ from autonmt.preprocessing import DatasetBuilder
 
 # Create preprocessing for training
 builder = DatasetBuilder(
-    base_path="/home/preprocessing/",
+    base_path="/home/scarrion/datasets/nn/translation",
     datasets=[
-        {"name": "scielo/biological", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
-        {"name": "scielo/health", "languages": ["es-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
+        {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
     ],
-    subword_models=["bytes", "char+bytes", "char", "unigram", "word"],
-    vocab_sizes=[8000],
-    merge_vocabs=True,
-    eval_mode="compatible", # {same, compatible}
-).build(make_plots=True)
+    encoding=[
+        {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
+        {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
+    ],
+    merge_vocabs=False,
+    eval_mode="compatible",
+).build(make_plots=False, force_overwrite=False)
 
-# Create preprocessing for testing
+# Create preprocessing for training and testing
 tr_datasets = builder.get_train_ds()
 ts_datasets = builder.get_test_ds()
 ```
@@ -111,13 +113,14 @@ from autonmt.vocabularies import Vocabulary
 scores = []
 for ds in tr_datasets:
     # Instantiate vocabs and model
-    src_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.src_lang)
-    trg_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.trg_lang)
+    src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.src_lang)
+    trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=ds, lang=ds.trg_lang)
     model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
     # Train model
-    model = AutonmtTranslator(model_ds=ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, force_overwrite=True)
-    model.fit(max_epochs=5, learning_rate=0.001, batch_size=128, seed=1234, patience=10, num_workers=12)
+    wandb_params = None  #dict(project="myprojectname", entity="myuser")
+    model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, model_ds=ds, wandb_params=wandb_params, force_overwrite=True)
+    model.fit(max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp")
     m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True)
     scores.append(m_scores)
 ```
@@ -149,7 +152,7 @@ from autonmt.bundle.report import generate_report
 # scores = ...
 
 # Make report and print it
-output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+output_path = f".outputs/autonmt/run1"
 df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
 print("Summary:")
 print(df_summary.to_string(index=False))
@@ -262,9 +265,9 @@ fairseq_args = [
 # Train & Score a model for each dataset
 scores = []
 for ds in tr_datasets:
-    model = FairseqTranslator(model_ds=ds, force_overwrite=True, fairseq_venv_path="fairseq")
-    model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
-    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
+    model = FairseqTranslator(model_ds=ds, force_overwrite=True, fairseq_venv_path="source /home/scarrion/.venvs/fairseq/bin/activate")
+    model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, devices="auto", fairseq_args=fairseq_args)
+    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5, 10])
     scores.append(m_scores)
 ```
 
@@ -316,7 +319,7 @@ containing its data, summary and statistics
 
 **Avg. tokens vs BLEU:**
 
-![](docs/images/reports/vocabs_report__avg_tokens_bleu.png)
+![](docs/images/reports/avg_bleu.jpg)
 
 **Number of <UNK>s:**
 

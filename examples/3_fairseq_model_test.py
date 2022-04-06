@@ -6,28 +6,26 @@ from autonmt.toolkits.fairseq import FairseqTranslator
 import os
 import datetime
 
+from tokenizers import normalizers
+from tokenizers.normalizers import NFKC, Strip, Lowercase
+
 
 def main(fairseq_args, fairseq_venv_path):
     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "europarl", "languages": ["et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
-            {"name": "newscommentary", "languages": ["ru-en"], "sizes": [("50k", 50000)]},  # "ru-en",
-
-            # {"name": "europarl", "languages": ["fi-en", "lv-en", "et-en"], "sizes": [("50k", 50000)]},  #"fi-en", "lv-en", "et-en"
-            # {"name": "newscommentary", "languages": ["ru-en", "zh-en"], "sizes": [("50k", 50000)]},  # "ru-en",
+            {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
+            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
         ],
-        subword_models=["unigram+bytes"],
-        vocab_sizes=[x+256 for x in [8000, 16000]],
-        # subword_models=["char+bytes"],
-        # vocab_sizes=[x for x in [1000]],
+        encoding=[
+            {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
+            {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
+        ],
+        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
         merge_vocabs=False,
-        force_overwrite=False,
-        eval_mode="same",
-        letter_case="lower",
-        #venv_path="source /home/scarrion/venvs/mltests_venv/bin/activate",
-    ).build(make_plots=False)
+        eval_mode="compatible",
+    ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()

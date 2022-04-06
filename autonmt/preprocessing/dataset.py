@@ -2,11 +2,11 @@ import os
 from autonmt.bundle import utils
 import numpy as np
 
+
 class Dataset:
     def __init__(self, base_path, parent_ds,
-                 dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
-                 subword_model, vocab_size, merge_vocabs, eval_mode, normalization, strip_whitespace,
-                 collapse_whitespace, letter_case, file_encoding,
+                 dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines, splits_sizes,
+                 subword_model, vocab_size, merge_vocabs, eval_mode, normalizer=None,
                  train_name="train", val_name="val", test_name="test",
                  raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
                  encoded_path=os.path.join("data", "encoded"), normalized_path=os.path.join("data", "normalized"),
@@ -22,6 +22,7 @@ class Dataset:
         self.dataset_lang_pair = dataset_lang_pair.strip().lower()
         self.dataset_size_name = dataset_size_name.strip()
         self.dataset_lines = dataset_lines
+        self.splits_sizes = splits_sizes
         self.langs = self.dataset_lang_pair.split("-")
         self.src_lang, self.trg_lang = self.langs
 
@@ -31,6 +32,7 @@ class Dataset:
         self.pretok_flag = (self.subword_model == "word")
         self.merge_vocabs = merge_vocabs
         self.eval_mode = eval_mode
+        self.normalizer = normalizer
 
         # Constants: split names
         self.train_name = train_name
@@ -57,13 +59,6 @@ class Dataset:
         self.vocab_path = vocab_path
         self.plots_path = plots_path
         self.stats_path = stats_path
-
-        # Encoding params
-        self.normalization = normalization
-        self.strip_whitespace = strip_whitespace
-        self.collapse_whitespace = collapse_whitespace
-        self.letter_case = letter_case
-        self.file_encoding = file_encoding
 
     def __str__(self):
         if self.parent_ds:
@@ -242,3 +237,28 @@ class Dataset:
             # Add stats
             split_stats[fname] = row
         return split_stats
+
+    def has_raw_files(self):
+        # Get language
+        src_lang, trg_lang = self.id()[1].split("-")
+
+        # Check if the raw directory exists (...with all the data)
+        raw_path = self.get_raw_path()
+
+        # Check if path exists
+        if os.path.exists(raw_path):
+            # Check files
+            raw_files = [f for f in os.listdir(raw_path) if f[-2:] in {src_lang, trg_lang}]
+            return len(raw_files) == 2
+        return False
+
+    def has_split_files(self):
+        # Check if the split directory exists (...with all the data)
+        splits_path = self.get_split_path()
+
+        # Check if path exists
+        if os.path.exists(splits_path):
+            # Check files
+            split_files = [os.path.join(splits_path, fname) for fname in self.get_split_files()]
+            return all([os.path.exists(p) for p in split_files])
+        return False

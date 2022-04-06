@@ -331,10 +331,8 @@ class BaseTranslator(ABC):
 
                 # Normalize data
                 norm_file = os.path.join(output_file, "normalized", ts_fname)
-                encoding_dict = dict(letter_case=model_ds.letter_case, collapse_whitespace=model_ds.collapse_whitespace,
-                                     strip_whitespace=model_ds.strip_whitespace, normalization=model_ds.normalization)
-                normalize_file(input_file=input_file, output_file=norm_file, force_overwrite=self.force_overwrite,
-                               encoding=self.model_ds.file_encoding, **encoding_dict)
+                normalize_file(input_file=input_file, output_file=norm_file,
+                               normalizer=model_ds.normalizer, force_overwrite=self.force_overwrite)
                 input_file = norm_file
 
                 # Pretokenize data (if needed)

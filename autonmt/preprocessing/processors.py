@@ -11,13 +11,16 @@ from collections import Counter
 
 from autonmt.api import py_cmd_api
 
+from tokenizers import normalizers
+from tokenizers.normalizers import NFKC
 
-def normalize_file(input_file, output_file, encoding, force_overwrite, limit=None, **kwargs):
+
+def normalize_file(input_file, output_file, normalizer, force_overwrite, limit=None):
     if force_overwrite or not os.path.exists(output_file):
         lines = read_file_lines(input_file, autoclean=True)
-        lines = [preprocess_text(line, **kwargs) for line in lines]
         lines = lines if not limit else lines[:limit]
-        write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding=encoding)
+        lines = [normalizer.normalize_str(line) for line in lines]
+        write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding="utf-8")
         assert os.path.exists(output_file)
 
 
@@ -41,7 +44,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
         elif ds.subword_model in {"bytes"}:
             # Save file as UTF8 and make sure everything uses NFKC
             lines = read_file_lines(input_file, autoclean=True)
-            lines = [preprocess_text(line, normalization="NFKC") for line in lines]
+            lines = [NFKC().normalize_str(line) for line in lines]
             lines = [" ".join([hex(x) for x in line.encode()]) for line in lines]
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 

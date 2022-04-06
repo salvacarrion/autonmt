@@ -30,6 +30,7 @@ sentencepiece
 subword-nmt
 torchtext
 spacy
+tokenizers
 
 # ONNX
 tf2onnx

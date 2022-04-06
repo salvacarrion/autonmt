@@ -17,17 +17,21 @@ def main():
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
         datasets=[
-            {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
-            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
+            # {"name": "cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("100k", 100000)]},
+            # {"name": "cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("100k", 100000)]},
+            {"name": "cf", "languages": ["es-en"], "sizes": [("1k", 1000)], "split_sizes": (None, 100, 100)},
         ],
         encoding=[
-            {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
-            {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
+            # {"subword_models": ["word", "unigram+bytes", "char+bytes"], "vocab_sizes": [8000, 16000]},
+            # {"subword_models": ["word", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
+            # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
+            {"subword_models": ["word"], "vocab_sizes": [1000]},
         ],
         normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
         merge_vocabs=False,
         eval_mode="compatible",
-    ).build(make_plots=False, force_overwrite=False)
+        # build_suffix="mybuild",
+    ).build(make_plots=False, force_overwrite=True)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
