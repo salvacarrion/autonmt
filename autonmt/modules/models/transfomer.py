@@ -1,7 +1,7 @@
-import math
 import torch.nn as nn
-from autonmt.modules.seq2seq import LitSeq2Seq
+
 from autonmt.modules.layers import PositionalEmbedding
+from autonmt.modules.seq2seq import LitSeq2Seq
 
 
 class Transformer(LitSeq2Seq):

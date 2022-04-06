@@ -1,2 +1,2 @@
-from autonmt.vocabularies.whitespace_vocab import Vocabulary
 from autonmt.vocabularies.bytes_vocab import BytesVocabulary
+from autonmt.vocabularies.whitespace_vocab import Vocabulary

@@ -1,8 +1,7 @@
+import math
+
 import torch
 import torch.nn as nn
-import math
-from PIL import Image
-import matplotlib.pyplot as plt
 
 
 class SinusoidalPositionalEmbedding(nn.Module):

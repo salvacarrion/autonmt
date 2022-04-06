@@ -1,7 +1,6 @@
 from collections import Counter
-from autonmt.bundle.utils import read_file_lines, write_file_lines, flatten
 
-from abc import ABC, abstractmethod
+from autonmt.bundle.utils import read_file_lines, write_file_lines, flatten
 from autonmt.vocabularies.base_vocab import BaseVocabulary
 
 

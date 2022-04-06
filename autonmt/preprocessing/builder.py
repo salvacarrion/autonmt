@@ -1,20 +1,18 @@
 import os.path
 import shutil
+from collections import Counter
 from itertools import islice
 
 import numpy as np
 import pandas as pd
-
-from autonmt.bundle.utils import *
-from autonmt.bundle import utils, plots
-from autonmt.preprocessing.dataset import Dataset
-from collections import Counter
-
-from autonmt.api import py_cmd_api
-from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file
-
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip
+
+from autonmt.api import py_cmd_api
+from autonmt.bundle import utils, plots
+from autonmt.bundle.utils import *
+from autonmt.preprocessing.dataset import Dataset
+from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file
 
 
 class DatasetBuilder:

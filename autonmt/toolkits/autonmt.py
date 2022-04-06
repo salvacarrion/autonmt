@@ -1,29 +1,23 @@
-from autonmt.modules.datasets.seq2seq_dataset import Seq2SeqDataset
-from autonmt.vocabularies.base_vocab import BaseVocabulary
-from autonmt.vocabularies.whitespace_vocab import Vocabulary
-from autonmt.modules.seq2seq import LitSeq2Seq
-from autonmt.toolkits.base import BaseTranslator
-from autonmt.search.greedy_search import greedy_search
-from autonmt.search.beam_search import beam_search
-from autonmt.bundle.utils import *
+import pytorch_lightning as pl
+import torch
+import wandb
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
-
-from typing import Type
-
-import torch
-from torch.utils.data import DataLoader
-import pytorch_lightning as pl
-
-import wandb
 from pytorch_lightning.loggers import WandbLogger
+from torch.utils.data import DataLoader
+
+from autonmt.bundle.utils import *
+from autonmt.modules.datasets.seq2seq_dataset import Seq2SeqDataset
+from autonmt.search.beam_search import beam_search
+from autonmt.search.greedy_search import greedy_search
+from autonmt.toolkits.base import BaseTranslator
 
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, model_ds, wandb_params=None, **kwargs):
-        super().__init__(engine="autonmt", model_ds=model_ds, **kwargs)
+    def __init__(self, model, wandb_params=None, **kwargs):
+        super().__init__(engine="autonmt", **kwargs)
         self.model = model
         self.wandb_params = wandb_params
 

@@ -1,10 +1,9 @@
 import os
+
 import pandas as pd
+
+from autonmt.bundle import plots
 from autonmt.bundle.utils import make_dir, save_json
-from autonmt.bundle import plots, utils
-import numpy as np
-from autonmt.preprocessing import Dataset
-from autonmt.vocabularies import Vocabulary
 
 
 def generate_report(scores, output_path, plot_metric=None, **kwargs):

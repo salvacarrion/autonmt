@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 from autonmt.modules.layers.learned_pos_emb import LearnedPositionalEmbedding

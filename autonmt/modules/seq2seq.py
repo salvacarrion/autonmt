@@ -1,11 +1,11 @@
-from abc import ABC
+from collections import defaultdict
 
+import pytorch_lightning as pl
 import torch
 from torch import nn
-import pytorch_lightning as pl
-from autonmt.api.py_cmd_api import _sacrebleu, _spm_decode
+
+from autonmt.api.py_cmd_api import _sacrebleu
 from autonmt.preprocessing.processors import decode_lines
-from collections import defaultdict
 
 
 class LitSeq2Seq(pl.LightningModule):

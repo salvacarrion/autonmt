@@ -1,7 +1,6 @@
 import torch
-
-from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import Dataset
 
 from autonmt.bundle.utils import read_file_lines
 

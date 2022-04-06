@@ -1,17 +1,17 @@
 import os.path
 
+from tqdm import tqdm
+
 from sacremoses import MosesTokenizer, MosesDetokenizer
 import sentencepiece as spm
 
-from autonmt.bundle import utils
-from autonmt.api.cmd_tokenizers import *
-from autonmt.api.cmd_metrics import *
-
-from tqdm import tqdm
-
-import sacrebleu
 import bert_score
-from datasets import load_metric
+import sacrebleu
+from datasets import load_metric  # https://huggingface.co/metrics
+
+from autonmt.api.cmd_metrics import *
+from autonmt.api.cmd_tokenizers import *
+from autonmt.bundle import utils
 
 
 def moses_tokenizer(input_file, output_file, lang, use_cmd, venv_path):
@@ -126,52 +126,6 @@ def py_spm_decode(spm_model_path, input_file, output_file):
 def _spm_decode(lines, spm_model_path):
     s = spm.SentencePieceProcessor(model_file=spm_model_path)
     return [s.decode_pieces(line.split(' ')) for line in lines]
-
-
-def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, venv_path):
-    if not metrics:
-        return
-
-    if use_cmd:
-        print("\t- [INFO]: No cmd interface for 'huggingface'. Using Python package.")
-        # raise NotImplementedError("compute_huggingface")
-    py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
-
-
-def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang):
-    scores = []
-
-    # Read files
-    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
-    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
-    assert len(ref_lines) == len(hyp_lines)
-
-    # Load metric
-    for metric in metrics:
-        try:
-            # Tokenize sentences
-            hyp_lines_tok = [x for x in hyp_lines]
-            ref_lines_tok = [[x] for x in ref_lines]
-
-            # Compute score
-            hg_metric = load_metric(metric)
-            hg_metric.add_batch(predictions=hyp_lines_tok, references=ref_lines_tok)
-            result = hg_metric.compute()
-
-            # Format results
-            d = {
-                "name": metric,
-            }
-            d.update(result)
-
-            # Add results
-            scores.append(d)
-        except Exception as e:
-            print(f"\t- [HUGGINGFACE ERROR]: Ignoring metric: {str(metric)}.\n"
-                  f"\t                       Message: {str(e)}")
-
-    # Save json
-    utils.save_json(scores, output_file)
 
 
 def compute_sacrebleu(ref_file, hyp_file, output_file, metrics, use_cmd, venv_path):
@@ -331,6 +285,52 @@ def compute_fairseq(ref_file, hyp_file, output_file, use_cmd, venv_path):
         utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
     else:
         print("\t- [INFO]: No 'generate-test.txt' was found.")
+
+
+def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang, use_cmd, venv_path):
+    if not metrics:
+        return
+
+    if use_cmd:
+        print("\t- [INFO]: No cmd interface for 'huggingface'. Using Python package.")
+        # raise NotImplementedError("compute_huggingface")
+    py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang)
+
+
+def py_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang):
+    scores = []
+
+    # Read files
+    hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
+    ref_lines = utils.read_file_lines(ref_file, autoclean=True)
+    assert len(ref_lines) == len(hyp_lines)
+
+    # Load metric
+    for metric in metrics:
+        try:
+            # Tokenize sentences
+            hyp_lines_tok = [x for x in hyp_lines]
+            ref_lines_tok = [[x] for x in ref_lines]
+
+            # Compute score
+            hg_metric = load_metric(metric)
+            hg_metric.add_batch(predictions=hyp_lines_tok, references=ref_lines_tok)
+            result = hg_metric.compute()
+
+            # Format results
+            d = {
+                "name": metric,
+            }
+            d.update(result)
+
+            # Add results
+            scores.append(d)
+        except Exception as e:
+            print(f"\t- [HUGGINGFACE ERROR]: Ignoring metric: {str(metric)}.\n"
+                  f"\t                       Message: {str(e)}")
+
+    # Save json
+    utils.save_json(scores, output_file)
 
 
 

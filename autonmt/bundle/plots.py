@@ -1,12 +1,12 @@
 import os
 from pathlib import Path
 
-from autonmt.bundle import utils
-
 # Sort of incompatible with plotly
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+from autonmt.bundle import utils
 
 sns.set()
 

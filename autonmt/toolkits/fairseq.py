@@ -2,9 +2,9 @@ import os
 import shutil
 import subprocess
 
-from autonmt.toolkits.base import BaseTranslator
-from autonmt.bundle import utils
 from autonmt.api import NO_VENV_MSG
+from autonmt.bundle import utils
+from autonmt.toolkits.base import BaseTranslator
 
 
 def _parse_args(**kwargs):

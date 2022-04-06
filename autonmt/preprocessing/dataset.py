@@ -1,6 +1,8 @@
 import os
-from autonmt.bundle import utils
+
 import numpy as np
+
+from autonmt.bundle import utils
 
 
 class Dataset:

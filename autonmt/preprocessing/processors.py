@@ -1,18 +1,10 @@
 import shutil
-from itertools import islice
 
-import numpy as np
-import pandas as pd
-
-from autonmt.bundle.utils import *
-from autonmt.bundle import utils, plots
-from autonmt.preprocessing.dataset import Dataset
-from collections import Counter
+from tokenizers.normalizers import NFKC
 
 from autonmt.api import py_cmd_api
-
-from tokenizers import normalizers
-from tokenizers.normalizers import NFKC
+from autonmt.bundle import utils
+from autonmt.bundle.utils import *
 
 
 def normalize_file(input_file, output_file, normalizer, force_overwrite, limit=None):

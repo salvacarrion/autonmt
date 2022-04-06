@@ -1,4 +1,4 @@
-# conda create --name mltests python=3.8
+# conda create --name autonmt python=3.8
 
 # Deep learning
 torch
@@ -6,40 +6,28 @@ pytorch-lightning
 numpy
 pandas
 
+# Plot
 matplotlib
 seaborn
-plotly
-kaleido
-
-# Image
-Pillow
-scikit-image
-opencv-python
-albumentations
 
 # Metrics
-torchmetrics
+sacrebleu  # bleu, chrf, ter
 bert-score
-# unbabel-comet  # Uses an old version of pytorch-lightning
-sacrebleu
-datasets
+datasets  # Huggingface metrics
+#unbabel-comet  # Uses an old version of pytorch and pytorch-lightning
 
 # NLP
 sacremoses
 sentencepiece
-subword-nmt
-torchtext
-spacy
-tokenizers
-
-# ONNX
-tf2onnx
-onnx
+tokenizers  # NFDK, strip,...
 
 # Other
 tqdm
-jupyterlab
 pytest
+Cython
 
 # Loggers
 wandb
+
+# Fairseq
+git+https://github.com/pytorch/fairseq.git@31d94f556bd49bc7e61511adbda482b2c54652b5

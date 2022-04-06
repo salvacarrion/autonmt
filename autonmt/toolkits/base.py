@@ -1,14 +1,12 @@
 import os.path
 import shutil
-
+from abc import ABC, abstractmethod
 from typing import List, Set
 
+from autonmt.api import py_cmd_api
 from autonmt.bundle.utils import *
-
-from abc import ABC, abstractmethod
 from autonmt.preprocessing.dataset import Dataset
 from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file, decode_file
-from autonmt.api import py_cmd_api
 
 
 def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
@@ -136,22 +134,11 @@ class BaseTranslator(ABC):
         # Update values
         self.config[key].update({k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
-    def fit(self, train_ds: Dataset = None, max_tokens=None, batch_size=128, max_epochs=1,
+    def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1,
             learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
             monitor="loss", resume_training=False, **kwargs):
         print("=> [Fit]: Started.")
-
-        # Get train_ds
-        if not train_ds and not self.model_ds:
-            raise ValueError("'train_ds' is missing. You can either specify it in the constructor ('model_ds') or "
-                             "pass it as an argument to this function")
-        elif not train_ds and self.model_ds:
-            print("\t- [INFO]: Using the 'model_ds' from the constructor as 'train_ds")
-            train_ds = self.model_ds
-        else:
-            print("\t- [INFO]: Setting the 'train_ds' as the 'model_ds")
-            self.model_ds = train_ds
 
         # Store config (and save file)
         self._add_config(key="fit", values=locals(), reset=False)

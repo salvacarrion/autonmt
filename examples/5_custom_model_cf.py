@@ -1,15 +1,13 @@
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.bundle.report import generate_report
-
-from autonmt.toolkits import AutonmtTranslator
-from autonmt.modules.models import Transformer
-from autonmt.vocabularies import Vocabulary
-
-import os
 import datetime
 
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip, Lowercase
+
+from autonmt.bundle.report import generate_report
+from autonmt.modules.models import Transformer
+from autonmt.preprocessing import DatasetBuilder
+from autonmt.toolkits import AutonmtTranslator
+from autonmt.vocabularies import Vocabulary
 
 
 def main():

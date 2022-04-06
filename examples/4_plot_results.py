@@ -1,16 +1,10 @@
 import pandas as pd
-
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.bundle.report import generate_report, generate_multivariable_report
-
-from autonmt.toolkits.fairseq import FairseqTranslator
-from autonmt.bundle import utils
-
-import os
-import datetime
-
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip, Lowercase
+
+from autonmt.bundle import utils
+from autonmt.bundle.report import generate_multivariable_report
+from autonmt.preprocessing import DatasetBuilder
 
 
 def main(fairseq_args, fairseq_venv_path):
