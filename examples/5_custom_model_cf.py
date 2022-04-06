@@ -31,7 +31,7 @@ def main():
         merge_vocabs=False,
         eval_mode="compatible",
         # build_suffix="mybuild",
-    ).build(make_plots=False, force_overwrite=True)
+    ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
