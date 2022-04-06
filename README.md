@@ -321,7 +321,7 @@ containing its data, summary and statistics
 
 ![](docs/images/reports/avg_bleu.jpg)
 
-**Number of <UNK>s:**
+**Avg. number of unknowns per sentence:**
 
 ![](docs/images/reports/unknowns_avg_tokens.png)
 
