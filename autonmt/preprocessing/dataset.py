@@ -74,11 +74,8 @@ class Dataset:
         else:
             return self.subword_model, self.vocab_size
 
-    def id(self, as_path=False, include_size=True):
-        if include_size:
-            t = self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
-        else:
-            t = self.dataset_name, self.dataset_lang_pair
+    def id(self, as_path=False):
+        t = self.dataset_name, self.dataset_lang_pair, self.dataset_size_name
         return os.path.join(*t) if as_path else t
 
     def id2(self, as_path=False):
@@ -163,8 +160,8 @@ class Dataset:
         compatible_datasets = []
         compatible_datasets_ids = set()
         for ds in ts_datasets:
-            ds_name = '_'.join(ds.id(include_size=False))
-            ds_ref_name = '_'.join(ds.id(include_size=False))
+            ds_name = '_'.join(os.path.join(*ds.id()[:2]))  # Exclude size name
+            ds_ref_name = '_'.join(os.path.join(*ds.id()[:2]))
 
             # Check language compatibility
             if ds.langs != self.langs:
