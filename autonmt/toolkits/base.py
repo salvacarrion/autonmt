@@ -3,7 +3,7 @@ import shutil
 from abc import ABC, abstractmethod
 from typing import List, Set
 
-from autonmt.api import py_cmd_api
+from autonmt.bundle.metrics import *
 from autonmt.bundle.utils import *
 from autonmt.preprocessing.dataset import Dataset
 from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file, decode_file
@@ -50,12 +50,12 @@ class BaseTranslator(ABC):
 
     # Global variables
     total_runs = 0
-    TOOL_PARSERS = {"sacrebleu": {"filename": "sacrebleu_scores", "py": (parse_sacrebleu_json, "json"), "cmd": (parse_sacrebleu_json, "json")},
-                    "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json"), "cmd": (parse_bertscore_txt, "txt")},
-                    "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json"), "cmd": (parse_comet_txt, "txt")},
-                    "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json"), "cmd": (parse_beer_txt, "txt")},
-                    "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json"), "cmd": (parse_huggingface_json, "json")},
-                    "fairseq": {"filename": "fairseq_scores", "py": (parse_fairseq_txt, "txt"), "cmd": (parse_fairseq_txt, "txt")},
+    TOOL_PARSERS = {"sacrebleu": {"filename": "sacrebleu_scores", "py": (parse_sacrebleu_json, "json")},
+                    "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json")},
+                    "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json")},
+                    "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json")},
+                    "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json")},
+                    "fairseq": {"filename": "fairseq_scores", "py": (parse_fairseq_txt, "txt")},
                     }
     TOOL2METRICS = {"sacrebleu": {"bleu", "chrf", "ter"},
                     "bertscore": {"bertscore"},
@@ -67,13 +67,11 @@ class BaseTranslator(ABC):
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
     def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None,
-                 use_cmd=False, venv_path=None, safe_seconds=3, **kwargs):
+                 safe_seconds=3, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
         self.model_ds = model_ds
-        self.use_cmd = use_cmd
-        self.venv_path = venv_path
         self.config = {}
         self.model_ds = None
         self.safe_seconds = safe_seconds
@@ -305,16 +303,14 @@ class BaseTranslator(ABC):
             if model_ds.pretok_flag:
                 pretok_file = os.path.join(output_file, "tokenized", ts_fname)
                 pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
-                                 force_overwrite=force_overwrite, use_cmd=self.use_cmd,
-                                 venv_path=self.venv_path)
+                                 force_overwrite=force_overwrite)
                 input_file = pretok_file
 
             # Encode file
             enc_file = os.path.join(output_file, "encoded", ts_fname)
             encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
                         lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
-                        force_overwrite=force_overwrite,
-                        use_cmd=self.use_cmd, venv_path=self.venv_path)
+                        force_overwrite=force_overwrite)
 
         # Preprocess external data
         test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
@@ -359,8 +355,7 @@ class BaseTranslator(ABC):
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
                             subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
                             model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
-                            force_overwrite=force_overwrite,
-                            use_cmd=self.use_cmd, venv_path=self.venv_path)
+                            force_overwrite=force_overwrite)
 
             # Check amount of lines
             ref_lines = len(open(os.path.join(output_path, "ref.txt"), 'r').readlines())
@@ -408,50 +403,37 @@ class BaseTranslator(ABC):
             if not all([os.path.exists(p) for p in [src_file_path, ref_file_path, hyp_file_path]]):
                 raise IOError("Missing files to compute scores")
 
+            # Score: bleu, chrf and ter
+            if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
+                output_file = os.path.join(scores_path, f"sacrebleu_scores.json")
+                if force_overwrite or not os.path.exists(output_file):
+                    compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics)
+
+            # Score: bertscore
+            if self.TOOL2METRICS["bertscore"].intersection(metrics):
+                output_file = os.path.join(scores_path, f"bertscore_scores.json")
+                if force_overwrite or not os.path.exists(output_file):
+                    compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang)
+
+            # Score: comet
+            if self.TOOL2METRICS["comet"].intersection(metrics):
+                output_file = os.path.join(scores_path, f"comet_scores.json")
+                if force_overwrite or not os.path.exists(output_file):
+                    compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
+
+             # Score: fairseq
+            if self.TOOL2METRICS["fairseq"].intersection(metrics):
+                output_file = os.path.join(scores_path, f"fairseq_scores.txt")
+                if force_overwrite or not os.path.exists(output_file):
+                    compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
+
             # Huggingface metrics
             hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}
             if hg_metrics:
-                ext = "json" if self.use_cmd else "json"
-                output_file = os.path.join(scores_path, f"huggingface_scores.{ext}")
+                output_file = os.path.join(scores_path, f"huggingface_scores.json")
                 if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
-                                                   output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
-                                                   use_cmd=self.use_cmd, venv_path=self.venv_path)
-
-            # [CMD] Score: bleu, chrf and ter
-            if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
-                ext = "json" if self.use_cmd else "json"
-                output_file = os.path.join(scores_path, f"sacrebleu_scores.{ext}")
-                if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, venv_path=self.venv_path)
-
-            # [CMD] Score: bertscore
-            if self.TOOL2METRICS["bertscore"].intersection(metrics):
-                ext = "txt" if self.use_cmd else "json"
-                output_file = os.path.join(scores_path, f"bertscore_scores.{ext}")
-                if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, venv_path=self.venv_path)
-
-            # [CMD] Score: comet
-            if self.TOOL2METRICS["comet"].intersection(metrics):
-                ext = "txt" if self.use_cmd else "json"
-                output_file = os.path.join(scores_path, f"comet_scores.{ext}")
-                if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
-
-            # [CMD] Score: beer
-            if self.TOOL2METRICS["beer"].intersection(metrics):
-                ext = "txt" if self.use_cmd else "json"
-                output_file = os.path.join(scores_path, f"beer_scores.{ext}")
-                if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
-
-            # [CMD] Score: fairseq
-            if self.TOOL2METRICS["fairseq"].intersection(metrics):
-                ext = "txt" if self.use_cmd else "txt"
-                output_file = os.path.join(scores_path, f"fairseq_scores.{ext}")
-                if force_overwrite or not os.path.exists(output_file):
-                    py_cmd_api.compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
+                    compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
+                                        output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang)
 
             print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
@@ -499,7 +481,7 @@ class BaseTranslator(ABC):
             beam_scores = {}
             for m_tool in metric_tools:
                 values = self.TOOL_PARSERS[m_tool]
-                m_parser, ext = values["cmd"] if self.use_cmd else values["py"]
+                m_parser, ext = values["py"]
                 m_fname = f"{values['filename']}.{ext}"
 
                 # Read file

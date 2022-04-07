@@ -8,7 +8,7 @@ import pandas as pd
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip
 
-from autonmt.api import py_cmd_api
+from autonmt.preprocessing import tokenizers
 from autonmt.bundle import utils, plots
 from autonmt.bundle.utils import *
 from autonmt.preprocessing.dataset import Dataset
@@ -17,16 +17,13 @@ from autonmt.preprocessing.processors import normalize_file, pretokenize_file, e
 
 class DatasetBuilder:
 
-    def __init__(self, base_path, datasets, encoding, normalizer=None, merge_vocabs=False,
-                 eval_mode="same", use_cmd=False, venv_path=None):
+    def __init__(self, base_path, datasets, encoding, normalizer=None, merge_vocabs=False, eval_mode="same"):
         self.base_path = base_path
         self.datasets = datasets
         self.encoding = encoding
         self.normalizer = normalizer if normalizer else normalizers.Sequence([NFKC(), Strip()])
         self.merge_vocabs = merge_vocabs
         self.eval_mode = eval_mode
-        self.use_cmd = use_cmd
-        self.venv_path = venv_path
 
         # Constants
         self.ref_size_name = "original"
@@ -312,8 +309,7 @@ class DatasetBuilder:
 
             # Pretokenize
             pretokenize_file(input_file=input_file, output_file=output_file, lang=lang,
-                             force_overwrite=force_overwrite,
-                             use_cmd=self.use_cmd, venv_path=self.venv_path)
+                             force_overwrite=force_overwrite)
 
     def _train_tokenizer(self, force_overwrite):
         print(f"=> Building vocabularies...")
@@ -363,10 +359,9 @@ class DatasetBuilder:
             for input_file, ext in files:
                 output_file = ds.get_vocab_file(lang=ext)  # without extension
                 if force_overwrite or not os.path.exists(f"{output_file}.model"):
-                    py_cmd_api.spm_train(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
+                    tokenizers.spm_train(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
                                          vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
-                                         character_coverage=self.character_coverage,
-                                         use_cmd=self.use_cmd, venv_path=self.venv_path)
+                                         character_coverage=self.character_coverage)
                     assert os.path.exists(f"{output_file}.model")
 
     def _encode_datasets(self, force_overwrite):
@@ -391,8 +386,7 @@ class DatasetBuilder:
                 # Encode file
                 encode_file(ds=ds, input_file=input_file, output_file=output_file,
                             lang=lang, merge_vocabs=self.merge_vocabs, truncate_at=self.truncate_at,
-                            force_overwrite=force_overwrite,
-                            use_cmd=self.use_cmd, venv_path=self.venv_path)
+                            force_overwrite=force_overwrite)
 
 
     def _export_vocab_frequencies(self, force_overwrite, normalize_freq=False):

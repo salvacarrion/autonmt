@@ -25,7 +25,7 @@ def main(fairseq_args=None):
             # {"subword_models": ["word", "unigram+bytes", "char+bytes"], "vocab_sizes": [8000, 16000]},
             # {"subword_models": ["word", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
             # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
-            {"subword_models": ["unigram"], "vocab_sizes": [4000]},
+            {"subword_models": ["word+bytes", "unigram"], "vocab_sizes": [4000, 5000]},
         ],
         normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
         merge_vocabs=False,
@@ -40,8 +40,8 @@ def main(fairseq_args=None):
     scores = []
     for train_ds in tr_datasets:
         model = FairseqTranslator()
-        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", fairseq_args=fairseq_args, force_overwrite=True)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], model_ds=train_ds, force_overwrite=True)
+        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", fairseq_args=fairseq_args, force_overwrite=False)
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "bertscore"}, beams=[1], model_ds=train_ds, force_overwrite=False)
         scores.append(m_scores)
 
     # Make report and print it

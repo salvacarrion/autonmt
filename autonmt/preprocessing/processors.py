@@ -2,7 +2,7 @@ import shutil
 
 from tokenizers.normalizers import NFKC
 
-from autonmt.api import py_cmd_api
+from autonmt.preprocessing import tokenizers
 from autonmt.bundle import utils
 from autonmt.bundle.utils import *
 
@@ -19,7 +19,7 @@ def normalize_file(input_file, output_file, normalizer, force_overwrite, limit=N
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
     # Tokenize
     if force_overwrite or not os.path.exists(output_file):
-        py_cmd_api.moses_tokenizer(input_file=input_file, output_file=output_file, lang=lang, **kwargs)
+        tokenizers.moses_tokenizer(input_file=input_file, output_file=output_file, lang=lang)
         assert os.path.exists(output_file)
 
 
@@ -48,8 +48,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
                 model_path = ds.get_vocab_file(lang=lang) + ".model"
 
             # Encode files
-            py_cmd_api.spm_encode(spm_model_path=model_path,
-                                  input_file=input_file, output_file=output_file, **kwargs)
+            tokenizers.spm_encode(spm_model_path=model_path, input_file=input_file, output_file=output_file)
 
         # Truncate if needed
         if truncate_at:
@@ -62,7 +61,7 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
 
 
 def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model_vocab_path, force_overwrite,
-                use_cmd, venv_path, remove_unk_hyphen=False, **kwargs):
+                remove_unk_hyphen=False, **kwargs):
     if force_overwrite or not os.path.exists(output_file):
 
         # Detokenize
@@ -80,8 +79,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         else:
             # Decode files
-            py_cmd_api.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file,
-                                  use_cmd=use_cmd, venv_path=venv_path)
+            tokenizers.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file)
 
             # Remove the hyphen of unknown words when needed
             if remove_unk_hyphen:
@@ -89,9 +87,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         # Detokenize with moses
         if pretok_flag:
-            py_cmd_api.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang,
-                                         use_cmd=use_cmd, venv_path=venv_path)
-
+            tokenizers.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang)
 
         # Check that the output file exist
         assert os.path.exists(output_file)
@@ -109,7 +105,7 @@ def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  rem
 
     else:
         # Decode files
-        lines = py_cmd_api._spm_decode(lines, model_vocab_path + ".model")
+        lines = tokenizers._spm_decode(lines, model_vocab_path + ".model")
 
         # Remove the hyphen of unknown words when needed
         if remove_unk_hyphen:
@@ -117,6 +113,6 @@ def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  rem
 
     # Detokenize with moses
     if pretok_flag:
-        lines = py_cmd_api._moses_detokenizer(lines, lang=lang)
+        lines = tokenizers._moses_detokenizer(lines, lang=lang)
 
     return lines

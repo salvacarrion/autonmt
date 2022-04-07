@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torch
 from torch import nn
 
-from autonmt.api.py_cmd_api import _sacrebleu
+from autonmt.bundle.metrics import _sacrebleu  # TODO: I don't like this
 from autonmt.preprocessing.processors import decode_lines
 
 

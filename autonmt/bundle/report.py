@@ -61,9 +61,9 @@ def scores2pandas(scores):
     return df
 
 
-def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
-    if cols is None:
-        cols = ["train_dataset", "eval_dataset", "lang_pair", "subword_model", "vocab_size"]
+def summarize_scores(scores_collection, default_cols=None, ref_metric="bleu"):
+    if default_cols is None:
+        default_cols = ["train_dataset", "eval_dataset", "lang_pair", "subword_model", "vocab_size"]
 
     collections = []
     for c in scores_collection:
@@ -73,7 +73,7 @@ def summarize_scores(scores_collection, cols=None, ref_metric="bleu"):
     for run_scores in zip(*collections):
         # This MUST be fixed to compare several toolkits
         row = {}
-        for c in cols:
+        for c in default_cols:
             row[c] = run_scores[0][c]
 
         # Add scores from other toolkits (including itself)

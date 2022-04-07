@@ -36,7 +36,7 @@
 #     scores = []
 #     for ds in train_datasets:
 #         model = AutonmtTranslator(model=model, model_ds=ds, safe_seconds=0,
-#                            force_overwrite=True, interactive=False, use_cmd=False)
+#                            force_overwrite=True, interactive=False)
 #         model.fit(**train_params)
 #         eval_scores = model.predict(test_datasets, **test_params)
 #         scores.append(eval_scores)
@@ -71,9 +71,7 @@
 #     # Train and score model/s
 #     scores = []
 #     for ds in train_datasets:
-#         model = FairseqTranslator(model_ds=ds, safe_seconds=0,
-#                                   force_overwrite=True, interactive=False, use_cmd=False,
-#                                   fairseq_venv_path=fairseq_venv_path)
+#         model = FairseqTranslator(model_ds=ds, safe_seconds=0)
 #         model.fit(**train_params, fairseq_args=fairseq_args)
 #         eval_scores = model.predict(test_datasets, **test_params)
 #         scores.append(eval_scores)
@@ -92,9 +90,6 @@
 #         subword_models=["word"],
 #         vocab_sizes=[8000],
 #         merge_vocabs=True,
-#         force_overwrite=True,
-#         interactive=False,
-#         use_cmd=False,
 #     ).build(make_plots=False, safe=True)
 #
 #     # Create preprocessing for training and testing

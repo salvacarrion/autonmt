@@ -277,34 +277,6 @@ for train_ds in tr_datasets:
 > (autonmt) in the fit, and "--max-epoch 15" (fairseq) in the 'fairseq_args', we will consider the later.
 
 
-### Reproducibility
-
-By default, AutoNMT tries to operate directly through the python apis. However, for reproducibility purposes you can
-force AutoNMT to use the command line version of thoses libraries with the flag `use_cmd=True` (available in 
-the DatasetBuilder and Trainers).
-
-```python
-builder = DatasetBuilder(..., use_cmd=True)
-model = AutonmtTranslator(..., use_cmd=True)
-```
-
-By enabling this flag, AutoNMT will use the command line tools as a typical user. 
-
-```bash
-...
-- Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
-- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
-- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
-- Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
-- Command used: sacrebleu /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
-...
-```
-By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `venv_path="myenv"`
-
-```python
-model = AutonmtTranslator(model=Transformer(...), ..., venv_path="myenv")
-```
-
 ### Plots & Stats
 
 AutoNMT will automatically generate plots for the split sizes, the sentence length distributions, 
@@ -402,3 +374,36 @@ multi30k/
 │       ├── models
 ...
 ```
+
+
+### Reproducibility
+
+#### Deprecated due to shell problems
+
+The python implementations produces the same results as the command line version.
+
+> By default, AutoNMT tries to operate directly through the python apis. However, for reproducibility purposes you can
+> force AutoNMT to use the command line version of thoses libraries with the flag `use_cmd=True` (available in 
+> the DatasetBuilder and Trainers).
+> 
+> ```python
+> builder = DatasetBuilder(..., use_cmd=True)
+> model = AutonmtTranslator(..., use_cmd=True)
+> ```
+> 
+> By enabling this flag, AutoNMT will use the command line tools as a typical user. 
+> 
+> ```bash
+> ...
+> - Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
+> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
+> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
+> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
+> - Command used: sacrebleu /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
+> ...
+> ```
+> By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `venv_path="myenv"`
+> 
+> ```python
+> model = AutonmtTranslator(model=Transformer(...), ..., venv_path="myenv")
+> ```

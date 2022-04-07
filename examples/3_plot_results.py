@@ -7,7 +7,7 @@ from autonmt.bundle.report import generate_multivariable_report
 from autonmt.preprocessing import DatasetBuilder
 
 
-def main(fairseq_args, fairseq_venv_path):
+def main():
 
      # Create preprocessing for training
     builder = DatasetBuilder(
