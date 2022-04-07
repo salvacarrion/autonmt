@@ -36,7 +36,7 @@ Furthermore, we provide two features for reproducibility:
 
 ## Installation
 
-Requires Python +3.6
+Tested on Python +3.8
 
 ```
 git clone git@github.com:salvacarrion/autonmt.git
