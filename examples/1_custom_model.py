@@ -43,7 +43,7 @@ def main():
         wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
         model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params)
         model.fit(train_ds, max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp")
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)  # model_ds=train_ds => if fit() was not used before
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True)  # model_ds=train_ds => if fit() was not used before
         scores.append(m_scores)
 
     # Make report and print it

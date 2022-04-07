@@ -29,14 +29,9 @@ def main(fairseq_args, fairseq_venv_path):
 
     # Train & Score a model for each dataset
     stats = []
-    run_prefix = "transformer256emb"
     for ds in tr_datasets:
         # Get ds stats
         ds_stats = utils.load_json(ds.get_stats_path("stats.json"))
-
-        # # Get scores
-        # model = FairseqTranslator(fairseq_venv_path=fairseq_venv_path, model_ds=ds, force_overwrite=False, run_prefix=run_prefix)
-        # m_scores = model.predict(ts_datasets, metrics={"fairseq"}, beams=[5], truncate_at=1023)
 
         # Add stats
         ds_stats["scores"] = {}
@@ -44,7 +39,6 @@ def main(fairseq_args, fairseq_venv_path):
             "subword_model": ds.subword_model,
             "vocab_size": ds.vocab_size,
             "unknown_avg_tokens": ds_stats["val.en"]["unknown_avg_tokens"],
-            # "bleu": m_scores[0]['beams']['beam5']['fairseq_bleu_score'],
         }
         stats.append(row)
 
@@ -55,7 +49,7 @@ def main(fairseq_args, fairseq_venv_path):
     df_report["vocab_size"] = df_report["vocab_size"].astype(int)
 
     # Make report and print it
-    output_path = f".outputs/fairseq"
+    output_path = f".outputs/myplots"
     prefix = "unknowns_"
     generate_multivariable_report(data=df_report,
                            x="vocab_size",
@@ -67,9 +61,4 @@ def main(fairseq_args, fairseq_venv_path):
 
 
 if __name__ == "__main__":
-    # Set venv path
-    # To create new venvs: virtualenv -p $(which python) VENV_NAME
-    fairseq_venv_path = "source /home/scarrion/venvs/fairseq_venv/bin/activate"
-
-    # Run grid
-    main(fairseq_args=None, fairseq_venv_path=fairseq_venv_path)
+    main()

@@ -8,7 +8,7 @@ from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits.fairseq import FairseqTranslator
 
 
-def main(fairseq_args, fairseq_venv_path):
+def main(fairseq_args):
     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
@@ -31,11 +31,10 @@ def main(fairseq_args, fairseq_venv_path):
 
     # Train & Score a model for each dataset
     scores = []
-    for ds in tr_datasets:
-        wandb_params = None  #dict(project="fairseq", entity="salvacarrion")
-        model = FairseqTranslator(model_ds=ds, wandb_params=wandb_params, force_overwrite=True, fairseq_venv_path=fairseq_venv_path)
-        model.fit(max_epochs=1, batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1])
+    for train_ds in tr_datasets:
+        model = FairseqTranslator()
+        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, fairseq_args=fairseq_args, force_overwrite=True)
+        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)
 
     # Make report and print it
@@ -72,10 +71,6 @@ if __name__ == "__main__":
         "--task translation",
     ]
 
-    # Set venv path
-    # To create new venvs: virtualenv -p $(which python) VENV_NAME
-    fairseq_venv_path = "source /home/scarrion/.venvs/fairseq_venv/bin/activate"
-
     # Run grid
-    main(fairseq_args=fairseq_cmd_args, fairseq_venv_path=fairseq_venv_path)
+    main(fairseq_args=fairseq_cmd_args)
 
