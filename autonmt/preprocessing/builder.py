@@ -18,15 +18,13 @@ from autonmt.preprocessing.processors import normalize_file, pretokenize_file, e
 class DatasetBuilder:
 
     def __init__(self, base_path, datasets, encoding, normalizer=None, merge_vocabs=False,
-                 eval_mode="same", build_suffix="",
-                 use_cmd=False, venv_path=None):
+                 eval_mode="same", use_cmd=False, venv_path=None):
         self.base_path = base_path
         self.datasets = datasets
         self.encoding = encoding
         self.normalizer = normalizer if normalizer else normalizers.Sequence([NFKC(), Strip()])
         self.merge_vocabs = merge_vocabs
         self.eval_mode = eval_mode
-        self.build_suffix = build_suffix
         self.use_cmd = use_cmd
         self.venv_path = venv_path
 

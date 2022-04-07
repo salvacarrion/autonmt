@@ -1,6 +1,8 @@
 import pytorch_lightning as pl
 import torch
 import wandb
+import glob
+
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -19,6 +21,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
     def __init__(self, model, wandb_params=None, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
+        self.ckpt_cb = None
         self.wandb_params = wandb_params
 
         # Translation preprocessing (do not confuse with 'train_ds')
@@ -27,7 +30,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.test_tds = None
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, subword_model,
-                    pretok_flag, src_vocab_path, trg_vocab_path, **kwargs):
+                    pretok_flag, src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
         # Create preprocessing
         self.subword_model = subword_model
         self.pretok_flag = pretok_flag
@@ -42,8 +45,12 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         else:  # Evaluation
             self.test_tds = Seq2SeqDataset(file_prefix=test_path, **params, **kwargs)
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, monitor, run_name,
-               num_workers, patience, ds_alias, **kwargs):
+    def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
+               num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):
+        # Notes:
+        # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
+        # - "resume_training" is not needed. models are initialized by the user.
+
         # Define dataloaders
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
         val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
@@ -59,14 +66,16 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Callbacks: Checkpoint
         callbacks = []
         mode = "min" if monitor == "loss" else "max"
-        ckpt_cb = ModelCheckpoint(dirpath=checkpoints_path, save_top_k=1, monitor=f"val_{monitor}", mode=mode,
-                                  filename="checkpoint_best", save_weights_only=True)
-        ckpt_cb.FILE_EXTENSION = ".pt"
-        callbacks += [ckpt_cb]
+        str_monitor = f"val_{monitor}"
+        filename = "checkpoint_best__{epoch}-{" + str_monitor + ":.2f}"
+        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=str_monitor, mode=mode,
+                                       filename=filename, save_weights_only=True)
+        self.ckpt_cb.FILE_EXTENSION = ".pt"
+        callbacks += [self.ckpt_cb]
 
         # Callback: EarlyStop
         if patience:
-            early_stop = EarlyStopping(monitor=f"val_{monitor}", patience=patience, mode=mode)
+            early_stop = EarlyStopping(monitor=str_monitor, patience=patience, mode=mode)
             callbacks += [early_stop]
 
         # Loggers
@@ -88,14 +97,30 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_loader, val_loader)
 
         # Force finish
-        wandb.finish()
+        if self.wandb_params:
+            wandb.finish()
 
     def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,
-                   **kwargs):
+                   force_overwrite, checkpoints_dir=None, **kwargs):
         # Checkpoint
         if load_best_checkpoint:
-            model_state_dict = torch.load(kwargs.get("checkpoint_path"))
+            if self.ckpt_cb:
+                checkpoint_path = self.ckpt_cb.best_model_path
+            else:
+                # Find last checkpoint
+                checkpoints = sorted(glob.iglob(os.path.join(checkpoints_dir, "*.pt")), key=os.path.getctime, reverse=True)
+                if not checkpoints:
+                    raise ValueError(f"No checkpoints were found in {checkpoints_dir}")
+                elif len(checkpoints) > 1:
+                    checkpoint_path = checkpoints[0]
+                    print(f"[WARNING] Multiple checkpoints were found. Using latest: {checkpoint_path}")
+                else:
+                    checkpoint_path = checkpoints[0]
+                    print(f"[INFO] Loading checkpoint: {checkpoint_path}")
+
+            # Load checkpoint
+            model_state_dict = torch.load(checkpoint_path)
             model_state_dict = model_state_dict.get("state_dict", model_state_dict)
             self.model.load_state_dict(model_state_dict)
 

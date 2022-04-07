@@ -66,18 +66,16 @@ class BaseTranslator(ABC):
                     }
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
-    def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None, safe_seconds=0,
-                 force_overwrite=False, interactive=False, use_cmd=False, venv_path=None, **kwargs):
+    def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None,
+                 use_cmd=False, venv_path=None, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
         self.model_ds = model_ds
-        self.safe_seconds = safe_seconds
-        self.force_overwrite = force_overwrite
-        self.interactive = interactive
         self.use_cmd = use_cmd
         self.venv_path = venv_path
         self.config = {}
+        self.model_ds = None
 
         # Set vocab (optional)
         self.src_vocab = src_vocab
@@ -86,23 +84,23 @@ class BaseTranslator(ABC):
         # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
 
-    def _make_empty_path(self, path, safe_seconds=0):
-        # Check if the directory and can be delete it
-        is_empty = os.listdir(path) == []
-        if self.force_overwrite and os.path.exists(path) and not is_empty:
-            print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
-            res = ask_yes_or_no(question="Do you want to continue?", interactive=self.interactive)
-            if res:
-                if safe_seconds:
-                    print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
-                    time.sleep(safe_seconds)
-                # Delete path
-                shutil.rmtree(path)
-
-        # Create path if it doesn't exist
-        make_dir(path)
-        is_empty = os.listdir(path) == []
-        return is_empty
+    # def _make_empty_path(self, path, safe_seconds=0):
+    #     # Check if the directory and can be delete it
+    #     is_empty = os.listdir(path) == []
+    #     if self.force_overwrite and os.path.exists(path) and not is_empty:
+    #         print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
+    #         res = ask_yes_or_no(question="Do you want to continue?", interactive=self.interactive)
+    #         if res:
+    #             if safe_seconds:
+    #                 print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
+    #                 time.sleep(safe_seconds)
+    #             # Delete path
+    #             shutil.rmtree(path)
+    #
+    #     # Create path if it doesn't exist
+    #     make_dir(path)
+    #     is_empty = os.listdir(path) == []
+    #     return is_empty
 
     def _get_metrics_tool(self, metrics):
         tools = set()
@@ -137,8 +135,11 @@ class BaseTranslator(ABC):
     def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1,
             learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
-            monitor="loss", resume_training=False, **kwargs):
+            monitor="loss", resume_training=False, force_overwrite=False, **kwargs):
         print("=> [Fit]: Started.")
+
+        # Set model
+        self.model_ds = train_ds
 
         # Store config (and save file)
         self._add_config(key="fit", values=locals(), reset=False)
@@ -148,16 +149,18 @@ class BaseTranslator(ABC):
         save_json(self.config, savepath=os.path.join(logs_path, "config_train.json"))
 
         # Train and preprocess
-        self.preprocess(train_ds, **kwargs)
+        self.preprocess(train_ds, force_overwrite=force_overwrite, **kwargs)
         self.train(train_ds, max_tokens=max_tokens, batch_size=batch_size, max_epochs=max_epochs,
                    learning_rate=learning_rate, optimizer=optimizer, weight_decay=weight_decay,
                    gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
                    criterion=criterion, patience=patience, seed=seed, devices=devices, accelerator=accelerator,
-                   num_workers=num_workers, monitor=monitor, resume_training=resume_training, **kwargs)
+                   num_workers=num_workers, monitor=monitor, resume_training=resume_training,
+                   force_overwrite=force_overwrite, **kwargs)
 
     def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=64, max_tokens=None, max_len_a=1.2, max_len_b=50,  truncate_at=None,
-                devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False, **kwargs):
+                metrics: Set[str] = None, batch_size=64, max_tokens=None, max_len_a=1.2, max_len_b=50, truncate_at=None,
+                devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False,
+                model_ds=None, force_overwrite=False, **kwargs):
         print("=> [Predict]: Started.")
 
         # Set default values
@@ -173,6 +176,14 @@ class BaseTranslator(ABC):
         else:
             metrics = set(metrics)
 
+        # Get model dataset
+        if model_ds:
+            self.model_ds = model_ds
+        elif self.model_ds:
+            pass
+        else:
+            raise ValueError(f"Missing 'model_ds'. It's needed to get the model's path (training and eval).")
+
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
         self._add_config(key="predict", values=kwargs, reset=False)
@@ -187,10 +198,11 @@ class BaseTranslator(ABC):
             self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_len_a=max_len_a, max_len_b=max_len_b,
                            truncate_at=truncate_at, batch_size=batch_size, max_tokens=max_tokens,
                            devices=devices, accelerator=accelerator, num_workers=num_workers,
-                           load_best_checkpoint=load_best_checkpoint, **kwargs)
-            self.score(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics, **kwargs)
+                           load_best_checkpoint=load_best_checkpoint, force_overwrite=force_overwrite, **kwargs)
+            self.score(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
+                       force_overwrite=force_overwrite, **kwargs)
             model_scores = self.parse_metrics(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
-                                              engine=self.engine, **kwargs)
+                                              engine=self.engine, force_overwrite=force_overwrite, **kwargs)
             eval_scores.append(model_scores)
         return eval_scores
 
@@ -198,7 +210,7 @@ class BaseTranslator(ABC):
     def _preprocess(self, *args, **kwargs):
         pass
 
-    def preprocess(self, ds: Dataset, **kwargs):
+    def preprocess(self, ds: Dataset, force_overwrite, **kwargs):
         print(f"=> [Preprocess]: Started. ({ds.id2(as_path=True)})")
 
         # Set vars
@@ -214,24 +226,19 @@ class BaseTranslator(ABC):
         # Create dirs
         make_dir([model_data_bin_path])
 
-        # Checks: Make sure the directory exist, and it is empty
-        is_empty = self._make_empty_path(path=model_data_bin_path, safe_seconds=self.safe_seconds)
-        if not is_empty:
-            print("\t- [Preprocess]: Skipped. The output directory is not empty")
-            return
-
         start_time = time.time()
         self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=ds.subword_model, pretok_flag=ds.pretok_flag, **kwargs)
+                         subword_model=ds.subword_model, pretok_flag=ds.pretok_flag,
+                         force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
     def _train(self, *args, **kwargs):
         pass
 
-    def train(self, train_ds: Dataset, resume_training=False, **kwargs):
+    def train(self, train_ds: Dataset, resume_training, force_overwrite, **kwargs):
         print(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
 
         # Check preprocessing
@@ -242,26 +249,19 @@ class BaseTranslator(ABC):
 
         # Set paths
         data_bin_path = train_ds.get_model_data_bin(toolkit=self.engine)
-        checkpoints_path = train_ds.get_model_checkpoints_path(toolkit=self.engine, run_name=run_name)
+        checkpoints_dir = train_ds.get_model_checkpoints_path(toolkit=self.engine, run_name=run_name)
         logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=run_name)
 
         # Create dirs
-        make_dir([data_bin_path, checkpoints_path, logs_path])
-
-        # Checks: Make sure the directory exist, and it is empty
-        # is_empty = os.listdir(checkpoints_path) == []  # Too dangerous to allow overwrite
-        if not resume_training:
-            is_empty = self._make_empty_path(path=checkpoints_path, safe_seconds=self.safe_seconds)
-            if not is_empty:
-                print("\t- [Train]: Skipped. The checkpoints directory is not empty")
-                return
+        make_dir([data_bin_path, checkpoints_dir, logs_path])
 
         # Set seed
         self.manual_seed(seed=kwargs.get("seed"))
 
         start_time = time.time()
-        self._train(data_bin_path=data_bin_path, checkpoints_path=checkpoints_path, logs_path=logs_path,
-                    run_name=run_name, ds_alias='_'.join(train_ds.id()), **kwargs)
+        self._train(data_bin_path=data_bin_path, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
+                    run_name=run_name, ds_alias='_'.join(train_ds.id()),
+                    resume_training=resume_training, force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -269,7 +269,7 @@ class BaseTranslator(ABC):
         pass
 
     def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_len_a, max_len_b, truncate_at,
-                  batch_size, max_tokens, num_workers, **kwargs):
+                  batch_size, max_tokens, num_workers, force_overwrite, **kwargs):
         print(f"=> [Translate]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
@@ -280,8 +280,8 @@ class BaseTranslator(ABC):
         run_name = model_ds.get_run_name(self.run_prefix)
         eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
-        # Checkpoint path
-        checkpoint_path = model_ds.get_model_checkpoints_path(self.engine, run_name, "checkpoint_best.pt")
+        # Checkpoints dir
+        checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, run_name)
 
         # [Trained model]: Create eval folder
         model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
@@ -292,60 +292,55 @@ class BaseTranslator(ABC):
         # Create dirs
         make_dir([model_eval_data_path, model_eval_data_bin_path])
 
-        # Checks: Make sure the directory exist, and it is empty (...AutoNMT doesn't need it)
-        is_empty = self._make_empty_path(path=model_eval_data_bin_path, safe_seconds=self.safe_seconds)
-        if not is_empty:
-            print("\t- [Translate]: Skipped preprocessing. The output directory for the preprocessing data is not empty")
-        else:
-            # [Encode extern data]: Encode test data using the subword model of the trained model
-            for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
-                lang = ts_fname.split('.')[-1]
-                input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-                output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        # [Encode extern data]: Encode test data using the subword model of the trained model
+        for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
+            lang = ts_fname.split('.')[-1]
+            input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
+            output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
 
-                # Create directories
-                make_dir([
-                    os.path.join(output_file, "raw"),
-                    os.path.join(output_file, "normalized"),
-                    os.path.join(output_file, "tokenized"),
-                    os.path.join(output_file, "encoded"),
-                ])
+            # Create directories
+            make_dir([
+                os.path.join(output_file, "raw"),
+                os.path.join(output_file, "normalized"),
+                os.path.join(output_file, "tokenized"),
+                os.path.join(output_file, "encoded"),
+            ])
 
-                # Copy raw
-                raw_file = os.path.join(output_file, "raw", ts_fname)
-                shutil.copyfile(input_file, raw_file)
-                input_file = raw_file
+            # Copy raw
+            raw_file = os.path.join(output_file, "raw", ts_fname)
+            shutil.copyfile(input_file, raw_file)
+            input_file = raw_file
 
-                # Normalize data
-                norm_file = os.path.join(output_file, "normalized", ts_fname)
-                normalize_file(input_file=input_file, output_file=norm_file,
-                               normalizer=model_ds.normalizer, force_overwrite=self.force_overwrite)
-                input_file = norm_file
+            # Normalize data
+            norm_file = os.path.join(output_file, "normalized", ts_fname)
+            normalize_file(input_file=input_file, output_file=norm_file,
+                           normalizer=model_ds.normalizer, force_overwrite=force_overwrite)
+            input_file = norm_file
 
-                # Pretokenize data (if needed)
-                if model_ds.pretok_flag:
-                    pretok_file = os.path.join(output_file, "tokenized", ts_fname)
-                    pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
-                                     force_overwrite=self.force_overwrite, use_cmd=self.use_cmd,
-                                     venv_path=self.venv_path)
-                    input_file = pretok_file
+            # Pretokenize data (if needed)
+            if model_ds.pretok_flag:
+                pretok_file = os.path.join(output_file, "tokenized", ts_fname)
+                pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
+                                 force_overwrite=force_overwrite, use_cmd=self.use_cmd,
+                                 venv_path=self.venv_path)
+                input_file = pretok_file
 
-                # Encode file
-                enc_file = os.path.join(output_file, "encoded", ts_fname)
-                encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
-                            lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
-                            force_overwrite=self.force_overwrite,
-                            use_cmd=self.use_cmd, venv_path=self.venv_path)
+            # Encode file
+            enc_file = os.path.join(output_file, "encoded", ts_fname)
+            encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
+                        lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
+                        force_overwrite=force_overwrite,
+                        use_cmd=self.use_cmd, venv_path=self.venv_path)
 
-            # Preprocess external data
-            test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
-            self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                             output_path=model_eval_data_bin_path,
-                             train_path=None, val_path=None, test_path=test_path,
-                             src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                             subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                             external_data=True,
-                             **kwargs)
+        # Preprocess external data
+        test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
+        self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+                         output_path=model_eval_data_bin_path,
+                         train_path=None, val_path=None, test_path=test_path,
+                         src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+                         subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
+                         external_data=True, force_overwrite=force_overwrite,
+                         **kwargs)
 
         # Iterate over beams
         for beam in beams:
@@ -356,13 +351,13 @@ class BaseTranslator(ABC):
 
             # Translate
             tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
-            if self.force_overwrite or not all(tok_flag):
+            if force_overwrite or not all(tok_flag):
                 self._translate(
                     src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                     beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
-                    data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoint_path=checkpoint_path,
+                    data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoints_dir=checkpoints_dir,
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                    num_workers=num_workers, model_ds=model_ds, **kwargs)
+                    num_workers=num_workers, model_ds=model_ds, force_overwrite=force_overwrite, **kwargs)
 
             # Copy src/ref raw
             for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
@@ -380,7 +375,7 @@ class BaseTranslator(ABC):
                 decode_file(input_file=input_file, output_file=output_file, lang=lang,
                             subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
                             model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
-                            force_overwrite=self.force_overwrite,
+                            force_overwrite=force_overwrite,
                             use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # Check amount of lines
@@ -393,7 +388,7 @@ class BaseTranslator(ABC):
 
             print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
-    def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], **kwargs):
+    def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
         print(f"=> [Score]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
@@ -434,7 +429,7 @@ class BaseTranslator(ABC):
             if hg_metrics:
                 ext = "json" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"huggingface_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
                                                    output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang,
                                                    use_cmd=self.use_cmd, venv_path=self.venv_path)
@@ -443,41 +438,41 @@ class BaseTranslator(ABC):
             if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
                 ext = "json" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"sacrebleu_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: bertscore
             if self.TOOL2METRICS["bertscore"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"bertscore_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: comet
             if self.TOOL2METRICS["comet"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"comet_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: beer
             if self.TOOL2METRICS["beer"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "json"
                 output_file = os.path.join(scores_path, f"beer_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_beer(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
 
             # [CMD] Score: fairseq
             if self.TOOL2METRICS["fairseq"].intersection(metrics):
                 ext = "txt" if self.use_cmd else "txt"
                 output_file = os.path.join(scores_path, f"fairseq_scores.{ext}")
-                if self.force_overwrite or not os.path.exists(output_file):
+                if force_overwrite or not os.path.exists(output_file):
                     py_cmd_api.compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, use_cmd=self.use_cmd, venv_path=self.venv_path)
-
 
             print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
-    def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], **kwargs):
+
+    def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
         print(f"=> [Parsing]: Started. ({model_ds.id2(as_path=True)})")
 
         # Check preprocessing
