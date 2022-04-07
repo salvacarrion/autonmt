@@ -6,13 +6,22 @@ from autonmt.api import NO_VENV_MSG
 from autonmt.bundle import utils
 from autonmt.toolkits.base import BaseTranslator
 
+from fairseq import options
+
+import torch
+from fairseq import options
+from fairseq_cli import preprocess, train, generate
+from fairseq.distributed import utils as distributed_utils
+from fairseq.dataclass.utils import convert_namespace_to_omegaconf
+
 
 def _parse_args(**kwargs):
     cmd = []
 
     # Set reserved args
     reserved_args = {"fairseq-preprocess", "fairseq-train", "fairseq-generate",
-                     "--save-dir", "--tensorboard-logdir", "--wandb-project", "--skip-invalid-size-inputs-valid-test"}
+                     "--save-dir", "--tensorboard-logdir", "--wandb-project", "--skip-invalid-size-inputs-valid-test",
+                     "--bpe", "--remove-bpe"}
     # reserved_args.update(autonmt2fairseq.keys())
 
     # Check: autonmt args (proposal)
@@ -101,20 +110,26 @@ def vocab_spm2fairseq(filename):
 
 class FairseqTranslator(BaseTranslator):
 
-    def __init__(self, fairseq_venv_path=None, wandb_params=None, **kwargs):
+    def __init__(self,  wandb_params=None, **kwargs):
         super().__init__(engine="fairseq", **kwargs)
 
         # Vars
-        self.fairseq_venv_path = fairseq_venv_path
         self.wandb_params = wandb_params
-
-        # Check conda environment
-        if fairseq_venv_path is None:
-            print("=> [INFO] 'FairseqTranslator' needs the fairseq commands to be accessible from the '/bin/bash'\n"
-                  "   - You can also install it in a virtual environment, and set 'venv_path=MYVIRTUALENV'")
+        if self.wandb_params:
+            raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
 
     def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, subword_model, **kwargs):
+                    trg_vocab_path, subword_model, force_overwrite, **kwargs):
+
+        # Check if the directory is empty and take action
+        if not utils.is_dir_empty(output_path):
+            if force_overwrite:  # Empty dir
+                print(f"\t- [Preprocess]: Deleting directory: {output_path}")
+                utils.empty_dir(output_path, safe_seconds=self.safe_seconds)
+            else:
+                print("\t- [Preprocess]: Skipped. The output directory is not empty")
+                return
+
         # Reformat vocab files for fairseq
         new_src_vocab_path = ""
         new_trg_vocab_path = ""
@@ -133,95 +148,103 @@ class FairseqTranslator(BaseTranslator):
             train_path = test_path
 
         # Write command
-        cmd = [f"fairseq-preprocess"]
+        input_args = []  #f"fairseq-preprocess"
 
         # Base params
-        cmd += [
-            f"--source-lang {src_lang}",
-            f"--target-lang {trg_lang}",
-            f"--trainpref '{train_path}'",
-            f"--testpref '{test_path}'",
-            f"--destdir '{output_path}'",
+        input_args += [
+            "--source-lang", src_lang,
+            "--target-lang", trg_lang,
+            "--trainpref", train_path,
+            "--testpref", test_path,
+            "--destdir", output_path,
         ]
 
         # Optional params
-        cmd += [f"--validpref '{val_path}'"] if val_path else []
-        cmd += [f"--srcdict '{new_src_vocab_path}'"] if new_src_vocab_path else []
-        cmd += [f"--tgtdict '{new_trg_vocab_path}'"] if new_trg_vocab_path else []
+        input_args += ["--validpref", val_path] if val_path else []
+        input_args += ["--srcdict", new_src_vocab_path] if new_src_vocab_path else []
+        input_args += ["--tgtdict", new_trg_vocab_path] if new_trg_vocab_path else []
 
-        # Parse fairseq args (will throw "error: unrecognized arguments")
-        # cmd += _parse_args(**kwargs)
+        # Parse args and execute command
+        # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/preprocess.py
+        input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
+        parser = options.get_preprocessing_parser(default_task="translation")
+        args = parser.parse_args(input_args)
+        preprocess.main(args)
 
-        # Run command
-        cmd = " ".join([] + cmd)
-        env = f"{self.fairseq_venv_path}" if self.fairseq_venv_path else NO_VENV_MSG
-        print(f"\t- [INFO]: Command used: {cmd}")
-        subprocess.call(['/bin/bash', '-c', f"{env} && {cmd}"])
+    def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, run_name, ds_alias,
+               resume_training, force_overwrite, **kwargs):
 
-    def _train(self, data_bin_path, checkpoints_path, logs_path, max_tokens, batch_size, run_name, ds_alias, **kwargs):
+        # Check if the directory is empty and take action
+        if not utils.is_dir_empty(checkpoints_dir):
+            if force_overwrite:  # Empty dir
+                print(f"\t- [Train]: Renaming previous checkpoints to avoid overwriting...")
+                utils.rename_file(checkpoints_dir, "checkpoint_best.pt", "checkpoint_best.pt.bak")
+                utils.rename_file(checkpoints_dir, "checkpoint_last.pt", "checkpoint_last.pt.bak")
+            else:
+                print("\t- [Train]: Skipped. The checkpoint directory is not empty")
+                return
+
+        # Set warnings
+        if kwargs.get('devices'):
+            print("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
+        if self.wandb_params:
+            print("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
+
         # Write command
-        cmd = [f"fairseq-train '{data_bin_path}'"]
-        cmd += [f"--save-dir '{checkpoints_path}'"] if checkpoints_path else []
-        cmd += [f"--tensorboard-logdir '{logs_path}'"] if logs_path else []
+        input_args = [data_bin_path]
+        input_args += ["--save-dir", checkpoints_dir] if checkpoints_dir else []
+        input_args += ["--tensorboard-logdir", logs_path] if logs_path else []
 
         # Parse fairseq args
-        cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
+        input_args += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
-        # Add wandb logger (if requested)
-        wandb_env = []
-        if self.wandb_params:
-            raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
-            # wandb_run_name = f"{ds_alias}_{run_name}"
-            # wandb_env = f"WANDB_NAME='{wandb_run_name}'"
-            # wandb_project = self.wandb_params['project']
-            # cmd += [f"--wandb-project '{wandb_project}'"]
-
-        # Parse gpu flag
-        num_gpus = kwargs.get('devices')
-        num_gpus = None if num_gpus == "auto" else num_gpus
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
-
-        # Run command
-        cmd_env = [wandb_env, num_gpus]
-        cmd_env = " ".join([x for x in cmd_env if x])  # Needs spaces. It doesn't work with ";" or "&&"
-        cmd_env = cmd_env + " " if cmd_env else cmd_env
-        cmd = " ".join([cmd_env] + cmd)
-        env = f"{self.fairseq_venv_path}" if self.fairseq_venv_path else NO_VENV_MSG
-        print(f"\t- [INFO]: Command used: {cmd}")
-        subprocess.call(['/bin/bash', '-c', f"{env} && {cmd}"])
+        # Parse args and execute command
+        # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
+        input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
+        parser = options.get_training_parser(default_task="translation")
+        args = options.parse_args_and_arch(parser, input_args)
+        cfg = convert_namespace_to_omegaconf(args)
+        if args.profile:
+            with torch.cuda.profiler.profile():
+                with torch.autograd.profiler.emit_nvtx():
+                    distributed_utils.call_main(cfg, train.main)
+        else:
+            distributed_utils.call_main(cfg, train.main)
 
     def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
-                   data_bin_path, output_path, checkpoint_path, model_src_vocab_path, model_trg_vocab_path, **kwargs):
+                   data_bin_path, output_path, checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
+                   force_overwrite, **kwargs):
+        # Set warnings
+        if kwargs.get('devices'):
+            print("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
+
         # Write command
-        cmd = [f"fairseq-generate {data_bin_path}"]
+        input_args = [data_bin_path]
 
         # Add stuff
-        cmd += [
-            f"--source-lang {src_lang}",
-            f"--target-lang {trg_lang}",
-            f"--path '{checkpoint_path}'",
-            f"--results-path '{output_path}'",
-            f"--beam {beam_width}",
-            f"--max-len-a {max_len_a}",  # max_len = ax+b
-            f"--max-len-b {max_len_b}",
-            f"--nbest 1",
-            f"--scoring sacrebleu",
-            # f"--skip-invalid-size-inputs-valid-test",  # DISABLE. (Else, ref and hyp might not match)
+        input_args += [
+            "--source-lang", src_lang,
+            "--target-lang", trg_lang,
+            "--path", os.path.join(checkpoints_dir, "checkpoint_best.pt"),
+            "--results-path", output_path,
+            "--beam", beam_width,
+            "--max-len-a", max_len_a,  # max_len = ax+b
+            "--max-len-b", max_len_b,
+            "--nbest", 1,
+            "--scoring", "sacrebleu",
+            #"--skip-invalid-size-inputs-valid-test",  # DISABLE. (Else, 'ref' and 'hyp' might not match)
+            #"--remove-bpe",  # DISABLE. I'd rather decode it using sentencepiece (not available for training)
         ]
 
         # Parse fairseq args
-        cmd += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
+        input_args += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
 
-        # Parse gpu flag
-        num_gpus = kwargs.get('devices')
-        num_gpus = None if num_gpus == "auto" else num_gpus
-        num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
-
-        # Run command
-        cmd = " ".join([num_gpus] + cmd)
-        env = f"{self.fairseq_venv_path}" if self.fairseq_venv_path else NO_VENV_MSG
-        print(f"\t- [INFO]: Command used: {cmd}")
-        subprocess.call(['/bin/bash', '-c', f"{env} && {cmd}"])
+        # Parse args and execute command
+        # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/generate.py
+        input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
+        parser = options.get_generation_parser(default_task="translation")
+        args = options.parse_args_and_arch(parser, input_args)
+        generate.main(args)
 
         # Prepare output files (from fairseq to tokenized form)
         _postprocess_output(output_path=output_path)

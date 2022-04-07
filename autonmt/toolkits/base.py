@@ -67,7 +67,7 @@ class BaseTranslator(ABC):
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
     def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None,
-                 use_cmd=False, venv_path=None, **kwargs):
+                 use_cmd=False, venv_path=None, safe_seconds=3, **kwargs):
         # Store vars
         self.engine = engine
         self.run_prefix = run_prefix
@@ -76,6 +76,7 @@ class BaseTranslator(ABC):
         self.venv_path = venv_path
         self.config = {}
         self.model_ds = None
+        self.safe_seconds = safe_seconds
 
         # Set vocab (optional)
         self.src_vocab = src_vocab
@@ -83,24 +84,6 @@ class BaseTranslator(ABC):
 
         # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
-
-    # def _make_empty_path(self, path, safe_seconds=0):
-    #     # Check if the directory and can be delete it
-    #     is_empty = os.listdir(path) == []
-    #     if self.force_overwrite and os.path.exists(path) and not is_empty:
-    #         print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
-    #         res = ask_yes_or_no(question="Do you want to continue?", interactive=self.interactive)
-    #         if res:
-    #             if safe_seconds:
-    #                 print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
-    #                 time.sleep(safe_seconds)
-    #             # Delete path
-    #             shutil.rmtree(path)
-    #
-    #     # Create path if it doesn't exist
-    #     make_dir(path)
-    #     is_empty = os.listdir(path) == []
-    #     return is_empty
 
     def _get_metrics_tool(self, metrics):
         tools = set()
@@ -296,7 +279,8 @@ class BaseTranslator(ABC):
         for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
             lang = ts_fname.split('.')[-1]
             input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-            output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+            output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
+                                                            eval_name=eval_name)
 
             # Create directories
             make_dir([

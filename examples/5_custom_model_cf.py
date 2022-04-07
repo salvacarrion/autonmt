@@ -8,9 +8,10 @@ from autonmt.modules.models import Transformer
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
+from autonmt.toolkits.fairseq import FairseqTranslator
 
 
-def main():
+def main(fairseq_args=None):
     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
@@ -24,12 +25,12 @@ def main():
             # {"subword_models": ["word", "unigram+bytes", "char+bytes"], "vocab_sizes": [8000, 16000]},
             # {"subword_models": ["word", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
             # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
-            {"subword_models": ["word"], "vocab_sizes": [8000]},
+            {"subword_models": ["unigram"], "vocab_sizes": [4000]},
         ],
         normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
         merge_vocabs=False,
         eval_mode="compatible",
-    ).build(make_plots=False, force_overwrite=True)
+    ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -38,15 +39,9 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for train_ds in tr_datasets:
-        # Instantiate vocabs and model
-        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
-        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-        model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
-
-        # Train model
-        model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
-        model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=False)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, force_overwrite=False, model_ds=train_ds)  #
+        model = FairseqTranslator()
+        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", fairseq_args=fairseq_args, force_overwrite=True)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)
 
     # Make report and print it
@@ -56,5 +51,32 @@ def main():
     print(df_summary.to_string(index=False))
 
 
+
 if __name__ == "__main__":
-    main()
+    # These args are pass to fairseq using our pipeline
+    # Fairseq Command-line tools: https://fairseq.readthedocs.io/en/latest/command_line_tools.html
+    fairseq_cmd_args = [
+        "--arch transformer",
+        "--encoder-embed-dim 256",
+        "--decoder-embed-dim 256",
+        "--encoder-layers 3",
+        "--decoder-layers 3",
+        "--encoder-attention-heads 8",
+        "--decoder-attention-heads 8",
+        "--encoder-ffn-embed-dim 512",
+        "--decoder-ffn-embed-dim 512",
+        "--dropout 0.1",
+        "--no-epoch-checkpoints",
+        "--maximize-best-checkpoint-metric",
+        "--best-checkpoint-metric bleu",
+        "--eval-bleu",
+        "--eval-bleu-print-samples",
+        "--scoring sacrebleu",
+        "--log-format simple",
+        "--task translation",
+        "--task translation",
+    ]
+
+    # Run grid
+    main(fairseq_args=fairseq_cmd_args)
+

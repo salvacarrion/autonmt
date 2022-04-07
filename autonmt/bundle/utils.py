@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import shutil
 import random
 import re
 import sys
@@ -46,6 +47,48 @@ def make_dir(path, parents=True, exist_ok=True, base_path=""):
         if not os.path.exists(p):
             Path(p).mkdir(parents=parents, exist_ok=exist_ok)
             # print(f"Directory created: {p}")
+
+
+def is_dir_empty(path):
+    return os.listdir(path) == []
+
+
+def empty_dir(path, safe_seconds=0):
+    if safe_seconds > 0:
+        print(f"\t- Deleting files... (safe mode: ON | waiting {safe_seconds} seconds)")
+        time.sleep(safe_seconds)
+    else:
+        print(f"\t- Deleting files... (safe mode: OFF | no wait)")
+
+    # Delete files
+    shutil.rmtree(path)
+    make_dir(path)
+
+
+def rename_file(base_path, old_name, new_name):
+    try:
+        os.rename(os.path.join(base_path, old_name), os.path.join(base_path, new_name))
+    except FileNotFoundError as e:
+        print(e)
+
+
+def make_empty_path(path, force_overwrite, interactive=False, safe_seconds=0):
+    # Check if the directory and can be deleted it
+    is_empty = os.listdir(path) == []
+    if force_overwrite and os.path.exists(path) and not is_empty:
+        print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
+        res = ask_yes_or_no(question="Do you want to continue?", interactive=interactive)
+        if res:
+            if safe_seconds:
+                print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
+                time.sleep(safe_seconds)
+            # Delete path
+            shutil.rmtree(path)
+
+    # Create path if it doesn't exist
+    make_dir(path)
+    is_empty = os.listdir(path) == []
+    return is_empty
 
 
 def get_split_files(split_names, langs):

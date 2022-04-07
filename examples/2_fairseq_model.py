@@ -28,6 +28,7 @@ def main(fairseq_args, fairseq_venv_path):
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
     ts_datasets = builder.get_test_ds()
+
     # Train & Score a model for each dataset
     scores = []
     for ds in tr_datasets:
