@@ -264,10 +264,10 @@ fairseq_args = [
 
 # Train & Score a model for each dataset
 scores = []
-for ds in tr_datasets:
-    model = FairseqTranslator(model_ds=ds, force_overwrite=True, fairseq_venv_path="source /home/scarrion/.venvs/fairseq/bin/activate")
-    model.fit(max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, devices="auto", fairseq_args=fairseq_args)
-    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5, 10])
+for train_ds in tr_datasets:
+    model = FairseqTranslator()
+    model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
+    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5], model_ds=train_ds, force_overwrite=True)
     scores.append(m_scores)
 ```
 
