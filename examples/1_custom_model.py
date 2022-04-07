@@ -22,7 +22,7 @@ def main():
             {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
             {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
         ],
-        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
+        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
         merge_vocabs=False,
         eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)
@@ -43,7 +43,7 @@ def main():
         wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
         model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params)
         model.fit(train_ds, max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp")
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True)  # model_ds=train_ds => if fit() was not used before
         scores.append(m_scores)
 
     # Make report and print it

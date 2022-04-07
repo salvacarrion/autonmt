@@ -11,7 +11,7 @@ def normalize_file(input_file, output_file, normalizer, force_overwrite, limit=N
     if force_overwrite or not os.path.exists(output_file):
         lines = read_file_lines(input_file, autoclean=True)
         lines = lines if not limit else lines[:limit]
-        lines = lines if not normalizer else [normalizer.normalize_str(line) for line in lines]
+        lines = lines if not normalizer else [normalizer(line) for line in lines]
         write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding="utf-8")
         assert os.path.exists(output_file)
 

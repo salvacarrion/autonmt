@@ -26,10 +26,10 @@ def main():
             # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
             {"subword_models": ["word"], "vocab_sizes": [8000]},
         ],
-        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
+        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
         merge_vocabs=False,
         eval_mode="compatible",
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(make_plots=False, force_overwrite=True)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -46,7 +46,7 @@ def main():
         # Train model
         model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
         model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=False)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, force_overwrite=False, model_ds=train_ds)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, force_overwrite=False, model_ds=train_ds)  #
         scores.append(m_scores)
 
     # Make report and print it
