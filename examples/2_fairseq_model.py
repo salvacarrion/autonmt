@@ -70,8 +70,6 @@ if __name__ == "__main__":
         "--task translation",
     ]
 
-    venv_path = "/home/scarrion/.venvs/fairseq/bin/activate"  # (Optional) To speed-up training
-
     # Run grid
-    main(fairseq_args=fairseq_cmd_args, venv_path=venv_path)
+    main(fairseq_args=fairseq_cmd_args, venv_path=None)
 
