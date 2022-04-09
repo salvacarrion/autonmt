@@ -8,7 +8,7 @@ from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits.fairseq import FairseqTranslator
 
 
-def main(fairseq_args):
+def main(fairseq_args, venv_path=None):
     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
@@ -32,7 +32,7 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for train_ds in tr_datasets:
-        model = FairseqTranslator()
+        model = FairseqTranslator(venv_path=venv_path)
         model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, fairseq_args=fairseq_args, force_overwrite=True)
         m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)
@@ -70,6 +70,8 @@ if __name__ == "__main__":
         "--task translation",
     ]
 
+    venv_path = "/home/scarrion/.venvs/fairseq/bin/activate"  # (Optional) To speed-up training
+
     # Run grid
-    main(fairseq_args=fairseq_cmd_args)
+    main(fairseq_args=fairseq_cmd_args, venv_path=venv_path)
 
