@@ -18,18 +18,18 @@ def main(fairseq_args=None):
         datasets=[
             # {"name": "cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("100k", 100000)]},
             # {"name": "cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("100k", 100000)]},
-            # {"name": "cf", "languages": ["es-en"], "sizes": [("1k", 1000)], "split_sizes": (None, 100, 100)},
             {"name": "cf/multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "cf/euro30k", "languages": ["es-en"], "sizes": [("30k", 30000)], "split_sizes": (None, 1000, 1000)},
         ],
         encoding=[
             # {"subword_models": ["word", "unigram+bytes", "char+bytes"], "vocab_sizes": [8000, 16000]},
             # {"subword_models": ["word", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
             # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
-            {"subword_models": ["word+bytes", "unigram"], "vocab_sizes": [4000, 5000]},
+            {"subword_models": ["unigram"], "vocab_sizes": [4000]},
         ],
         normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
         merge_vocabs=False,
-        eval_mode="compatible",
+        eval_mode="same",
     ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
@@ -38,14 +38,24 @@ def main(fairseq_args=None):
 
     # Train & Score a model for each dataset
     scores = []
+    use_custom = False
     for train_ds in tr_datasets:
-        model = FairseqTranslator()
-        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp", fairseq_args=fairseq_args, force_overwrite=False)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "bertscore"}, beams=[1], model_ds=train_ds, force_overwrite=False)
+        if use_custom:
+            # Instantiate vocabs and model
+            src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
+            trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
+            model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+            model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
+            model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=True)
+        else:
+            model = FairseqTranslator()
+            model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
+
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)
 
     # Make report and print it
-    output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+    output_path = f".outputs/cf/fairseq"
     df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))

@@ -31,5 +31,6 @@ wandb
 
 # Fairseq
 # See: https://github.com/pypa/pip/issues/2994
-fairseq @ git+https://github.com/pytorch/fairseq.git@31d94f556bd49bc7e61511adbda482b2c54652b5#egg=fairseq
+#fairseq @ git+https://github.com/pytorch/fairseq.git@31d94f556bd49bc7e61511adbda482b2c54652b5#egg=fairseq
+fairseq @ git+https://github.com/salvacarrion/fairseq.git@main#egg=fairseq
 tensorboardX

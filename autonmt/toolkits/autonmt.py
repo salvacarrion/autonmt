@@ -91,7 +91,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             wandb_logger.watch(self.model)
 
         # Training
-        remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate'}
+        remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
         trainer.fit(self.model, train_loader, val_loader)
