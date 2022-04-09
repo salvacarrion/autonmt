@@ -58,6 +58,7 @@ train_dataset eval_dataset lang_pair subword_model vocab_size fairseq_bleu  Trai
 - **AutoNMT:** Max-tokens (dynamic batching) is a desirable feature to have (we know truncate is needed, losing part of the batch)
 - **AutoNMT:** Iterative decoding is needed to use beam search in real use cases
 - **AutoNMT:** Warm-up is needed to speed-up the convergence of the Transformer
+- **Fairseq:** There is a bug related to data parallelization that makes the code 200% when launched from Python w.r.t the command line.
 
 
 ### Tests (06/01/2021)
