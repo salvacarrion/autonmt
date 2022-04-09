@@ -27,7 +27,7 @@ def main(fairseq_args=None, venv_path=None):
             # {"subword_models": ["char", "unigram+bytes"], "vocab_sizes": [8000]},
             {"subword_models": ["unigram"], "vocab_sizes": [4000]},
         ],
-        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
+        normalizer=lambda x: normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str(x),
         merge_vocabs=False,
         eval_mode="same",
     ).build(make_plots=False, force_overwrite=False)
@@ -49,7 +49,7 @@ def main(fairseq_args=None, venv_path=None):
             model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=True)
         else:
             model = FairseqTranslator(venv_path=venv_path)
-            model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
+            model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, devices=1, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
 
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)

@@ -18,7 +18,7 @@ def main():
         encoding=[
             {"subword_models": ["unigram+bytes"], "vocab_sizes": [x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]]},
         ],
-        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]),
+        normalizer=lambda x: normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str(x),
         merge_vocabs=False,
         eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)

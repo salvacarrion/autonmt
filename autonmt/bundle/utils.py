@@ -69,7 +69,7 @@ def rename_file(base_path, old_name, new_name):
     try:
         os.rename(os.path.join(base_path, old_name), os.path.join(base_path, new_name))
     except FileNotFoundError as e:
-        print(e)
+        pass
 
 
 def make_empty_path(path, force_overwrite, interactive=False, safe_seconds=0):

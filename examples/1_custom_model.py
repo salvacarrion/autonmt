@@ -22,7 +22,7 @@ def main():
             {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
             {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
         ],
-        normalizer=normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str,
+        normalizer=lambda x: normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str(x),
         merge_vocabs=False,
         eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)

@@ -185,9 +185,6 @@ class FairseqTranslator(BaseTranslator):
                 print("\t- [Train]: Skipped. The checkpoint directory is not empty")
                 return
 
-        # Set warnings
-        if kwargs.get('devices'):
-            print("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
         if self.wandb_params:
             print("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
 
@@ -202,7 +199,8 @@ class FairseqTranslator(BaseTranslator):
 
         # Parse args and execute command
         if self.venv_path is None:
-            print("***************************************************************************************************")
+            print("=> [INFO]: Running Fairseq from Python")
+
             print("***************************************************************************************************")
             print("***************************************************************************************************")
             print("=> [WARNING]: KNOWN BUG!")
@@ -214,8 +212,13 @@ class FairseqTranslator(BaseTranslator):
             print("\t  => (Python code): model = FairseqTranslator(venv_path='/home/myuser/venv_autonmt/bin/activate')")
             print("***************************************************************************************************")
             print("***************************************************************************************************")
-            print("***************************************************************************************************")
-            time.sleep(3)
+            time.sleep(1)
+
+            # Parse gpu flag
+            num_gpus = kwargs.get('devices')
+            num_gpus = None if num_gpus == "auto" else num_gpus
+            if num_gpus and isinstance(num_gpus, int):
+                os.environ["CUDA_VISIBLE_DEVICES"] = ','.join([str(i) for i in range(num_gpus)])
 
             # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
             parser = options.get_training_parser(default_task="translation")
@@ -223,9 +226,17 @@ class FairseqTranslator(BaseTranslator):
             cfg = convert_namespace_to_omegaconf(args)
             distributed_utils.call_main(cfg, train.main)
         else:
+            print("=> [INFO]: Running Fairseq from CMD")
+
+            # Parse gpu flag
+            num_gpus = kwargs.get('devices')
+            num_gpus = None if num_gpus == "auto" else num_gpus
+            num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
+
             cmd = " ".join([x for x in input_args if x])  # Needs spaces. It doesn't work with ";" or "&&"
+            cmd = f"source {self.venv_path} && {num_gpus} fairseq-train  {cmd}"
             print(f"\t- [INFO]: Command used: {cmd}")
-            subprocess.call(['/bin/bash', '-c', f"source {self.venv_path} && fairseq-train  {cmd}"])
+            subprocess.call(['/bin/bash', '-c', cmd])
 
     def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,

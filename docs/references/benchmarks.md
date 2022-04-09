@@ -42,15 +42,20 @@ train_dataset eval_dataset lang_pair subword_model vocab_size  autonmt_bleu  Tra
   cf/multi30k  cf/multi30k     de-en          word       4000     34.698708  0:02:54.390875  0:00:01.209333
 
 
-max_epochs=10
-# Fairseq toolkit (no venv) => BUG!
+max_epochs=10 | 2 GPUs
+# Fairseq toolkit (no venv) => BUG!  // (2248MiB + 2090MiB)
 train_dataset eval_dataset lang_pair subword_model vocab_size fairseq_bleu  Training time   Translate time (beam=1)
-  cf/multi30k  cf/multi30k     de-en       unigram       4000    *  0:12:12.288445  0:00:06.665493
+  cf/multi30k  cf/multi30k     de-en       unigram       4000    35.520457  0:12:14.061107  0:00:06.639795
   
-max_epochs=10
-# Fairseq toolkit (with venv)
+max_epochs=10 | 2 GPUs
+# Fairseq toolkit (with venv)  // (1960MiB + 2090MiB)
 train_dataset eval_dataset lang_pair subword_model vocab_size fairseq_bleu  Training time   Translate time (beam=1)
   cf/multi30k  cf/multi30k     de-en       unigram       4000    35.520457  0:05:18.730773  0:00:06.789658
+  
+max_epochs=10 | 1 GPUs
+# Fairseq toolkit (with venv)
+train_dataset eval_dataset lang_pair subword_model vocab_size fairseq_bleu  Training time   Translate time (beam=1)
+  cf/multi30k  cf/multi30k     de-en       unigram       4000    36.50962  0:02:13.011535  0:00:06.667130
 ```
 
 **Conclusions:**
