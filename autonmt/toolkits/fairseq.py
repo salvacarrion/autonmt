@@ -167,7 +167,7 @@ class FairseqTranslator(BaseTranslator):
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/preprocess.py
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
         parser = options.get_preprocessing_parser(default_task="translation")
-        args = parser.parse_args(input_args)
+        args = parser.parse_args(args=input_args)
         preprocess.main(args)
 
     def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, run_name, ds_alias,
@@ -196,19 +196,18 @@ class FairseqTranslator(BaseTranslator):
 
         # Parse fairseq args
         input_args += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
+        input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
 
         # Parse args and execute command
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
-        input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
         parser = options.get_training_parser(default_task="translation")
-        args = options.parse_args_and_arch(parser, input_args)
+        args = options.parse_args_and_arch(parser, input_args=input_args)
         cfg = convert_namespace_to_omegaconf(args)
-        if args.profile:
-            with torch.cuda.profiler.profile():
-                with torch.autograd.profiler.emit_nvtx():
-                    distributed_utils.call_main(cfg, train.main)
-        else:
-            distributed_utils.call_main(cfg, train.main)
+        distributed_utils.call_main(cfg, train.main)
+
+        # cmd = " ".join([x for x in input_args if x])  # Needs spaces. It doesn't work with ";" or "&&"
+        # print(f"\t- [INFO]: Command used: {cmd}")
+        # subprocess.call(['/bin/bash', '-c', f"fairseq-train  {cmd}"])
 
     def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
@@ -242,7 +241,7 @@ class FairseqTranslator(BaseTranslator):
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/generate.py
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
         parser = options.get_generation_parser(default_task="translation")
-        args = options.parse_args_and_arch(parser, input_args)
+        args = options.parse_args_and_arch(parser, input_args=input_args)
         generate.main(args)
 
         # Prepare output files (from fairseq to tokenized form)

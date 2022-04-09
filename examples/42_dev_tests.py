@@ -84,7 +84,6 @@ if __name__ == "__main__":
         "--scoring sacrebleu",
         "--log-format simple",
         "--task translation",
-        "--task translation",
     ]
 
     # Run grid
