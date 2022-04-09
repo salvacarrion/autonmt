@@ -221,8 +221,11 @@ class DatasetBuilder:
             for ds in datasets_ori:  # Dataset
                 print(f"\t=> Creating reference partitions for '{ds.id(as_path=True)}'")
                 _files_missing = self._create_patitions_for_ds(ds, force_overwrite, interactive)
-                print(f"\t=> [WARNING]: No reference partition for '{ds.id(as_path=True)}'")
                 files_missing = files_missing or _files_missing
+                if _files_missing:
+                    print(f"\t=> [ERROR]: Missing files for the reference partitions (train/val/test): '{ds.id(as_path=True)}'")
+                else:
+                    print(f"\t=> Reference partitions created (train/val/test): '{ds.id(as_path=True)}'")
 
         else:
             # Create partitions for each dataset
@@ -230,6 +233,10 @@ class DatasetBuilder:
                 print(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
                 _files_missing = self._create_patitions_for_ds(ds, force_overwrite, interactive)
                 files_missing = files_missing or _files_missing
+                if _files_missing:
+                    print(f"\t=> [ERROR]: Missing files for the dataset partitions (train/val/test): '{ds.id(as_path=True)}'")
+                else:
+                    print(f"\t=> Dataset partitions created (train/val/test): '{ds.id(as_path=True)}'")
 
         # Stop program if there are files missing
         if files_missing:

@@ -225,6 +225,10 @@ class BaseTranslator(ABC):
         # Check preprocessing
         _check_datasets(train_ds=train_ds)
 
+        # Check debug
+        if is_debug_enabled():
+            print("\t=> [WARNING]: Debug is enabled. This could lead to critical problems when using a data parallel strategy.")
+
         # Set run name
         run_name = train_ds.get_run_name(self.run_prefix)
 

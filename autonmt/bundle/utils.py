@@ -413,3 +413,16 @@ def parse_fairseq_txt(text):
     groups = re.search(pattern, line).groups()
     result = {"bleu": {"score": float(groups[1])}}
     return result
+
+
+def is_debug_enabled():
+    # Tested on PyCharm 2021.3.2
+    gettrace = getattr(sys, 'gettrace', None)
+    if gettrace is None:
+        return False
+    else:
+        v = gettrace()
+        if v is None:
+            return False
+        else:
+            return True
