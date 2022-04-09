@@ -11,7 +11,7 @@ from autonmt.vocabularies import Vocabulary
 from autonmt.toolkits.fairseq import FairseqTranslator
 
 
-def main(fairseq_args=None):
+def main(fairseq_args=None, venv_path=None):
     # Create preprocessing for training
     builder = DatasetBuilder(
         base_path="/home/scarrion/datasets/nn/translation",
@@ -46,10 +46,10 @@ def main(fairseq_args=None):
             trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
             model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
             model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
-            model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=True)
+            model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, strategy="dp", force_overwrite=True)
         else:
-            model = FairseqTranslator()
-            model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
+            model = FairseqTranslator(venv_path=venv_path)
+            model.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, max_tokens=None, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
 
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], model_ds=train_ds, force_overwrite=True)
         scores.append(m_scores)
@@ -86,6 +86,8 @@ if __name__ == "__main__":
         "--task translation",
     ]
 
+    venv_path = "/home/scarrion/.venvs/fairseq/bin/activate"  # To speed-up training
+
     # Run grid
-    main(fairseq_args=fairseq_cmd_args)
+    main(fairseq_args=fairseq_cmd_args, venv_path=None)
 

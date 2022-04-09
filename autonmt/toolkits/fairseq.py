@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import time
 
 from autonmt.bundle import utils
 from autonmt.toolkits.base import BaseTranslator
@@ -109,10 +110,11 @@ def vocab_spm2fairseq(filename):
 
 class FairseqTranslator(BaseTranslator):
 
-    def __init__(self,  wandb_params=None, **kwargs):
+    def __init__(self,  wandb_params=None, venv_path=None, **kwargs):
         super().__init__(engine="fairseq", **kwargs)
 
         # Vars
+        self.venv_path = venv_path
         self.wandb_params = wandb_params
         if self.wandb_params:
             raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
@@ -199,15 +201,31 @@ class FairseqTranslator(BaseTranslator):
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
 
         # Parse args and execute command
-        # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
-        parser = options.get_training_parser(default_task="translation")
-        args = options.parse_args_and_arch(parser, input_args=input_args)
-        cfg = convert_namespace_to_omegaconf(args)
-        distributed_utils.call_main(cfg, train.main)
+        if self.venv_path is None:
+            print("***************************************************************************************************")
+            print("***************************************************************************************************")
+            print("***************************************************************************************************")
+            print("=> [WARNING]: KNOWN BUG!")
+            print("\t- Training a Fairseq model in a multi-gpu setup could slow down your training by a 200%.")
+            print("\t  As a workaround for this issue, we recommend to install 'Fairseq' in a virtual environment and use the 'venv_path' variable to specify its location.")
+            print("\t  => virtualenv -p $(which python) ~/venv_autonmt")
+            print("\t  => source ~/venv_autonmt/bin/activate")
+            print("\t  => pip install git+https://github.com/salvacarrion/fairseq.git@main#egg=fairseq")
+            print("\t  => (Python code): model = FairseqTranslator(venv_path='/home/myuser/venv_autonmt/bin/activate')")
+            print("***************************************************************************************************")
+            print("***************************************************************************************************")
+            print("***************************************************************************************************")
+            time.sleep(3)
 
-        # cmd = " ".join([x for x in input_args if x])  # Needs spaces. It doesn't work with ";" or "&&"
-        # print(f"\t- [INFO]: Command used: {cmd}")
-        # subprocess.call(['/bin/bash', '-c', f"fairseq-train  {cmd}"])
+            # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
+            parser = options.get_training_parser(default_task="translation")
+            args = options.parse_args_and_arch(parser, input_args=input_args)
+            cfg = convert_namespace_to_omegaconf(args)
+            distributed_utils.call_main(cfg, train.main)
+        else:
+            cmd = " ".join([x for x in input_args if x])  # Needs spaces. It doesn't work with ";" or "&&"
+            print(f"\t- [INFO]: Command used: {cmd}")
+            subprocess.call(['/bin/bash', '-c', f"source {self.venv_path} && fairseq-train  {cmd}"])
 
     def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    data_bin_path, output_path, checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
