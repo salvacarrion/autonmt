@@ -55,7 +55,7 @@ def main(fairseq_args=None, venv_path=None):
         scores.append(m_scores)
 
     # Make report and print it
-    output_path = f".outputs/cf/fairseq"
+    output_path = f"../.outputs/cf/fairseq"
     df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))

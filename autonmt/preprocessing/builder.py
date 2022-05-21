@@ -37,7 +37,9 @@ class DatasetBuilder:
         # Other
         self.ds_list = self._unroll_datasets(encodings=self._unroll_encoding(encoding), parent_ds=False)  # includes subwords, vocabs,...
         self.ds_list_parents = self._unroll_datasets(encodings=None, parent_ds=True)  # main preprocessing only
-        asd = 3
+
+        # Checks
+        self.checks()
 
     def __iter__(self):
         self.n = 0
@@ -53,6 +55,13 @@ class DatasetBuilder:
 
     def __len__(self):
         return len(self.ds_list)
+
+    def checks(self):
+        for d in self.datasets:
+            # Language pair format
+            for lang_pair in d.get("languages"):
+                if len(lang_pair) != 5 or lang_pair[2] != '-':
+                    raise ValueError("Language pairs must be defined with this format: 'xx-yy'")
 
     def _unroll_encoding(self, encoding):
         valid_enc = []
@@ -116,19 +125,23 @@ class DatasetBuilder:
         # Normalization
         self._normalization(force_overwrite=force_overwrite)
 
-        # Train model (applies pre-tokenization if needed)
-        self._train_tokenizer(force_overwrite=force_overwrite)
+        # Ignore further preprocessing if there is not encoding
+        if not self.encoding:
+            print("\t- [WARNING]: No encoding was specified")
+        else:
+            # Train model (applies pre-tokenization if needed)
+            self._train_tokenizer(force_overwrite=force_overwrite)
 
-        # Encode preprocessing
-        self._encode_datasets(force_overwrite=force_overwrite)
-        self._export_vocab_frequencies(force_overwrite=force_overwrite)
+            # Encode preprocessing
+            self._encode_datasets(force_overwrite=force_overwrite)
+            self._export_vocab_frequencies(force_overwrite=force_overwrite)
 
-        # Compute stats
-        self._compute_stats(force_overwrite=force_overwrite)
+            # Compute stats
+            self._compute_stats(force_overwrite=force_overwrite)
 
-        # Make plot
-        if make_plots:
-            self._plot_datasets(force_overwrite=force_overwrite)
+            # Make plot
+            if make_plots:
+                self._plot_datasets(force_overwrite=force_overwrite)
 
         return self
 
@@ -194,7 +207,7 @@ class DatasetBuilder:
                                          f"the number of encoded lines ({n_enc_lines}).")
 
         elif not splits and not raw:  # Create directories
-            print(f"\t\t=> [Missing data]: We could not find either the 'raw' folder or the 'splits' folder at: {ds.get_path()}")
+            print(f"\t\t=> [Missing data]: We could not find either the 'raw' folder or the 'splits' folder (with valid contents) at: {ds.get_path()}")
             res = ask_yes_or_no(question="Do you want to create the missing directories?",
                                 interactive=interactive)
             if res:
