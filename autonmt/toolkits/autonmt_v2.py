@@ -16,7 +16,7 @@ from autonmt.search.greedy_search import greedy_search
 from autonmt.toolkits.base import BaseTranslator
 
 
-class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
+class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
 
     def __init__(self, model, wandb_params=None, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
@@ -29,6 +29,11 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.val_tds = None
         self.test_tds = None
 
+        # Filters
+        self.filter_train = []
+        self.filter_eval = []
+        self.filter_fn = None
+
     def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path,
                     src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
         # Create preprocessing
@@ -39,12 +44,16 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Set common params
         params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
-                      filter_langs=ds.filter_train_langs)
+                      filter_fn=self.filter_fn)
         if not kwargs.get("external_data"):  # Training
-            self.train_tds = Seq2SeqDataset(file_prefix=train_path, **params, **kwargs)
-            self.val_tds = Seq2SeqDataset(file_prefix=val_path, **params, **kwargs)
+            self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_langs=self.filter_train, **params, **kwargs)
+            self.val_tds = []
+            for src_lang, trg_lang in zip(*self.filter_eval):
+                self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=([src_lang], [trg_lang]), **params, **kwargs))
         else:  # Evaluation
-            self.test_tds = Seq2SeqDataset(file_prefix=test_path, **params, **kwargs)
+            self.test_tds = []
+            for src_lang, trg_lang in zip(*self.filter_eval):
+                self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=([src_lang], [trg_lang]), **params, **kwargs))
 
     def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):
@@ -54,7 +63,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Define dataloaders
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
-        val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+        val_loaders = []
+        for val_tds_i in self.val_tds:
+            val_loaders.append(DataLoader(val_tds_i, shuffle=False, collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers))
 
         # Additional information for metrics
         self.model._src_vocab = self.train_tds.src_vocab
@@ -63,20 +74,21 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._pretok_flag = self.pretok_flag
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
+        self.model._filter_train = self.filter_train
+        self.model._filter_eval = self.filter_eval
 
         # Callbacks: Checkpoint
         callbacks = []
-        mode = "min" if monitor == "loss" else "max"
-        str_monitor = f"val_{monitor}"
-        filename = "checkpoint_best__{epoch}-{" + str_monitor + ":.2f}"
-        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=str_monitor, mode=mode,
+        mode = "min" if "loss" in monitor else "max"
+        filename = "checkpoint_best__{epoch}-{" + monitor.replace('/', '-') + ":.2f}"
+        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=monitor, mode=mode,
                                        filename=filename, save_weights_only=True)
         self.ckpt_cb.FILE_EXTENSION = ".pt"
         callbacks += [self.ckpt_cb]
 
         # Callback: EarlyStop
         if patience:
-            early_stop = EarlyStopping(monitor=str_monitor, patience=patience, mode=mode)
+            early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode)
             callbacks += [early_stop]
 
         # Loggers
@@ -95,7 +107,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
-        trainer.fit(self.model, train_loader, val_loader)
+        trainer.fit(self.model, train_loader, val_dataloaders=val_loaders)
 
         # Force finish
         if self.wandb_params:

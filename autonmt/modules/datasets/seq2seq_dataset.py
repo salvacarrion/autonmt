@@ -1,12 +1,15 @@
+import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+from itertools import compress
 
 from autonmt.bundle.utils import read_file_lines
 
 
 class Seq2SeqDataset(Dataset):
-    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None, **kwargs):
+    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None,
+                 filter_langs=None, filter_fn=None, **kwargs):
         # Set vocabs
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
@@ -19,9 +22,19 @@ class Seq2SeqDataset(Dataset):
         self.src_lines = read_file_lines(filename=src_file_path, autoclean=True)
         self.trg_lines = read_file_lines(filename=trg_file_path, autoclean=True)
 
+        # Filter langs
+        if filter_langs:
+            filter_src_langs, filter_trg_langs = filter_langs
+            src_mask = self.filter_langs(langs=filter_src_langs, lines=self.src_lines, filter_fn=filter_fn)
+            tgt_mask = self.filter_langs(langs=filter_trg_langs, lines=self.trg_lines, filter_fn=filter_fn)
+            mask = src_mask & tgt_mask
+            self.src_lines = list(compress(self.src_lines, mask))
+            self.trg_lines = list(compress(self.trg_lines, mask))
+
         # Limit lines
         self.src_lines = self.src_lines[:limit] if limit else self.src_lines
         self.trg_lines = self.trg_lines[:limit] if limit else self.trg_lines
+
         assert len(self.src_lines) == len(self.trg_lines)
 
     def __len__(self):
@@ -30,6 +43,15 @@ class Seq2SeqDataset(Dataset):
     def __getitem__(self, idx):
         src_line, trg_line = self.src_lines[idx], self.trg_lines[idx]
         return src_line, trg_line
+
+    def filter_langs(self, langs, lines, filter_fn):
+        if not filter_fn:
+            raise ValueError("'filter_fn' is missing")
+        if langs:
+            mask_valid = [any([filter_fn(line, lang) for lang in langs]) for line in lines]
+        else:
+            mask_valid = [1] * len(lines)
+        return np.array(mask_valid)
 
     def collate_fn(self, batch, max_tokens=None, **kwargs):
         x_encoded, y_encoded = [], []

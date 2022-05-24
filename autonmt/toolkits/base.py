@@ -208,10 +208,9 @@ class BaseTranslator(ABC):
         make_dir([model_data_bin_path])
 
         start_time = time.time()
-        self._preprocess(src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
+        self._preprocess(ds=ds, src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=ds.subword_model, pretok_flag=ds.pretok_flag,
                          force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 

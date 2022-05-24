@@ -119,8 +119,8 @@ class FairseqTranslator(BaseTranslator):
         if self.wandb_params:
             raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
 
-    def _preprocess(self, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, subword_model, force_overwrite, **kwargs):
+    def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
+                    trg_vocab_path, force_overwrite, **kwargs):
 
         # Check if the directory is empty and take action
         if not utils.is_dir_empty(output_path):

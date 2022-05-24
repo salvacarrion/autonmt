@@ -62,6 +62,11 @@ class Dataset:
         self.plots_path = plots_path
         self.stats_path = stats_path
 
+        # Filtering
+        self.filter_train_langs = None
+        self.filter_val_langs = None
+        self.filter_test_langs = None
+
     def __str__(self):
         if self.parent_ds:
             return '_'.join(list(self.id())).lower()

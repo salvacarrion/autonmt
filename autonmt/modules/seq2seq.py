@@ -45,11 +45,17 @@ class LitSeq2Seq(pl.LightningModule):
             raise ValueError("Unknown value for optimizer")
         return criterion_fn
 
-    def training_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, log_prefix="train")
+    def training_step(self, batch, batch_idx, dataloader_idx=0):
+        src_filters = ["all" if f is None else str(f).lower() for f in self._filter_train[0]]
+        trg_filters = ["all" if f is None else str(f).lower() for f in self._filter_train[1]]
+        train_prefix = f"train_{','.join(src_filters[:0+1])}-{','.join(trg_filters[:dataloader_idx+1])}"
+        return self._step(batch, batch_idx, log_prefix=train_prefix)
 
-    def validation_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, log_prefix="val")
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        src_filters = ["all" if f is None else str(f).lower() for f in self._filter_eval[0]]
+        trg_filters = ["all" if f is None else str(f).lower() for f in self._filter_eval[1]]
+        eval_prefix = f"val_{src_filters[dataloader_idx]}-{trg_filters[dataloader_idx]}"
+        return self._step(batch, batch_idx, log_prefix=eval_prefix)
 
     def _step(self, batch, batch_idx, log_prefix):
         x, y = batch
@@ -73,7 +79,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         # Compute metrics for validaiton
-        if log_prefix == "val":
+        if log_prefix.startswith("val"):
             self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, log_prefix=log_prefix)
         return loss
 
