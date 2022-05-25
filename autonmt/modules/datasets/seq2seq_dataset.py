@@ -33,7 +33,8 @@ class Seq2SeqDataset(Dataset):
         self.trg_lines = read_file_lines(filename=trg_file_path, autoclean=True)
 
         # Filter langs
-        if filter_langs:
+        self.filter_langs = filter_langs
+        if self.filter_langs:
             mask = mask_langs(langs=filter_langs, lines=self.src_lines, filter_fn=filter_fn)
             self.src_lines = list(compress(self.src_lines, mask))
             self.trg_lines = list(compress(self.trg_lines, mask))

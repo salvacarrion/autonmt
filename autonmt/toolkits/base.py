@@ -317,7 +317,7 @@ class BaseTranslator(ABC):
 
         # Preprocess external data
         test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
-        self._preprocess(src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+        self._preprocess(ds=model_ds, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                          output_path=model_eval_data_bin_path,
                          train_path=None, val_path=None, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
@@ -342,33 +342,36 @@ class BaseTranslator(ABC):
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
                     num_workers=num_workers, model_ds=model_ds, force_overwrite=force_overwrite, **kwargs)
 
-            # Copy src/ref raw
-            for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
-                raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, fname=f"normalized/test.{lang}")
-                output_file = os.path.join(output_path, f"{fname}.txt")
-                shutil.copyfile(raw_file, output_file)
+                # Copy src/ref raw
+                for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
+                    raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
+                                                                 eval_name=eval_name,
+                                                                 fname=f"normalized/test.{lang}")
+                    output_file = os.path.join(output_path, f"{fname}.txt")
+                    shutil.copyfile(raw_file, output_file)
 
-            # Postprocess tokenized files
-            for fname, lang in [("hyp", model_ds.trg_lang)]:
-                input_file = os.path.join(output_path, f"{fname}.tok")
-                output_file = os.path.join(output_path, f"{fname}.txt")
-                model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
+                # Postprocess tokenized files
+                for fname, lang in [("hyp", model_ds.trg_lang)]:
+                    input_file = os.path.join(output_path, f"{fname}.tok")
+                    output_file = os.path.join(output_path, f"{fname}.txt")
+                    model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
 
-                # Post-process files
-                decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                            subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                            model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
-                            force_overwrite=force_overwrite)
+                    # Post-process files
+                    decode_file(input_file=input_file, output_file=output_file, lang=lang,
+                                subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
+                                model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
+                                force_overwrite=force_overwrite)
 
-            # Check amount of lines
-            ref_lines = len(open(os.path.join(output_path, "ref.txt"), 'r').readlines())
-            hyp_lines = len(open(os.path.join(output_path, "hyp.txt"), 'r').readlines())
-            if ref_lines != hyp_lines:
-                raise ValueError(f"The number of lines in 'ref.txt' ({ref_lines}) and 'hyp.txt' ({hyp_lines}) "
-                                 f"does not match. If you see a 'CUDA out of memory' message, try again with "
-                                 f"smaller batch.")
+                # Check amount of lines
+                ref_lines = len(open(os.path.join(output_path, "ref.txt"), 'r').readlines())
+                hyp_lines = len(open(os.path.join(output_path, "hyp.txt"), 'r').readlines())
+                if ref_lines != hyp_lines:
+                    raise ValueError(f"The number of lines in 'ref.txt' ({ref_lines}) and 'hyp.txt' ({hyp_lines}) "
+                                     f"does not match. If you see a 'CUDA out of memory' message, try again with "
+                                     f"smaller batch.")
 
             print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
         print(f"=> [Score]: Started. ({model_ds.id2(as_path=True)})")

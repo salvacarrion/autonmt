@@ -58,16 +58,15 @@ def main():
     default_ds = tr_datasets[0]
     src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.src_lang)
     trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.trg_lang)
-    checkpoint_path = None
+    checkpoint_path = 'mymodels/seq/2022-05-25 19:12:18.696802/1_en-es/1_tr(en-es)_last.pt'
 
     # Train & Score a model for each dataset
     scores = []
     tr_langs_acc = []
-    reset_model = False
 
     # Filter languages
-    tr_pairs_seq = [None, ["en-es"], ["en-es", "en-fr"], ["en-de"]]
-    ts_pairs = [None, ["en-es", "en-fr"], ["en-fr"], ["en-de"]]
+    tr_pairs_seq = [["en-es"]]  #[["en-es"], ["en-fr"], ["en-de"]]
+    ts_pairs = [None, ["en-es"], ["en-fr"], ["en-de"]]
 
     mid = str(datetime.datetime.now())
     alias = "seq"
@@ -96,31 +95,38 @@ def main():
             t_model.load_state_dict(model_state_dict)
 
         wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
-        model = AutonmtTranslatorV2(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params, run_prefix=prefix, load_best_checkpoint=False)
+        model = AutonmtTranslatorV2(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+                                    wandb_params=wandb_params, run_prefix=prefix,
+                                    load_best_checkpoint=False, print_samples=10)
 
         # Set filters for multilingual/continual learning (sequential tasks)
         model.filter_train = tr_pairs
         model.filter_eval = ts_pairs  # Independent evaluation at log
         model.filter_fn = filter_fn
 
-        # Use multilingual val/test and then filter
-        model.fit(default_ds, max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=64, seed=1234, patience=5, num_workers=0,  monitor='val_all_loss/dataloader_idx_0')
+        # # Use multilingual val/test and then filter
+        # model.fit(default_ds, max_epochs=20, learning_rate=0.001, optimizer="adam", batch_size=64, seed=1234,
+        #           patience=0, num_workers=0,  monitor="val_loss")  #val_loss, 'val_all_loss/dataloader_idx_0'
 
         # Save model
-        checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
-        print(f"\t- Saving current model at: {checkpoint_path}")
-        torch.save(t_model.state_dict(), checkpoint_path)
+        # checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
+        # print(f"\t- Saving current model at: {checkpoint_path}")
+        # torch.save(t_model.state_dict(), checkpoint_path)
 
         # # Get predictions
-        # m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=False)  # model_ds=train_ds => if fit() was not used before
-        # scores.append(m_scores)
+        m_scores = model.predict(ts_datasets, model_ds=default_ds, metrics={"bleu"}, beams=[1], load_best_checkpoint=False)  # model_ds=train_ds => if fit() was not used before
+        scores.append(m_scores)
+        asd = 3
 
 
     # Make report and print it
-    # output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    # df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
-    # print("Summary:")
-    # print(df_summary.to_string(index=False))
+    output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+    for i in range(len(ts_pairs)):
+        print(f"EVAL PAIR: {ts_pairs[i]} ({i})")
+        df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric=f"beam1-{i}__sacrebleu_bleu_score")
+        print("Summary:")
+        print(df_summary.to_string(index=False))
+        print("-"*100)
 
 
 if __name__ == "__main__":

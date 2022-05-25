@@ -28,6 +28,7 @@ class LitSeq2Seq(pl.LightningModule):
         # Other
         self.save_hyperparameters()
         self.best_scores = defaultdict(float)
+        self.best_scores = defaultdict(float)
 
     def configure_optimizers(self):
         if self.optimizer == "adam":
@@ -46,14 +47,28 @@ class LitSeq2Seq(pl.LightningModule):
         return criterion_fn
 
     def training_step(self, batch, batch_idx, dataloader_idx=None):
-        return self._step(batch, batch_idx, log_prefix=f"train")
+        loss, _ = self._step(batch, batch_idx, log_prefix=f"train")
+        return loss
 
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
         eval_prefix = "val"
         if dataloader_idx is not None:
             extra = 'all' if self._filter_eval[dataloader_idx] is None else '+'.join(self._filter_eval[dataloader_idx])
             eval_prefix += "_" + extra
-        return self._step(batch, batch_idx, log_prefix=eval_prefix)
+        loss, outputs = self._step(batch, batch_idx, log_prefix=eval_prefix)
+        return loss, outputs
+
+    def validation_epoch_end(self, outputs):
+        # Print samples
+        if self._print_samples:
+            src = sum([batch[1]["src"] for batch in outputs], [])
+            hyp = sum([batch[1]["hyp"] for batch in outputs], [])
+            ref = sum([batch[1]["ref"] for batch in outputs], [])
+            for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
+                print(f"- Src. #{i}: {src_i}")
+                print(f"- Hyp. #{i}: {hyp_i}")
+                print(f"- Ref. #{i}: {ref_i}")
+                print("")
 
     def _step(self, batch, batch_idx, log_prefix):
         x, y = batch
@@ -77,19 +92,22 @@ class LitSeq2Seq(pl.LightningModule):
         self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         # Compute metrics for validaiton
+        outputs = None
         if log_prefix.startswith("val"):
-            self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, log_prefix=log_prefix)
-        return loss
+            outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)
+        return loss, outputs
 
-    def _compute_metrics(self, y_hat, y, metrics, log_prefix):
+    def _compute_metrics(self, y_hat, y, x, metrics, log_prefix):
         # Decode lines
         # Since ref lines are encoded, unknowns can appear. Therefore, for small vocabularies the scores could be strongly biased
         hyp_lines = [self._trg_vocab.decode(list(x)) for x in y_hat.detach().cpu().numpy()]
         ref_lines = [self._trg_vocab.decode(list(x)) for x in y.detach().cpu().numpy()]
+        src_lines = [self._src_vocab.decode(list(x)) for x in x.detach().cpu().numpy()]
 
         # Full decoding
         hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
         ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
+        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._subword_model, self._pretok_flag, self._src_model_vocab_path,  remove_unk_hyphen=True)
 
         # Compute metrics
         scores = []
@@ -106,3 +124,5 @@ class LitSeq2Seq(pl.LightningModule):
 
             self.log(f"{log_prefix}_{score_name}", score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
             self.log(f"{log_prefix}_best_{score_name}", best_score, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+        return {"hyp": hyp_lines, "ref": ref_lines, "src": src_lines}
