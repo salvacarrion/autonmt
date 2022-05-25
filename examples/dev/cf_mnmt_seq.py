@@ -22,12 +22,12 @@ import torch
 #     pass
 
 
-def filter_fn(line, lang_code):
-    if lang_code is None:
+def filter_fn(line, lang_pair):
+    if lang_pair is None:
         return True
     else:
-        tmp = line[:10].replace(' ', '').replace('▁', '').strip().lower()
-        return tmp.startswith(f"<{lang_code.lower().strip()}>")
+        tmp = line[:20].replace(' ', '').replace('▁', '').strip().lower()
+        return tmp.startswith(f"<{lang_pair.lower().strip()}>")
 
 def main():
     # Create preprocessing for training
@@ -37,7 +37,7 @@ def main():
             # {"name": "europarl_cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("500k", 500000), ("100k", 100000), ("10k", 10000)], "split_sizes": (None, 1000, 1000)},
             #{"name": "europarl_cf", "languages": ["xx-yy"], "sizes": [("1500k", 1500000), ("300k", 300000), ("30k", 30000)], "split_sizes": (None, 1000, 1000)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
 
-            {"name": "europarl_cf", "languages": ["xx-yy"], "sizes": [("300k", 300000)], "split_sizes": (None, 1000, 1000)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
+            {"name": "europarl_cf", "languages": ["en-xx"], "sizes": [("30k", 30000)], "split_sizes": (None, 1500, 1500)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
         ],
         encoding=[
             # {"subword_models": ["bytes", "char+bytes"], "vocab_sizes": [1000]},
@@ -62,30 +62,32 @@ def main():
 
     # Train & Score a model for each dataset
     scores = []
-    langs_acc = []
+    tr_langs_acc = []
     reset_model = False
 
     # Filter languages
-    tr_langs = ["es", "fr", "de"]
-    ts_langs = [None, "es", "fr", "de"]
+    tr_pairs_seq = [None, ["en-es"], ["en-es", "en-fr"], ["en-de"]]
+    ts_pairs = [None, ["en-es", "en-fr"], ["en-fr"], ["en-de"]]
+
     mid = str(datetime.datetime.now())
     alias = "seq"
-    for i, tr_lang in enumerate(tr_langs, 1):
-        m_path = os.path.join("mymodels", alias, str(mid), f"{str(i)}-{tr_lang}")
+    for i, tr_pairs in enumerate(tr_pairs_seq, 1):
+        tr_pairs_i_str = 'all' if tr_pairs is None else '+'.join(tr_pairs)
+        ts_pairs_str = '|'.join(["all" if x is None else '+'.join(x) for x in ts_pairs])
+        tr_langs_acc.append(tr_pairs_i_str)
+
+        # Create path
+        m_path = os.path.join("mymodels", alias, str(mid), f"{str(i)}_{','.join(tr_langs_acc)}")
         make_dir([m_path])
 
-        langs_acc.append(tr_lang)
-        tr_str = '+'.join(['all' if x is None else x for x in langs_acc])
-        ts_str = ','.join(['all' if x is None else x for x in ts_langs])
-        prefix = f"{i}_tr({tr_str})_ts({ts_str})"
-
+        prefix = f"{i}_tr({tr_pairs_i_str})"
         print(f"=> Training model... (ID={mid}-{i})")
-        print(f"\t- TRAINING ({i}/{len(tr_langs)}): {tr_lang} (hist.: {tr_str})")
-        print(f"\t- TESTING ({len(ts_langs)}): {ts_str}")
+        print(f"\t- TRAINING ({i}/{len(tr_pairs_seq)}): {tr_pairs_i_str} (hist.: {','.join(tr_langs_acc)})")
+        print(f"\t- TESTING ({len(ts_pairs)}): {ts_pairs_str}")
         print(f"\t- MODEL PREFIX: {prefix}")
         print(f"\t- MODEL PATH: {m_path}")
 
-        #Set model
+        # Set model
         t_model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
         if checkpoint_path:
             print(f"\t- Loading checkpoint: {checkpoint_path}")
@@ -93,24 +95,24 @@ def main():
             model_state_dict = model_state_dict.get("state_dict", model_state_dict)
             t_model.load_state_dict(model_state_dict)
 
-        wandb_params = dict(project="autonmt", entity="salvacarrion")
+        wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
         model = AutonmtTranslatorV2(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params, run_prefix=prefix, load_best_checkpoint=False)
 
         # Set filters for multilingual/continual learning (sequential tasks)
-        model.filter_train = ([tr_lang], ["en"])
-        model.filter_eval = (ts_langs, ["en"]*len(ts_langs))  # Independent evaluation at log
+        model.filter_train = tr_pairs
+        model.filter_eval = ts_pairs  # Independent evaluation at log
         model.filter_fn = filter_fn
 
         # Use multilingual val/test and then filter
-        model.fit(default_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=64, seed=1234, patience=0, num_workers=16,  monitor='val_all-en_loss/dataloader_idx_0')
+        model.fit(default_ds, max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=64, seed=1234, patience=5, num_workers=0,  monitor='val_all_loss/dataloader_idx_0')
 
         # Save model
         checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
         print(f"\t- Saving current model at: {checkpoint_path}")
         torch.save(t_model.state_dict(), checkpoint_path)
 
-        # Get predictions
-        # m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True)  # model_ds=train_ds => if fit() was not used before
+        # # Get predictions
+        # m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=False)  # model_ds=train_ds => if fit() was not used before
         # scores.append(m_scores)
 
 

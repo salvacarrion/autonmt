@@ -299,8 +299,9 @@ class DatasetBuilder:
             normalized_path = ds.get_normalized_path()
             make_dir([normalized_path])
 
-            print(f"\t- Normalizing splits: {ds.id(as_path=True)}")
+            print(f"\t=> Normalizing splits: {ds.id(as_path=True)}")
             for fname in ds.get_split_files():
+                print(f"\t\t- Normalizing split file: {fname}...")
                 input_file = ds.get_split_path(fname)
                 output_file = ds.get_normalized_path(fname)
 
@@ -323,6 +324,7 @@ class DatasetBuilder:
 
         print(f"\t- Pretokenizing splits: {ds.id(as_path=True)}")
         for fname in ds.get_split_files():
+            print(f"\t\t- Pretokenizing split file: {fname}...")
             lang = fname.split(".")[1]
             input_file = ds.get_normalized_path(fname)
             output_file = ds.get_pretok_path(fname)

@@ -48,12 +48,12 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         if not kwargs.get("external_data"):  # Training
             self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_langs=self.filter_train, **params, **kwargs)
             self.val_tds = []
-            for src_lang, trg_lang in zip(*self.filter_eval):
-                self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=([src_lang], [trg_lang]), **params, **kwargs))
+            for lang_pairs in self.filter_eval:
+                self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=lang_pairs, **params, **kwargs))
         else:  # Evaluation
             self.test_tds = []
-            for src_lang, trg_lang in zip(*self.filter_eval):
-                self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=([src_lang], [trg_lang]), **params, **kwargs))
+            for lang_pairs in self.filter_eval:
+                self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=lang_pairs, **params, **kwargs))
 
     def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):

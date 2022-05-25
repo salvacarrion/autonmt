@@ -7,6 +7,16 @@ from itertools import compress
 from autonmt.bundle.utils import read_file_lines
 
 
+def mask_langs(langs, lines, filter_fn):
+    if not filter_fn:
+        raise ValueError("'filter_fn' is missing")
+    if langs:
+        mask_valid = [any([filter_fn(line, lang) for lang in langs]) for line in lines]
+    else:
+        mask_valid = [1] * len(lines)
+    return np.array(mask_valid)
+
+
 class Seq2SeqDataset(Dataset):
     def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None,
                  filter_langs=None, filter_fn=None, **kwargs):
@@ -24,10 +34,7 @@ class Seq2SeqDataset(Dataset):
 
         # Filter langs
         if filter_langs:
-            filter_src_langs, filter_trg_langs = filter_langs
-            src_mask = self.filter_langs(langs=filter_src_langs, lines=self.src_lines, filter_fn=filter_fn)
-            tgt_mask = self.filter_langs(langs=filter_trg_langs, lines=self.trg_lines, filter_fn=filter_fn)
-            mask = src_mask & tgt_mask
+            mask = mask_langs(langs=filter_langs, lines=self.src_lines, filter_fn=filter_fn)
             self.src_lines = list(compress(self.src_lines, mask))
             self.trg_lines = list(compress(self.trg_lines, mask))
 
@@ -43,15 +50,6 @@ class Seq2SeqDataset(Dataset):
     def __getitem__(self, idx):
         src_line, trg_line = self.src_lines[idx], self.trg_lines[idx]
         return src_line, trg_line
-
-    def filter_langs(self, langs, lines, filter_fn):
-        if not filter_fn:
-            raise ValueError("'filter_fn' is missing")
-        if langs:
-            mask_valid = [any([filter_fn(line, lang) for lang in langs]) for line in lines]
-        else:
-            mask_valid = [1] * len(lines)
-        return np.array(mask_valid)
 
     def collate_fn(self, batch, max_tokens=None, **kwargs):
         x_encoded, y_encoded = [], []

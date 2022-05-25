@@ -45,16 +45,14 @@ class LitSeq2Seq(pl.LightningModule):
             raise ValueError("Unknown value for optimizer")
         return criterion_fn
 
-    def training_step(self, batch, batch_idx, dataloader_idx=0):
-        src_filters = ["all" if f is None else str(f).lower() for f in self._filter_train[0]]
-        trg_filters = ["all" if f is None else str(f).lower() for f in self._filter_train[1]]
-        train_prefix = f"train_{','.join(src_filters[:0+1])}-{','.join(trg_filters[:dataloader_idx+1])}"
-        return self._step(batch, batch_idx, log_prefix=train_prefix)
+    def training_step(self, batch, batch_idx, dataloader_idx=None):
+        return self._step(batch, batch_idx, log_prefix=f"train")
 
-    def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        src_filters = ["all" if f is None else str(f).lower() for f in self._filter_eval[0]]
-        trg_filters = ["all" if f is None else str(f).lower() for f in self._filter_eval[1]]
-        eval_prefix = f"val_{src_filters[dataloader_idx]}-{trg_filters[dataloader_idx]}"
+    def validation_step(self, batch, batch_idx, dataloader_idx=None):
+        eval_prefix = "val"
+        if dataloader_idx is not None:
+            extra = 'all' if self._filter_eval[dataloader_idx] is None else '+'.join(self._filter_eval[dataloader_idx])
+            eval_prefix += "_" + extra
         return self._step(batch, batch_idx, log_prefix=eval_prefix)
 
     def _step(self, batch, batch_idx, log_prefix):
