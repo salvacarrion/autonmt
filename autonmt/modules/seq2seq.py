@@ -28,7 +28,6 @@ class LitSeq2Seq(pl.LightningModule):
         # Other
         self.save_hyperparameters()
         self.best_scores = defaultdict(float)
-        self.best_scores = defaultdict(float)
 
     def configure_optimizers(self):
         if self.optimizer == "adam":
@@ -121,11 +120,15 @@ class LitSeq2Seq(pl.LightningModule):
         # Log metrics
         for score in scores:
             # Get score and keep best score
-            score_name = score['name'].lower()
-            best_score = max(score['score'], self.best_scores[score_name])
-            self.best_scores[score_name] = best_score
+            metric_name = score['name'].lower()
+            metric_key = f"{log_prefix}_{metric_name}"
 
-            self.log(f"{log_prefix}_{score_name}", score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f"{log_prefix}_best_{score_name}", best_score, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            # Get best
+            metric_key_best = f"{metric_key}_best"
+            self.best_scores[metric_key] = max(score['score'], self.best_scores[metric_key])
+
+            # Log metrics
+            self.log(metric_key, score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log(metric_key_best, self.best_scores[metric_key], on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         return {"hyp": hyp_lines, "ref": ref_lines, "src": src_lines}
