@@ -44,7 +44,8 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         # Filters
         self.filter_train = None
         self.filter_eval = None
-        self.filter_fn = None
+        self.filter_train_fn = None
+        self.filter_eval_fn = None
 
         # Other
         self.print_samples = print_samples
@@ -62,20 +63,22 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.filter_eval = [None] if not self.filter_eval else self.filter_eval
 
         # Set common params
-        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
-                      filter_fn=self.filter_fn)
+        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
         if not kwargs.get("external_data"):  # Training and Validation
             # Training
-            self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_langs=self.filter_train, **params, **kwargs)
+            self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_langs=self.filter_train,
+                                            filter_fn=self.filter_train_fn, **params, **kwargs)
 
             # Validation
             self.val_tds = []
             for lang_pairs in self.filter_eval:
-                self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=lang_pairs, **params, **kwargs))
+                self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=lang_pairs,
+                                                   filter_fn=self.filter_eval_fn, **params, **kwargs))
         else:  # Evaluation
             self.test_tds = []
             for lang_pairs in self.filter_eval:
-                self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=lang_pairs, **params, **kwargs))
+                self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=lang_pairs,
+                                                    filter_fn=self.filter_eval_fn, **params, **kwargs))
 
     def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):

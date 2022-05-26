@@ -21,6 +21,41 @@ import torch
 # class TransformerV2(LitSeq2SeqV2):
 #     pass
 
+PREF_PROB = 0.25
+
+def filter_train_fn(line, lang_pair):
+    if lang_pair is None:
+        return True
+    else:
+        lang_pair = lang_pair.lower().strip()
+        keys = ["en-es", "en-fr", "en-de"]
+        key_line = line[:20].replace(' ', '').replace('▁', '').strip().lower()[1:6]
+        idx = keys.index(lang_pair)
+        idx_line = keys.index(key_line)
+        if idx_line < idx:  # "seen
+            p = PREF_PROB
+        elif idx_line == idx:
+            p = 1.0
+        else:  # Not seen
+            p = 0.0
+        return random.random() <= p
+
+
+def filter_eval_fn(line, lang_pair):
+    if lang_pair is None:
+        return True
+    else:
+        lang_pair = lang_pair.lower().strip()
+        keys = ["en-es", "en-fr", "en-de"]
+        key_line = line[:20].replace(' ', '').replace('▁', '').strip().lower()[1:6]
+        idx = keys.index(lang_pair)
+        idx_line = keys.index(key_line)
+        if idx_line <= idx:  # "seen
+            p = 1.0
+        else:  # Not seen
+            p = 0.0
+        return bool(p)
+
 
 def filter_fn(line, lang_pair):
     if lang_pair is None:
@@ -28,6 +63,8 @@ def filter_fn(line, lang_pair):
     else:
         tmp = line[:20].replace(' ', '').replace('▁', '').strip().lower()
         return tmp.startswith(f"<{lang_pair.lower().strip()}>")
+
+
 
 def main():
     # Create preprocessing for training
@@ -37,7 +74,7 @@ def main():
             # {"name": "europarl_cf", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("500k", 500000), ("100k", 100000), ("10k", 10000)], "split_sizes": (None, 1000, 1000)},
             #{"name": "europarl_cf", "languages": ["xx-yy"], "sizes": [("1500k", 1500000), ("300k", 300000), ("30k", 30000)], "split_sizes": (None, 1000, 1000)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
 
-            {"name": "europarl_cf", "languages": ["en-xx"], "sizes": [("300k", 300000)], "split_sizes": (None, 1500, 1500)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
+            {"name": "europarl_cf", "languages": ["en-xx"], "sizes": [("30k", 30000)], "split_sizes": (None, 1500, 1500)},  #("1500k", 1500000), ("300k", 300000), ("30k", 30000)
         ],
         encoding=[
             # {"subword_models": ["bytes", "char+bytes"], "vocab_sizes": [1000]},
@@ -58,33 +95,34 @@ def main():
     default_ds = tr_datasets[0]
     src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.src_lang)
     trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.trg_lang)
-    checkpoint_path = None #'mymodels/seq/2022-05-25 19:12:18.696802/1_en-es/1_tr(en-es)_last.pt'
+    checkpoint_path = "/home/scarrion/Documents/Programming/Python/autonmt/examples/mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
 
     # Train & Score a model for each dataset
     scores = []
-    tr_langs_acc = []
+    tr_langs_acc = ["en-es"]
 
     # Filter languages
-    tr_pairs_seq = [None, ["en-es"], ["en-fr"], ["en-de"]]
+    tr_pairs_seq = [["en-fr"], ["en-de"]]
     ts_pairs = [None, ["en-es"], ["en-fr"], ["en-de"]]
 
     mid = str(datetime.datetime.now())
-    alias = "baselines"
+    alias = "seq"
     for i, tr_pairs in enumerate(tr_pairs_seq, 1):
         tr_pairs_i_str = 'all' if tr_pairs is None else '+'.join(tr_pairs)
         ts_pairs_str = '|'.join(["all" if x is None else '+'.join(x) for x in ts_pairs])
         tr_langs_acc.append(tr_pairs_i_str)
 
         # Create path
-        m_path = os.path.join("mymodels", alias, str(mid), f"{str(i)}_{','.join(tr_langs_acc)}")
+        prefix = f"{str(i)}_{','.join(tr_langs_acc)}_pp{PREF_PROB}"
+        m_path = os.path.join("mymodels", alias, str(mid), prefix)
         make_dir([m_path])
 
-        prefix = f"{i}_tr({tr_pairs_i_str})"
         print(f"=> Training model... (ID={mid}-{i})")
         print(f"\t- TRAINING ({i}/{len(tr_pairs_seq)}): {tr_pairs_i_str} (hist.: {','.join(tr_langs_acc)})")
         print(f"\t- TESTING ({len(ts_pairs)}): {ts_pairs_str}")
         print(f"\t- MODEL PREFIX: {prefix}")
         print(f"\t- MODEL PATH: {m_path}")
+        print(f"\t- PREV. PROB: {PREF_PROB}")
 
         # Set model
         t_model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
@@ -102,7 +140,8 @@ def main():
         # Set filters for multilingual/continual learning (sequential tasks)
         model.filter_train = tr_pairs
         model.filter_eval = ts_pairs  # Independent evaluation at log
-        model.filter_fn = filter_fn
+        model.filter_train_fn = filter_train_fn
+        model.filter_eval_fn = filter_eval_fn
 
         # Use multilingual val/test and then filter
         if len(ts_pairs) <= 1:
@@ -114,15 +153,16 @@ def main():
             monitor += f"_loss/dataloader_idx_{dataloader_idx}"
 
         # Train
-        model.fit(default_ds, max_epochs=100, learning_rate=0.0001, optimizer="adam", batch_size=96, seed=1234,
-                  patience=10, num_workers=0,  monitor=monitor, devices="auto", accelerator="auto", strategy="ddp")  #val_loss, 'val_all_loss/dataloader_idx_0'
+        model.fit(default_ds, max_epochs=10, learning_rate=0.0001, optimizer="adam", batch_size=64, seed=1234,
+                  patience=0, num_workers=0,  monitor=monitor, devices="auto", accelerator="auto", strategy="dp")  #val_loss, 'val_all_loss/dataloader_idx_0'
 
         # Save model
         checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
         print(f"\t- Saving current model at: {checkpoint_path}")
         torch.save(t_model.state_dict(), checkpoint_path)
-        checkpoint_path = None
-        tr_langs_acc = []
+        # checkpoint_path = None
+        # tr_langs_acc = []
+        asd = 3
 
         # # Get predictions
         # m_scores = model.predict(ts_datasets, model_ds=default_ds, metrics={"bleu"}, beams=[1], load_best_checkpoint=False)  # model_ds=train_ds => if fit() was not used before
