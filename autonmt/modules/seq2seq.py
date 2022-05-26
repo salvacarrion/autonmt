@@ -61,14 +61,17 @@ class LitSeq2Seq(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         # Print samples
         if self._print_samples:
-            src = sum([batch[1]["src"] for batch in outputs], [])
-            hyp = sum([batch[1]["hyp"] for batch in outputs], [])
-            ref = sum([batch[1]["ref"] for batch in outputs], [])
-            for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
-                print(f"- Src. #{i}: {src_i}")
-                print(f"- Hyp. #{i}: {hyp_i}")
-                print(f"- Ref. #{i}: {ref_i}")
-                print("")
+            iter_yield = zip([outputs], ["all"]) if len(self._filter_eval) <= 1 else zip(outputs, self._filter_eval)
+            for i, (preds, ts_filter) in enumerate(iter_yield):  # Iterate over dataloader
+                print(f"=> Printing samples: (Filter: {'+'.join(ts_filter) if ts_filter else str(ts_filter)}; val. dataloader_idx={i})")
+                src, hyp, ref = list(zip(*[(x["src"], x["hyp"], x["ref"]) for x in list(zip(*preds))[1]]))
+                src, hyp, ref = sum(src, []), sum(hyp, []), sum(ref, [])
+                for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
+                    print(f"- Src. #{i}: {src_i}")
+                    print(f"- Ref. #{i}: {ref_i}")
+                    print(f"- Hyp. #{i}: {hyp_i}")
+                    print("")
+                print("-"*100)
 
     def _step(self, batch, batch_idx, log_prefix):
         x, y = batch

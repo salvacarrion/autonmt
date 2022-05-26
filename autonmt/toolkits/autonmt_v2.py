@@ -42,13 +42,12 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.test_tds = None
 
         # Filters
-        self.filter_train = []
-        self.filter_eval = []
+        self.filter_train = None
+        self.filter_eval = None
         self.filter_fn = None
 
         # Other
         self.print_samples = print_samples
-
 
     def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path,
                     src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
@@ -58,11 +57,18 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.src_vocab_path = src_vocab_path
         self.trg_vocab_path = trg_vocab_path
 
+        # Set default values for filter
+        self.filter_train = None if not self.filter_train else self.filter_train
+        self.filter_eval = [None] if not self.filter_eval else self.filter_eval
+
         # Set common params
         params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
                       filter_fn=self.filter_fn)
-        if not kwargs.get("external_data"):  # Training
+        if not kwargs.get("external_data"):  # Training and Validation
+            # Training
             self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_langs=self.filter_train, **params, **kwargs)
+
+            # Validation
             self.val_tds = []
             for lang_pairs in self.filter_eval:
                 self.val_tds.append(Seq2SeqDataset(file_prefix=val_path, filter_langs=lang_pairs, **params, **kwargs))
@@ -77,12 +83,14 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
         # - "resume_training" is not needed. models are initialized by the user.
 
-        # Define dataloaders
+        # Training dataloaders
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+
+        # Validation dataloaders
         val_loaders = []
         for val_tds_i in self.val_tds:
             val_loaders.append(DataLoader(val_tds_i, shuffle=False, collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers))
-        if len(val_loaders) == 1 and "dataloader_idx_" in monitor:
+        if len(val_loaders) == 1 and "dataloader_idx_" in monitor:  # Check
             raise ValueError(f"[MONITOR] You don't need to specify the 'dataloader_idx' ({monitor}) in the monitor when there is just one validation loader")
 
         # Additional information for metrics
@@ -126,7 +134,7 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
-        trainer.fit(self.model, train_loader, val_dataloaders=val_loaders)
+        trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
         # Force finish
         if self.wandb_params:
