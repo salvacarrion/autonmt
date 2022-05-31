@@ -7,15 +7,6 @@ from itertools import compress
 from autonmt.bundle.utils import read_file_lines
 
 
-def mask_langs(langs, lines, filter_fn):
-    if not filter_fn:
-        raise ValueError("'filter_fn' is missing")
-    if langs:
-        mask_valid = [any([filter_fn(line, lang) for lang in langs]) for line in lines]
-    else:
-        mask_valid = [1] * len(lines)
-    return np.array(mask_valid)
-
 
 class Seq2SeqDataset(Dataset):
     def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None,
@@ -33,9 +24,9 @@ class Seq2SeqDataset(Dataset):
         self.trg_lines = read_file_lines(filename=trg_file_path, autoclean=True)
 
         # Filter langs
-        self.filter_langs = filter_langs
-        if self.filter_langs:
-            mask = mask_langs(langs=filter_langs, lines=self.src_lines, filter_fn=filter_fn)
+        if filter_fn:
+            filter_langs = [None] if filter_langs is None else filter_langs
+            mask = np.array([any([filter_fn(line, lang) for lang in filter_langs]) for line in self.src_lines])
             self.src_lines = list(compress(self.src_lines, mask))
             self.trg_lines = list(compress(self.trg_lines, mask))
 
