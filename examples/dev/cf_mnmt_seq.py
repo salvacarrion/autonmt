@@ -117,16 +117,16 @@ def main(prob_old_tr):
     default_ds = tr_datasets[0]
     src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.src_lang)
     trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.trg_lang)
-    checkpoint_path = "mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
-    # checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
-    # checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/3_en-fr/3_tr(en-fr)_last.pt"
+    # checkpoint_path = "mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"  # local
+    checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"  # remote
+    # checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/3_en-fr/3_tr(en-fr)_last.pt"  # remote
 
     # Train & Score a model for each dataset
     scores = []
     tr_langs_acc = ["en-es"]
 
     # Filter languages
-    tr_pairs_seq = [["en-fr"]]
+    tr_pairs_seq = [["en-fr"], ["en-de"]]
     ts_pairs = [None, ["en-es"], ["en-fr"], ["en-de"]]
 
     alias = "seq"
@@ -136,7 +136,7 @@ def main(prob_old_tr):
         tr_langs_acc.append(tr_pairs_i_str)
 
         # Create path
-        prefix = f"{str(i)}_{','.join(tr_langs_acc)}_pp{prob_old_tr}"
+        prefix = f"{str(i)}_{','.join(tr_langs_acc)}_pp{prob_old_tr}_physically_oversampled"
         m_path = os.path.join("mymodels", alias)
         make_dir([m_path])
 
@@ -170,14 +170,15 @@ def main(prob_old_tr):
         if len(ts_pairs) <= 1:
             monitor = "val_loss"
         else:
-            dataloader_idx = i-1
+            dataloader_idx = ts_pairs.index(tr_pairs)  # 0 for global
             monitor = "val_"
             monitor += 'all' if ts_pairs[dataloader_idx] is None else '+'.join(ts_pairs[dataloader_idx])
             monitor += f"_loss/dataloader_idx_{dataloader_idx}"
+        print(f"\t- MONITOR: {monitor}")
 
         # Train
         model.fit(default_ds, max_epochs=25, learning_rate=0.0001, optimizer="adam", batch_size=96, seed=1234,
-                  patience=5, num_workers=12,  monitor=monitor, devices="auto", accelerator="auto", strategy="dp")  #val_loss, 'val_all_loss/dataloader_idx_0'
+                  patience=5, num_workers=12,  monitor=monitor, devices="auto", accelerator="auto", strategy="ddp")  #val_loss, 'val_all_loss/dataloader_idx_0'
 
         # Save model
         checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
