@@ -25,10 +25,7 @@ class Seq2SeqDataset(Dataset):
 
         # Filter langs
         if filter_fn:
-            filter_langs = [None] if filter_langs is None else filter_langs
-            mask = np.array([any([filter_fn(line, lang) for lang in filter_langs]) for line in self.src_lines])
-            self.src_lines = list(compress(self.src_lines, mask))
-            self.trg_lines = list(compress(self.trg_lines, mask))
+            self.src_lines, self.trg_lines = filter_fn(self.src_lines, self.trg_lines, filter_langs)
 
         # Limit lines
         self.src_lines = self.src_lines[:limit] if limit else self.src_lines

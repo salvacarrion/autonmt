@@ -13,7 +13,9 @@ from autonmt.toolkits.autonmt_v2 import AutonmtTranslatorV2
 from autonmt.vocabularies import Vocabulary
 from autonmt.bundle.utils import make_dir
 import torch
+import numpy as np
 
+from collections import defaultdict
 # class LitSeq2SeqV2(LitSeq2Seq):
 #     pass
 #
@@ -24,30 +26,68 @@ import torch
 
 
 def main(prob_old_tr):
-    def filter_train_fn(line, lang_pair):
-        if lang_pair is None:
-            return True
-        else:
-            lang_pair = lang_pair.lower().strip()
-            keys = ["en-es", "en-fr", "en-de"]
-            key_line = line[:20].replace(' ', '').replace('▁', '').strip().lower()[1:6]
-            idx = keys.index(lang_pair)
-            idx_line = keys.index(key_line)
-            if idx_line < idx:  # "seen
-                p = prob_old_tr
-            elif idx_line == idx:
-                p = 1.0
-            else:  # Not seen
-                p = 0.0
-            return random.random() < p
+    DS_LANGS = ["en-es", "en-fr", "en-de"]
 
-    def filter_eval_fn(line, lang_pair):
-        if lang_pair is None:
-            return True
-        else:
-            tmp = line[:20].replace(' ', '').replace('▁', '').strip().lower()
-            return tmp.startswith(f"<{lang_pair.lower().strip()}>")
+    def filter_train_fn(src_lines, trg_lines, filter_langs):
+        filter_langs = [None] if filter_langs is None else filter_langs  # Fix non-lists
 
+        tr_lang = filter_langs[0]  # Trick
+        filter_langs = DS_LANGS[:DS_LANGS.index(tr_lang)+1]
+        filter_probs = {lang: 1.0 if lang == tr_lang else prob_old_tr for lang in filter_langs}
+
+        # Filter by language and split
+        datasets = defaultdict(list)
+        for src_line, trg_line in zip(src_lines, trg_lines):
+            lang_code = src_line[:20].replace(' ', '').replace('▁', '').strip().lower()[1:6]
+            if None in filter_langs or lang_code in filter_langs:
+                if random.random() < filter_probs[lang_code]:  # Filter % samples
+                    datasets[lang_code].append((src_line, trg_line))
+
+        # Compute coefficients
+        samples_by_lang = [len(datasets[lang]) for lang in datasets.keys()]
+        ratios_per_batch = [len(datasets[lang])/max(samples_by_lang) for lang in datasets.keys()]
+        coeff_by_lang = [1/ratio for ratio in ratios_per_batch]
+
+        # Get oversampled dataset
+        new_samples_by_lang = {lang: round(count*coeff) for lang, count, coeff, in zip(datasets.keys(), samples_by_lang, coeff_by_lang)}
+        lines = []
+        for lang in datasets.keys():
+            lines += datasets[lang]  # Add all
+
+            # Oversample rest
+            target_lines = new_samples_by_lang[lang]
+            missing = max(target_lines - len(datasets[lang]), 0)  # Just in case
+            lines += random.choices(datasets[lang], k=missing)
+
+        # Shuffle lines
+        random.shuffle(lines)
+
+        # Split src and trt lines
+        src_lines, trg_lines = list(zip(*lines))
+        return src_lines, trg_lines
+
+    def filter_eval_fn(src_lines, trg_lines, filter_langs):
+        filter_langs = [None] if filter_langs is None else filter_langs  # Fix non-lists
+
+        # Filter by language and split
+        datasets = defaultdict(list)
+        filter_langs = set(filter_langs)
+        for src_line, trg_line in zip(src_lines, trg_lines):
+            lang_code = src_line[:20].replace(' ', '').replace('▁', '').strip().lower()[1:6]
+            if None in filter_langs or lang_code in filter_langs:
+                datasets[lang_code].append((src_line, trg_line))
+
+        # Get lines
+        lines = []
+        for lang in datasets.keys():
+            lines += datasets[lang]  # Add all
+
+        # Shuffle lines
+        random.shuffle(lines)
+
+        # Split src and trt lines
+        src_lines, trg_lines = list(zip(*lines))
+        return src_lines, trg_lines
 
     # Create preprocessing for training
     builder = DatasetBuilder(
@@ -77,7 +117,8 @@ def main(prob_old_tr):
     default_ds = tr_datasets[0]
     src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.src_lang)
     trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=default_ds, lang=default_ds.trg_lang)
-    checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
+    checkpoint_path = "mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
+    # checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/2_en-es/2_tr(en-es)_last.pt"
     # checkpoint_path = "/home/scarrion/projects/autonmt/mymodels/baselines/3_en-fr/3_tr(en-fr)_last.pt"
 
     # Train & Score a model for each dataset
@@ -85,7 +126,7 @@ def main(prob_old_tr):
     tr_langs_acc = ["en-es"]
 
     # Filter languages
-    tr_pairs_seq = [["en-fr"], ["en-de"]]
+    tr_pairs_seq = [["en-fr"]]
     ts_pairs = [None, ["en-es"], ["en-fr"], ["en-de"]]
 
     alias = "seq"
@@ -136,7 +177,7 @@ def main(prob_old_tr):
 
         # Train
         model.fit(default_ds, max_epochs=25, learning_rate=0.0001, optimizer="adam", batch_size=96, seed=1234,
-                  patience=5, num_workers=12,  monitor=monitor, devices="auto", accelerator="auto", strategy="ddp")  #val_loss, 'val_all_loss/dataloader_idx_0'
+                  patience=5, num_workers=12,  monitor=monitor, devices="auto", accelerator="auto", strategy="dp")  #val_loss, 'val_all_loss/dataloader_idx_0'
 
         # Save model
         checkpoint_path = os.path.join(m_path, prefix + "_last.pt")
@@ -162,6 +203,6 @@ def main(prob_old_tr):
 
 
 if __name__ == "__main__":
-    for p in [0.01, 0.05, 0.1, 0.25, 0.0, 1.0]:
+    for p in [0.01, 0.05, 0.1, 0.25]:
         main(p)
     print("Done!")
