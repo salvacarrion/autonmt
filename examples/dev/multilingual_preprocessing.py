@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import shutil
 import random
 random.seed(123)
@@ -5,11 +7,19 @@ random.seed(123)
 from autonmt.bundle.utils import read_file_lines, write_file_lines
 
 
-def add_tags(reverse=False):
-    for lang1 in ["es", "fr", "de"]:
-        for lang2 in ["en"]:
+SOURCE_LANGUAGES = ["es", "fr", "de", "cs"]
+TARGET_LANGUAGES = ["en"]
+
+SOURCE_PATH = "/home/scarrion/datasets/nn/translation/europarl_cf/base/{}-{}/{}/data/raw"
+TARGET_NAME = "en-zz"
+TARGET_PATH = "/home/scarrion/datasets/nn/translation/europarl_cf/{}/{}/data/raw"
+
+
+def add_tags(reverse=False, force_overwrite=True):  # reverse=> xx-en; else=> en-xx
+    for lang1 in SOURCE_LANGUAGES:
+        for lang2 in TARGET_LANGUAGES:
             for split in ["train"]:
-                src = f"/home/scarrion/datasets/nn/translation/europarl_cf/{lang1}-en/original/data/raw"
+                src = SOURCE_PATH.format(lang1, lang2, "original")
 
                 # Read files
                 f_src = read_file_lines(f"{src}/{split}.{lang1}", autoclean=False)
@@ -25,9 +35,13 @@ def add_tags(reverse=False):
                     f_tgt = [line for line in f_tgt]
 
                 # # Save files
-                write_file_lines(f_src, f"{src}/{split}.xx")
-                write_file_lines(f_tgt, f"{src}/{split}.yy")
-                print(f"Language files written: {lang1}-{lang2}-{split}")
+                if force_overwrite or \
+                        (not os.path.exists(f"{src}/{split}.xx") and not os.path.exists(f"{src}/{split}.yy")):
+                    write_file_lines(f_src, f"{src}/{split}.xx")
+                    write_file_lines(f_tgt, f"{src}/{split}.yy")
+                    print(f"Language files written: {lang1}-{lang2}-{split}")
+                else:
+                    print(f"[WARNING] File/s exists. Skipping files: {lang1}-{lang2}-{split}")
 
 
 def concat_tagged_files(shuffle=True):
@@ -35,9 +49,9 @@ def concat_tagged_files(shuffle=True):
         datasets = {"train": {"src": [], "tgt": []}, "val": {"src": [], "tgt": []}, "test": {"src": [], "tgt": []}}
 
         split = "train"
-        for lang1 in ["es", "fr", "de"]:
-            for lang2 in ["en"]:
-                src = f"/home/scarrion/datasets/nn/translation/europarl_cf/{lang1}-{lang2}/{ds_size}/data/raw"
+        for lang1 in SOURCE_LANGUAGES:
+            for lang2 in TARGET_LANGUAGES:
+                src = SOURCE_PATH.format(lang1, lang2, ds_size)
 
                 # Read files
                 print(f"Reading files: {ds_size}-{split}")
@@ -55,7 +69,11 @@ def concat_tagged_files(shuffle=True):
             random.shuffle(tmp)
             src, tgt = zip(*tmp)
 
-        dst = f"/home/scarrion/datasets/nn/translation/europarl_cf/en-xx/{ds_size}/data/raw"
+        # Set target path
+        dst = TARGET_PATH.format(TARGET_NAME, ds_size)
+        Path(dst).mkdir(parents=True, exist_ok=True)
+
+        # Write files
         write_file_lines(src, f"{dst}/{split}.en")
         write_file_lines(tgt, f"{dst}/{split}.xx")
         print(f"Multilingual files written: {ds_size}-{split}")
@@ -63,6 +81,6 @@ def concat_tagged_files(shuffle=True):
 
 
 if __name__ == "__main__":
-    # add_tags()
+    add_tags()
     concat_tagged_files()
     print("Done!")
