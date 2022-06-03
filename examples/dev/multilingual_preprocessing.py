@@ -70,12 +70,13 @@ def concat_tagged_files(shuffle=True):
             src, tgt = zip(*tmp)
 
         # Set target path
+        src_code, trg_code = TARGET_NAME.split('-')
         dst = TARGET_PATH.format(TARGET_NAME, ds_size)
         Path(dst).mkdir(parents=True, exist_ok=True)
 
         # Write files
-        write_file_lines(src, f"{dst}/{split}.en")
-        write_file_lines(tgt, f"{dst}/{split}.xx")
+        write_file_lines(src, f"{dst}/{split}.{src_code}")
+        write_file_lines(tgt, f"{dst}/{split}.{trg_code}")
         print(f"Multilingual files written: {ds_size}-{split}")
         ewr = 33
 
