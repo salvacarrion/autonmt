@@ -294,7 +294,7 @@ def read_file_lines(filename, autoclean=True, remove_empty=False, encoding="utf8
                 line = line.decode(encoding.lower(), errors="replace")
 
             # Add line
-            if line or not remove_empty:
+            if not remove_empty or line:
                 lines.append(line)
     return lines
 
@@ -426,3 +426,9 @@ def is_debug_enabled():
             return False
         else:
             return True
+
+def shuffle_in_order(list1, list2):
+    temp = list(zip(list1, list2))
+    random.shuffle(temp)
+    list1, list2 = zip(*temp)
+    return list(list1), list(list2)
