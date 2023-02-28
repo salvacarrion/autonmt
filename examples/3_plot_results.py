@@ -16,20 +16,18 @@ def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
         # Root folder for datasets
-        base_path="/home/scarrion/datasets/translate",
+        base_path="datasets/translate",
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
-            # {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
-            # {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
+            {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
+            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
         ],
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["char+bytes", "unigram", "word"], "vocab_sizes": [8000]},
-            # {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
-            # {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
+            {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
+            {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
         ],
 
         # Preprocessing functions
