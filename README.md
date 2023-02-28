@@ -360,7 +360,7 @@ The python implementations produces the same results as the command line version
 
 ### Layout example
 
-This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt)
+This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt))
 
 ```text
 multi30k/
