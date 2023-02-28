@@ -1,19 +1,15 @@
-import datetime
 import os.path
 import random
 
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
-from autonmt.bundle.report import generate_report
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.modules.models import Transformer
-from autonmt.modules.seq2seq import LitSeq2Seq
-from autonmt.toolkits.autonmt_v2 import AutonmtTranslatorV2
+from examples.dev.autonmt_v2 import AutonmtTranslatorV2
 from autonmt.vocabularies import Vocabulary
 from autonmt.bundle.utils import make_dir
 import torch
-import numpy as np
 
 from collections import defaultdict
 # class LitSeq2SeqV2(LitSeq2Seq):

@@ -35,6 +35,7 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.model = model
         self.ckpt_cb = None
         self.wandb_params = wandb_params
+        self.print_samples = print_samples
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
@@ -48,7 +49,6 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.filter_eval_fn = None
 
         # Other
-        self.print_samples = print_samples
 
     def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path,
                     src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
@@ -103,9 +103,9 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.model._pretok_flag = self.pretok_flag
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
+        self.model._print_samples = self.print_samples
         self.model._filter_train = self.filter_train
         self.model._filter_eval = self.filter_eval
-        self.model._print_samples = self.print_samples
 
         # Callbacks: Checkpoint
         callbacks = []

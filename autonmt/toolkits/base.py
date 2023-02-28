@@ -6,7 +6,7 @@ from typing import List, Set
 from autonmt.bundle.metrics import *
 from autonmt.bundle.utils import *
 from autonmt.preprocessing.dataset import Dataset
-from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file, decode_file
+from autonmt.preprocessing.processors import preprocess_predict_file, pretokenize_file, encode_file, decode_file
 
 
 def _check_datasets(train_ds: Dataset = None, eval_ds: Dataset = None):
@@ -163,7 +163,8 @@ class BaseTranslator(ABC):
         elif self.model_ds:
             pass
         else:
-            raise ValueError(f"Missing 'model_ds'. It's needed to get the model's path (training and eval).")
+            raise ValueError(f"Missing 'model_ds'. It's needed to get the model's path (training and eval).\n"
+                             f"Use the 'model_ds=train_ds' argument, if fit() was not used before predict().")
 
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
@@ -202,13 +203,10 @@ class BaseTranslator(ABC):
         test_path = ds.get_encoded_path(fname=ds.test_name)
         model_src_vocab_path = ds.get_vocab_file(lang=src_lang)
         model_trg_vocab_path = ds.get_vocab_file(lang=trg_lang)
-        model_data_bin_path = ds.get_model_data_bin(toolkit=self.engine)
-
-        # Create dirs
-        make_dir([model_data_bin_path])
 
         start_time = time.time()
-        self._preprocess(ds=ds, src_lang=src_lang, trg_lang=trg_lang, output_path=model_data_bin_path,
+        self._preprocess(ds=ds, output_path=None,
+                         src_lang=src_lang, trg_lang=trg_lang,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
                          force_overwrite=force_overwrite, **kwargs)
@@ -232,20 +230,18 @@ class BaseTranslator(ABC):
         run_name = train_ds.get_run_name(self.run_prefix)
 
         # Set paths
-        data_bin_path = train_ds.get_model_data_bin(toolkit=self.engine)
         checkpoints_dir = train_ds.get_model_checkpoints_path(toolkit=self.engine, run_name=run_name)
         logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=run_name)
 
         # Create dirs
-        make_dir([data_bin_path, checkpoints_dir, logs_path])
+        make_dir([checkpoints_dir, logs_path])
 
         # Set seed
         self.manual_seed(seed=kwargs.get("seed"))
 
         start_time = time.time()
-        self._train(data_bin_path=data_bin_path, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
-                    run_name=run_name, ds_alias='_'.join(train_ds.id()),
-                    resume_training=resume_training, force_overwrite=force_overwrite, **kwargs)
+        self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
+                    run_name=run_name, resume_training=resume_training, force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
     @abstractmethod
@@ -270,55 +266,42 @@ class BaseTranslator(ABC):
         # [Trained model]: Create eval folder
         model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
         model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
-        model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
-        model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        model_eval_path = model_ds.get_model_eval_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        make_dir([model_eval_path])  # Create dir
 
-        # Create dirs
-        make_dir([model_eval_data_path, model_eval_data_bin_path])
+        # Create data directories
+        dst_raw_path = os.path.join(model_eval_path, model_ds.data_raw_path)
+        dst_preprocessed_path = os.path.join(model_eval_path, model_ds.data_raw_preprocessed_path)
+        dst_encoded_path = os.path.join(model_eval_path, model_ds.data_encoded_path)
+        make_dir([dst_raw_path, dst_preprocessed_path, dst_encoded_path])  # Create dirs
 
         # [Encode extern data]: Encode test data using the subword model of the trained model
         for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
             lang = ts_fname.split('.')[-1]
-            input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-            output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
-                                                            eval_name=eval_name)
+            input_file = eval_ds.get_split_path(ts_fname)  # As "raw" as possible. The split preprocessing will depend on the model
 
-            # Create directories
-            make_dir([
-                os.path.join(output_file, "raw"),
-                os.path.join(output_file, "normalized"),
-                os.path.join(output_file, "tokenized"),
-                os.path.join(output_file, "encoded"),
-            ])
+            # 1 - Get source file
+            source_file = os.path.join(dst_raw_path, ts_fname)
+            shutil.copyfile(input_file, source_file)
+            input_file = source_file
 
-            # Copy raw
-            raw_file = os.path.join(output_file, "raw", ts_fname)
-            shutil.copyfile(input_file, raw_file)
-            input_file = raw_file
-
-            # Normalize data
-            norm_file = os.path.join(output_file, "normalized", ts_fname)
-            normalize_file(input_file=input_file, output_file=norm_file,
-                           normalizer=model_ds.normalizer, force_overwrite=force_overwrite)
-            input_file = norm_file
-
-            # Pretokenize data (if needed)
-            if model_ds.pretok_flag:
-                pretok_file = os.path.join(output_file, "tokenized", ts_fname)
-                pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
-                                 force_overwrite=force_overwrite)
-                input_file = pretok_file
+            # 2 - Preprocess file (+pretokenization if needed)
+            preprocessed_file = os.path.join(dst_preprocessed_path, ts_fname)
+            preprocess_predict_file(input_file=input_file, output_file=preprocessed_file,
+                           preprocess_fn=model_ds.preprocess_predict_fn, pretokenize=model_ds.pretok_flag, lang=lang,
+                           force_overwrite=force_overwrite)
+            input_file = preprocessed_file
 
             # Encode file
-            enc_file = os.path.join(output_file, "encoded", ts_fname)
+            enc_file = os.path.join(dst_encoded_path, ts_fname)
             encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
                         lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
                         force_overwrite=force_overwrite)
 
         # Preprocess external data
-        test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
-        self._preprocess(ds=model_ds, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                         output_path=model_eval_data_bin_path,
+        test_path = os.path.join(dst_encoded_path, eval_ds.test_name)  # without lang extension
+        self._preprocess(ds=model_ds, output_path=model_eval_path,
+                         src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                          train_path=None, val_path=None, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
                          subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
@@ -329,26 +312,24 @@ class BaseTranslator(ABC):
         for beam in beams:
             start_time = time.time()
             # Create output path (if needed)
-            output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
+            output_path = model_ds.get_model_eval_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
             make_dir(output_path)
 
             # Translate
             tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
             if force_overwrite or not all(tok_flag):
-                self._translate(
+                self._translate(model_ds=model_ds, data_path=model_eval_path, output_path=output_path,
                     src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
                     beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
-                    data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoints_dir=checkpoints_dir,
+                    checkpoints_dir=checkpoints_dir,
                     model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                    num_workers=num_workers, model_ds=model_ds, force_overwrite=force_overwrite, **kwargs)
+                    num_workers=num_workers, force_overwrite=force_overwrite, **kwargs)
 
                 # Copy src/ref raw
                 for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
-                    raw_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
-                                                                 eval_name=eval_name,
-                                                                 fname=f"normalized/test.{lang}")
+                    raw_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{lang}")
                     output_file = os.path.join(output_path, f"{fname}.txt")
-                    shutil.copyfile(raw_file, output_file)
+                    shutil.copyfile(raw_file, output_file)  # Copy raw files
 
                 # Postprocess tokenized files
                 for fname, lang in [("hyp", model_ds.trg_lang)]:
@@ -363,10 +344,10 @@ class BaseTranslator(ABC):
                                 force_overwrite=force_overwrite)
 
                 # Check amount of lines
-                ref_lines = len(open(os.path.join(output_path, "ref.txt"), 'r').readlines())
-                hyp_lines = len(open(os.path.join(output_path, "hyp.txt"), 'r').readlines())
-                if ref_lines != hyp_lines:
-                    raise ValueError(f"The number of lines in 'ref.txt' ({ref_lines}) and 'hyp.txt' ({hyp_lines}) "
+                num_lines_ref = count_file_lines(os.path.join(output_path, "ref.txt"))
+                num_lines_hyp = count_file_lines(os.path.join(output_path, "hyp.txt"))
+                if num_lines_ref != num_lines_hyp:
+                    raise ValueError(f"The number of lines in 'ref.txt' ({num_lines_ref}) and 'hyp.txt' ({num_lines_hyp}) "
                                      f"does not match. If you see a 'CUDA out of memory' message, try again with "
                                      f"smaller batch.")
 
@@ -394,8 +375,8 @@ class BaseTranslator(ABC):
             start_time = time.time()
 
             # Paths
-            beam_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
-            scores_path = model_ds.get_model_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
+            beam_path = model_ds.get_model_eval_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
+            scores_path = model_ds.get_model_eval_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
 
             # Create dirs
             make_dir([scores_path])
@@ -480,8 +461,7 @@ class BaseTranslator(ABC):
         # Iterate over beams
         for beam in beams:
             # Paths
-            scores_path = model_ds.get_model_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name,
-                                                         beam=beam)
+            scores_path = model_ds.get_model_eval_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name,beam=beam)
 
             # Walk through metric files
             beam_scores = {}
@@ -514,7 +494,7 @@ class BaseTranslator(ABC):
         import torch
         import random
         import numpy as np
-        from pytorch_lightning.utilities.seed import seed_everything
+        from lightning_fabric.utilities.seed import seed_everything
 
         # Define seed
         seed = seed if seed is not None else int(time.time()) % 2**32

@@ -6,8 +6,6 @@ from itertools import compress
 
 from autonmt.bundle.utils import read_file_lines
 
-
-
 class Seq2SeqDataset(Dataset):
     def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None,
                  filter_langs=None, filter_fn=None, **kwargs):

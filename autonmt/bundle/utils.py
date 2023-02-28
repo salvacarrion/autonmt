@@ -103,62 +103,6 @@ def get_translation_files(src_lang, trg_lang):
     return files
 
 
-def preprocess_text(text, letter_case=None, collapse_whitespace=True, strip_whitespace=True, normalization="NFKC",
-                    **kwargs):
-    try:
-        # Set lower/upper case
-        if letter_case == "lower":
-            text = text.lower()
-        elif letter_case == "upper":
-            text = text.upper()
-        else:
-            pass
-
-        # Normalization Form Compatibility Composition
-        if normalization:
-            text = unicodedata.normalize(normalization.upper(), text)
-
-        # Remove repeated whitespaces "   " => " "
-        if collapse_whitespace:
-            p_whitespace = re.compile(" +")
-            text = p_whitespace.sub(' ', text)
-
-        # Strip whitespace
-        if strip_whitespace:
-            text = text.strip()
-
-    except TypeError as e:
-        # print(f"=> Error preprocessing: '{text}'")
-        text = ""
-    return text
-
-
-def preprocess_pairs(src_lines, trg_lines, shuffle):
-    assert len(src_lines) == len(trg_lines)
-
-    lines = []
-    for _src_line, _trg_line in tqdm(zip(src_lines, trg_lines), total=len(src_lines)):  # TODO: SLOW!
-        src_line = preprocess_text(_src_line)
-        trg_line = preprocess_text(_trg_line)
-
-        # Remove empty line
-        remove_pair = False
-        if len(src_line) == 0 or len(trg_line) == 0:
-            remove_pair = True
-        # elif math.fabs(len(src)-len(trg)) > 20:
-        #     remove_pair = True
-
-        # Add lines
-        if not remove_pair:
-            lines.append((src_line, trg_line))
-
-    # Shuffle
-    if shuffle:
-        random.shuffle(lines)
-
-    return lines
-
-
 def get_frequencies(filename):
     vocab_frequencies = defaultdict(int)
     with open(filename, 'r') as f:
@@ -283,7 +227,7 @@ def clean_file_line(line, encoding="utf8"):
     return line
 
 
-def read_file_lines(filename, autoclean=True, remove_empty=False, encoding="utf8"):
+def read_file_lines(filename, autoclean=False, remove_empty=False, encoding="utf8"):
     with open(filename, 'rb') as f:  # Sometimes there are byte characters
         lines = []
         for line in f.readlines():
@@ -294,7 +238,7 @@ def read_file_lines(filename, autoclean=True, remove_empty=False, encoding="utf8
                 line = line.decode(encoding.lower(), errors="replace")
 
             # Add line
-            if line or not remove_empty:
+            if not remove_empty or line:
                 lines.append(line)
     return lines
 
@@ -426,3 +370,13 @@ def is_debug_enabled():
             return False
         else:
             return True
+
+def shuffle_in_order(list1, list2):
+    temp = list(zip(list1, list2))
+    random.shuffle(temp)
+    list1, list2 = zip(*temp)
+    return list(list1), list(list2)
+
+def count_file_lines(file_path):
+    num_lines = sum(1 for i in open(file_path, 'rb'))
+    return num_lines

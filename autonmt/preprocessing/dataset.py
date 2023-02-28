@@ -6,17 +6,29 @@ from autonmt.bundle import utils
 
 
 class Dataset:
-    def __init__(self, base_path, parent_ds,
-                 dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines, splits_sizes,
-                 subword_model, vocab_size, merge_vocabs, eval_mode, normalizer=None,
+    # Level 0: Dataset name
+    # Level 1: Dataset language pair
+    # Level 2: Dataset size name
+    # Level 3: data/models/stats/vocabs/plots
+    # Level 4-data: raw/splits/pretokenized/encoded/...
+    # Level 4-models: frameworks->runs->(run_name)->[checkpoints/eval/logs]
+    def __init__(self, base_path, parent_ds, dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
+                 splits_sizes, subword_model, vocab_size, merge_vocabs, eval_mode,
+                 preprocess_raw_fn=None, preprocess_splits_fn=None, preprocess_predict_fn=None,
                  train_name="train", val_name="val", test_name="test",
-                 raw_path=os.path.join("data", "raw"), splits_path=os.path.join("data", "splits"),
-                 encoded_path=os.path.join("data", "encoded"), normalized_path=os.path.join("data", "normalized"),
-                 pretokenized_path=os.path.join("data", "pretokenized"),
-                 models_path="models", models_data_bin_path="data-bin", models_runs_path="runs",
-                 models_checkpoints_path="checkpoints", model_logs_path="logs", models_eval_path="eval",
-                 models_eval_data_path="data", models_beam_path="beams", models_scores_path="scores",
-                 vocab_path=os.path.join("vocabs"), plots_path="plots", stats_path="stats"):
+                 # Data
+                 data_path="data", data_raw_path="0_raw", data_raw_preprocessed_path="1_raw_preprocessed",
+                 data_splits_path="1_splits", data_splits_preprocessed_path="2_preprocessed",
+                 data_pretokenized_path="3_pretokenized", data_encoded_path="4_encoded",
+                 # Models
+                 models_path="models", models_runs_path="runs", models_checkpoints_path="checkpoints",
+                 model_logs_path="logs", models_eval_path="eval", models_eval_beam_path="beam", models_eval_beam_scores_path="scores",
+                 # Stats
+                 stats_path="stats",
+                 # Vocabs
+                 vocab_path="vocabs",
+                 # Plots
+                 plots_path="plots"):
         # Add properties
         self.base_path = base_path
         self.parent_ds = parent_ds
@@ -34,7 +46,11 @@ class Dataset:
         self.pretok_flag = (self.subword_model == "word")
         self.merge_vocabs = merge_vocabs
         self.eval_mode = eval_mode
-        self.normalizer = normalizer
+
+        # Preprocessing
+        self.preprocess_raw_fn = preprocess_raw_fn
+        self.preprocess_splits_fn = preprocess_splits_fn
+        self.preprocess_predict_fn = preprocess_predict_fn
 
         # Constants: split names
         self.train_name = train_name
@@ -43,29 +59,39 @@ class Dataset:
         self.split_names = (self.train_name, self.val_name, self.test_name)
         self.split_names_lang = [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
 
-        # Add default paths
-        self.data_raw_path = raw_path
-        self.data_splits_path = splits_path
-        self.data_encoded_path = encoded_path
-        self.data_normalized_path = normalized_path
-        self.data_pretokenized_path = pretokenized_path
+        # Data paths
+        self.data_path = data_path
+        self.data_raw_path = os.path.join(self.data_path, data_raw_path)
+        self.data_raw_preprocessed_path = os.path.join(self.data_path, data_raw_preprocessed_path)
+        self.data_splits_path = os.path.join(self.data_path, data_splits_path)
+        self.data_splits_preprocessed_path = os.path.join(self.data_path, data_splits_preprocessed_path)
+        self.data_pretokenized_path = os.path.join(self.data_path, data_pretokenized_path)
+        self.data_encoded_path = os.path.join(self.data_path, data_encoded_path)
+
+        # Models paths: toolkit/runs/model_name/[checkpoints, logs, eval]
         self.models_path = models_path
-        self.models_data_bin_path = models_data_bin_path
         self.models_runs_path = models_runs_path
-        self.models_checkpoints_path = models_checkpoints_path
         self.model_logs_path = model_logs_path
+        self.models_checkpoints_path = models_checkpoints_path
         self.models_eval_path = models_eval_path
-        self.models_eval_data_path = models_eval_data_path
-        self.models_beam_path = models_beam_path
-        self.models_scores_path = models_scores_path
+        # Models paths: Eval data
+        self.models_eval_beam_path = models_eval_beam_path
+        self.models_eval_beam_scores_path = models_eval_beam_scores_path
+
+        # Stats paths
+        self.stats_path = stats_path
+
+        # Vocabs path
         self.vocab_path = vocab_path
         self.plots_path = plots_path
-        self.stats_path = stats_path
 
         # Filtering
         self.filter_train_langs = None
         self.filter_val_langs = None
         self.filter_test_langs = None
+
+        # Other
+        self.source_data = None  # Raw or Splits
 
     def __str__(self):
         if self.parent_ds:
@@ -95,8 +121,11 @@ class Dataset:
     def get_raw_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_raw_path, fname)
 
-    def get_normalized_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_normalized_path, fname)
+    def get_raw_preprocessed_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_raw_preprocessed_path, fname)
+
+    def get_splits_preprocessed_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_splits_preprocessed_path, fname)
 
     def get_pretok_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
@@ -109,7 +138,7 @@ class Dataset:
             if self.pretok_flag:
                 return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
             else:
-                return os.path.join(self.base_path, *self.id(), self.data_normalized_path, fname)
+                return os.path.join(self.base_path, *self.id(), self.data_splits_preprocessed_path, fname)
         else:
             return os.path.join(self.base_path, *self.id(), self.data_encoded_path, *self.vocab_size_id(), fname)
 
@@ -128,24 +157,24 @@ class Dataset:
         else:
             return os.path.join(self.base_path, *self.id(), self.vocab_path, *self.vocab_size_id(), f"{lang}")
 
-    def get_model_data_bin(self, toolkit, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_data_bin_path, *self.vocab_size_id(), fname)
+    def get_toolkit_path(self, toolkit, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, fname)
 
-    def get_model_eval_path(self, toolkit, run_name, eval_name):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name)
+    def get_bin_data(self, toolkit, data_bin_name, fname=""):
+        return os.path.join(self.get_toolkit_path(toolkit), data_bin_name, *self.vocab_size_id(), fname)
 
-    def get_model_eval_data_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_eval_data_path, fname)
+    def get_model_eval_path(self, toolkit, run_name, eval_name, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, fname)
 
-    def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_data_bin_path, fname)
-
-    def get_model_beam_path(self, toolkit, run_name, eval_name, beam=""):
+    def get_model_eval_beam_path(self, toolkit, run_name, eval_name, beam=""):
         beam_n = f"beam{str(beam)}" if beam else ""
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, self.models_beam_path, beam_n)
+        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), self.models_eval_beam_path, beam_n)
 
-    def get_model_scores_path(self, toolkit, run_name, eval_name, beam):
-        return os.path.join(self.get_model_beam_path(toolkit, run_name, eval_name, beam), self.models_scores_path)
+    def get_model_eval_beam_scores_path(self, toolkit, run_name, eval_name, beam):
+        return os.path.join(self.get_model_eval_beam_path(toolkit, run_name, eval_name, beam), self.models_eval_beam_scores_path)
+
+    def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, data_bin_name, fname=""):
+        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), data_bin_name, fname)
 
     def get_model_logs_path(self, toolkit, run_name, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.model_logs_path, fname)
@@ -158,6 +187,33 @@ class Dataset:
 
     def get_stats_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.stats_path, *self.vocab_size_id(), fname)
+
+    def get_raw_files(self):
+        raw_files = [f for f in os.listdir(self.get_raw_path()) if f[-2:] in {self.src_lang, self.trg_lang}]
+
+        # Check number of files
+        if len(raw_files) != 2:
+            raise ValueError(f"Invalid number of raw files. Found '{len(raw_files)}' files when expecting 2.")
+
+        # Sort raw files
+        src_path, trg_path = None, None
+        for filename in raw_files:
+            if filename[-2:].lower() == self.src_lang and src_path is None:  # Check extension
+                src_path = self.get_raw_path(fname=filename)
+            elif filename[-2:].lower() == self.trg_lang and trg_path is None:
+                trg_path = self.get_raw_path(fname=filename)
+            else:
+                raise ValueError(f"Invalid file extension '{filename[-2:].lower()}' for file '{filename}'")
+        assert os.path.isfile(src_path) and os.path.isfile(trg_path)  # Check files exist
+
+        # Get filenames (consistency)
+        src_path = os.path.basename(src_path)
+        trg_path = os.path.basename(trg_path)
+
+        return src_path, trg_path
+
+    def get_raw_preprocessed_files(self):
+        return [f"{self.raw_preprocessed_name}.{ext}" for ext in (self.src_lang, self.trg_lang)]
 
     def get_split_files(self):
         return [f"{fname}.{ext}" for fname in self.split_names for ext in (self.src_lang, self.trg_lang)]
@@ -242,19 +298,21 @@ class Dataset:
             split_stats[fname] = row
         return split_stats
 
-    def has_raw_files(self):
-        # Get language
-        src_lang, trg_lang = self.id()[1].split("-")
-
-        # Check if the raw directory exists (...with all the data)
+    def has_raw_files(self, verbose=True):
+        # Check if the split directory exists (...with all the data)
         raw_path = self.get_raw_path()
 
         # Check if path exists
         if os.path.exists(raw_path):
-            # Check files
-            raw_files = [f for f in os.listdir(raw_path) if f[-2:] in {src_lang, trg_lang}]
-            return len(raw_files) == 2
-        return False
+            try:
+                # Check files
+                raw_files = self.get_raw_files()
+                raw_files = [self.get_raw_path(f) for f in raw_files]
+                return all([os.path.exists(p) for p in raw_files]), raw_files
+            except ValueError as e:
+                if verbose:
+                    print(f"=> [ERROR CAPTURED]: {e}")
+        return False, []
 
     def has_split_files(self):
         # Check if the split directory exists (...with all the data)
@@ -263,6 +321,6 @@ class Dataset:
         # Check if path exists
         if os.path.exists(splits_path):
             # Check files
-            split_files = [os.path.join(splits_path, fname) for fname in self.get_split_files()]
-            return all([os.path.exists(p) for p in split_files])
-        return False
+            split_files = [self.get_split_path(f) for f in self.get_split_files()]
+            return all([os.path.exists(p) for p in split_files]), split_files
+        return False, []
