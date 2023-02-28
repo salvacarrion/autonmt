@@ -18,18 +18,19 @@ from autonmt.toolkits.base import BaseTranslator
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, wandb_params=None, **kwargs):
+    def __init__(self, model, wandb_params=None, print_samples=False, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
         self.ckpt_cb = None
         self.wandb_params = wandb_params
+        self.print_samples = print_samples
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
         self.val_tds = None
         self.test_tds = None
 
-    def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path,
+    def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path,
                     src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
         # Create preprocessing
         self.subword_model = ds.subword_model
@@ -46,8 +47,8 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         else:  # Evaluation
             self.test_tds = Seq2SeqDataset(file_prefix=test_path, **params, **kwargs)
 
-    def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
-               num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):
+    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
+               num_workers, patience, resume_training, force_overwrite, **kwargs):
         # Notes:
         # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
         # - "resume_training" is not needed. models are initialized by the user.
@@ -63,6 +64,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._pretok_flag = self.pretok_flag
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
+        self.model._print_samples = self.print_samples
 
         # Callbacks: Checkpoint
         callbacks = []
@@ -85,7 +87,8 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Add wandb logger (if requested)
         if self.wandb_params:
-            wandb_logger = WandbLogger(name=f"{ds_alias}_{run_name}", **self.wandb_params)
+            alias = f"{'_'.join(train_ds.id())}_{run_name}"
+            wandb_logger = WandbLogger(name=alias, **self.wandb_params)
             loggers.append(wandb_logger)
 
             # Monitor
@@ -101,8 +104,8 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         if self.wandb_params:
             wandb.finish()
 
-    def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
-                   data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,
+    def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
+                   load_best_checkpoint, num_workers, devices, accelerator,
                    force_overwrite, checkpoints_dir=None, **kwargs):
         # Checkpoint
         if load_best_checkpoint:

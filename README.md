@@ -63,15 +63,27 @@ from autonmt.preprocessing import DatasetBuilder
 
 # Create preprocessing for training
 builder = DatasetBuilder(
-    base_path="/home/scarrion/datasets/nn/translation",
+    # Root folder for datasets
+    base_path="datasets/translate",
+    
+    # Set of datasets, languages, training sizes to try
     datasets=[
         {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
         {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
     ],
+    
+    # Set of subword models and vocab sizes to try
     encoding=[
         {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
         {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
     ],
+    
+    # Preprocessing functions
+    preprocess_raw_fn=lambda x, y: preprocess_pairs(x, y,...),
+    preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y,...),
+    preprocess_predict_fn=lambda x: preprocess_lines(x,...),
+    
+    # Additional args
     merge_vocabs=False,
     eval_mode="compatible",
 ).build(make_plots=False, force_overwrite=False)

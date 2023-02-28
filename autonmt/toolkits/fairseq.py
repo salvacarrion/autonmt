@@ -9,11 +9,11 @@ from autonmt.toolkits.base import BaseTranslator
 from fairseq import options
 
 import torch
+import fairseq_cli
 from fairseq import options
 from fairseq_cli import preprocess, train, generate
 from fairseq.distributed import utils as distributed_utils
 from fairseq.dataclass.utils import convert_namespace_to_omegaconf
-
 
 def _parse_args(**kwargs):
     cmd = []
@@ -110,19 +110,28 @@ def vocab_spm2fairseq(filename):
 
 class FairseqTranslator(BaseTranslator):
 
-    def __init__(self,  wandb_params=None, venv_path=None, **kwargs):
+    def __init__(self,  wandb_params=None, **kwargs):
         super().__init__(engine="fairseq", **kwargs)
 
         # Vars
-        self.venv_path = venv_path
         self.wandb_params = wandb_params
         if self.wandb_params:
             raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
 
-    def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path, src_vocab_path,
+        # Custom
+        self.data_bin_name = "data-bin"
+
+    def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path, src_vocab_path,
                     trg_vocab_path, force_overwrite, **kwargs):
 
-        # Check if the directory is empty and take action
+        # Create data-bin directory if it doesn't exist
+        if not output_path:  # Train
+            output_path = ds.get_bin_data(self.engine, self.data_bin_name)
+        else:  # Test
+            output_path = os.path.join(output_path, ds.data_path, self.data_bin_name)
+        utils.make_dir([output_path])
+
+        # Check if the output directory is empty and take action
         if not utils.is_dir_empty(output_path):
             if force_overwrite:  # Empty dir
                 print(f"\t- [Preprocess]: Deleting directory: {output_path}")
@@ -172,8 +181,11 @@ class FairseqTranslator(BaseTranslator):
         args = parser.parse_args(args=input_args)
         preprocess.main(args)
 
-    def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, run_name, ds_alias,
+    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, run_name,
                resume_training, force_overwrite, **kwargs):
+
+        # Get data-bin path
+        data_bin_path = train_ds.get_bin_data(self.engine, self.data_bin_name)
 
         # Check if the directory is empty and take action
         if not utils.is_dir_empty(checkpoints_dir):
@@ -197,55 +209,27 @@ class FairseqTranslator(BaseTranslator):
         input_args += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
 
-        # Parse args and execute command
-        if self.venv_path is None:
-            print("=> [INFO]: Running Fairseq from Python")
+        # Parse gpu flag
+        num_gpus = kwargs.get('devices')
+        num_gpus = None if num_gpus == "auto" else num_gpus
+        if num_gpus and isinstance(num_gpus, int):
+            os.environ["CUDA_VISIBLE_DEVICES"] = ','.join([str(i) for i in range(num_gpus)])
 
-            print("***************************************************************************************************")
-            print("***************************************************************************************************")
-            print("=> [WARNING]: KNOWN BUG!")
-            print("\t- Training a Fairseq model in a multi-gpu setup could slow down your training by a 200%.")
-            print("\t  As a workaround for this issue, we recommend to install 'Fairseq' in a virtual environment and use the 'venv_path' variable to specify its location.")
-            print("\t  => virtualenv -p $(which python) ~/venv_autonmt")
-            print("\t  => source ~/venv_autonmt/bin/activate")
-            print("\t  => pip install git+https://github.com/salvacarrion/fairseq.git@main#egg=fairseq")
-            print("\t  => (Python code): model = FairseqTranslator(venv_path='/home/myuser/venv_autonmt/bin/activate')")
-            print("***************************************************************************************************")
-            print("***************************************************************************************************")
-            time.sleep(1)
+        # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
+        parser = options.get_training_parser()
+        args = options.parse_args_and_arch(parser, input_args=input_args)
+        cfg = convert_namespace_to_omegaconf(args)
+        distributed_utils.call_main(cfg, train.main)
 
-            # Parse gpu flag
-            num_gpus = kwargs.get('devices')
-            num_gpus = None if num_gpus == "auto" else num_gpus
-            if num_gpus and isinstance(num_gpus, int):
-                os.environ["CUDA_VISIBLE_DEVICES"] = ','.join([str(i) for i in range(num_gpus)])
-
-            # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
-            parser = options.get_training_parser(default_task="translation")
-            args = options.parse_args_and_arch(parser, input_args=input_args)
-            cfg = convert_namespace_to_omegaconf(args)
-            distributed_utils.call_main(cfg, train.main)
-        else:
-            print("=> [INFO]: Running Fairseq from CMD")
-
-            # Parse gpu flag
-            num_gpus = kwargs.get('devices')
-            num_gpus = None if num_gpus == "auto" else num_gpus
-            num_gpus = f"CUDA_VISIBLE_DEVICES={','.join([str(i) for i in range(num_gpus)])}" if isinstance(num_gpus, int) else ""
-
-            cmd = " ".join([x for x in input_args if x])  # Needs spaces. It doesn't work with ";" or "&&"
-            cmd = f"source {self.venv_path} && {num_gpus} fairseq-train  {cmd}"
-            print(f"\t- [INFO]: Command used: {cmd}")
-            subprocess.call(['/bin/bash', '-c', cmd])
-
-    def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
-                   data_bin_path, output_path, checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
+    def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
+                   checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
                    force_overwrite, **kwargs):
         # Set warnings
         if kwargs.get('devices'):
             print("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
 
         # Write command
+        data_bin_path = os.path.join(data_path, model_ds.data_path, self.data_bin_name)
         input_args = [data_bin_path]
 
         # Add stuff

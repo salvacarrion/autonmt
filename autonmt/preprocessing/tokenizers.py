@@ -6,33 +6,34 @@ import sentencepiece as spm
 from autonmt.bundle import utils
 
 
+def _moses_tokenizer(lines, lang):
+    mt = MosesTokenizer(lang=lang)
+    return [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
+
+def _moses_detokenizer(lines, lang):
+    mt = MosesDetokenizer(lang=lang)
+    return [mt.detokenize(line.split()) for line in lines]
+
 def moses_tokenizer(input_file, output_file, lang):
     # Read lines
     lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Tokenize
-    mt = MosesTokenizer(lang=lang)
-    lines = [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
+    lines = _moses_tokenizer(lines, lang)
 
     # Save file
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
-
 
 def moses_detokenizer(input_file, output_file, lang):
     # Read lines
     lines = utils.read_file_lines(input_file, autoclean=True)
 
     # Detokenize
-    mt = MosesDetokenizer(lang=lang)
-    lines = [mt.detokenize(line.split()) for line in tqdm(lines, total=len(lines))]
+    lines = _moses_detokenizer(lines, lang)
 
     # Save file
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
-
-def _moses_detokenizer(lines, lang):
-    mt = MosesDetokenizer(lang=lang)
-    return [mt.detokenize(line.split()) for line in lines]
 
 
 def spm_train(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage):
