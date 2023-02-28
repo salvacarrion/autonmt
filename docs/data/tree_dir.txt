@@ -39,5 +39,3 @@
                 ├── _tmp
                 └── word
                     └── 8000
-
-40 directories

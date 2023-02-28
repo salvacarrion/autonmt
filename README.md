@@ -324,69 +324,6 @@ containing its data, summary and statistics
 ![](docs/images/multi30k/split_size_tok__multi30k_original_de-en__word_16000.png)
 
 
-### Layout example
-
-This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt)
-
-```text
-multi30k/
-.
-├── original
-│   └── de-en
-│       ├── data
-│       │   ├── encoded
-│       │   │   ├── char+bytes
-│       │   │   │   └── 16000
-│       │   │   │       ├── test.de
-│       │   │   │       ├── test.en
-│       │   │   │       ├── train.de
-│       │   │   │       ├── train.en
-│       │   │   │       ├── val.de
-│       │   │   │       └── val.en
-│       │   │   ├── unigram
-│       │   │   │   └── 16000
-│       │   │   │       ├── test.de
-│       │   │   │       ├── test.en
-│       │   │   │       ├── train.de
-│       │   │   │       ├── train.en
-│       │   │   │       ├── val.de
-│       │   │   │       └── val.en
-│       │   │   └── word
-│       │   │       └── 16000
-│       │   │           ├── test.de
-│       │   │           ├── test.en
-│       │   │           ├── train.de
-│       │   │           ├── train.en
-│       │   │           ├── val.de
-│       │   │           └── val.en
-│       │   ├── normalized
-│       │   │   ├── test.de
-│       │   │   ├── test.en
-│       │   │   ├── train.de
-│       │   │   ├── train.en
-│       │   │   ├── val.de
-│       │   │   └── val.en
-│       │   ├── pretokenized
-│       │   │   ├── test.de
-│       │   │   ├── test.en
-│       │   │   ├── train.de
-│       │   │   ├── train.en
-│       │   │   ├── val.de
-│       │   │   └── val.en
-│       │   ├── raw
-│       │   │   ├── data.de
-│       │   │   └── data.en
-│       │   └── splits
-│       │       ├── test.de
-│       │       ├── test.en
-│       │       ├── train.de
-│       │       ├── train.en
-│       │       ├── val.de
-│       │       └── val.en
-│       ├── models
-...
-```
-
 
 ### Reproducibility
 
@@ -419,3 +356,59 @@ The python implementations produces the same results as the command line version
 > ```python
 > model = AutonmtTranslator(model=Transformer(...), ..., venv_path="myenv")
 > ```
+
+
+### Layout example
+
+This is an example of the typical layout that the DatasetBuilder generates: (complete tree [here](docs/data/tree.txt)
+
+```text
+multi30k/
+.
+└── de-en
+    └── original
+        ├── data
+        │   ├── 1_splits
+        │   ├── 2_preprocessed
+        │   ├── 3_pretokenized
+        │   └── 4_encoded
+        │       ├── char+bytes
+        │       │   └── 8000
+        │       │       ├── test.de
+        │       │       ├── test.en
+        │       │       ├── train.de
+        │       │       ├── train.en
+        │       │       ├── val.de
+        │       │       └── val.en
+        │       ├── unigram
+        │       │   └── 8000
+        │       └── word
+        │           └── 8000
+        ├── models
+        │   ├── autonmt
+        │   │   └── runs
+        │   │       └── model_word_8000
+        │   │           ├── checkpoints
+        │   │           │   └── checkpoint_best__epoch=4-val_loss=1.42.pt
+        │   │           ├── eval
+        │   │           │   └── multi30k_de-en_original
+        │   │           │       ├── beam
+        │   │           │       │   └── beam1
+        │   │           │       └── data
+        │   │           │           ├── 0_raw
+        │   │           │           ├── 1_raw_preprocessed
+        │   │           │           └── 4_encoded
+        │   │           └── logs
+        │   │               ├── config_predict.json
+        │   │               ├── config_train.json
+        │   │               └── model_word_8000
+        │   │                   ├── version_0
+        │   │                   ├── version_1
+        │   │                   └── version_2
+        │   └── fairseq
+        │       ├── data-bin
+        │       └── runs
+        ├── stats
+        └── vocabs
+...
+```

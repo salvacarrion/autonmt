@@ -1,24 +1,43 @@
 import pandas as pd
-from tokenizers import normalizers
-from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 from autonmt.bundle import utils
 from autonmt.bundle.report import generate_multivariable_report
 from autonmt.preprocessing import DatasetBuilder
 
+from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+
+# Preprocess functions
+normalize_fn = lambda x: normalize_lines(x)
+preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=True, shuffle_lines=True)
+preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
+preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
 def main():
-
-     # Create preprocessing for training
+    # Create preprocessing for training
     builder = DatasetBuilder(
-        base_path="/home/scarrion/datasets/nn/translation",
+        # Root folder for datasets
+        base_path="/home/scarrion/datasets/translate",
+
+        # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "europarl", "languages": ["de-en"], "sizes": [("100k", 100000)]},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            # {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
+            # {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
         ],
+
+        # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["unigram+bytes"], "vocab_sizes": [x+256 for x in [100, 200, 400, 1000, 2000, 4000, 8000, 16000]]},
+            {"subword_models": ["char+bytes", "unigram", "word"], "vocab_sizes": [8000]},
+            # {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
+            # {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
         ],
-        normalizer=lambda x: normalizers.Sequence([NFKC(), Strip(), Lowercase()]).normalize_str(x),
+
+        # Preprocessing functions
+        preprocess_raw_fn=preprocess_raw_fn,
+        preprocess_splits_fn=preprocess_splits_fn,
+        preprocess_predict_fn=preprocess_predict_fn,
+
+        # Additional args
         merge_vocabs=False,
         eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)
