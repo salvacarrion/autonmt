@@ -1,87 +1,83 @@
+import datetime
 import os
-from pathlib import Path
-import shutil
-import random
-random.seed(123)
 
-from autonmt.bundle.utils import read_file_lines, write_file_lines
+from autonmt.bundle.report import generate_report
+from autonmt.modules.models import Transformer
+from autonmt.preprocessing import DatasetBuilder
+from autonmt.toolkits import AutonmtTranslator
+from autonmt.vocabularies import Vocabulary
 
+from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from autonmt.bundle.utils import read_file_lines, shuffle_in_order, write_file_lines
 
-SOURCE_LANGUAGES = ["es", "fr", "de", "cs"]
-TARGET_LANGUAGES = ["en"]
+# Preprocess functions
+normalize_fn = lambda x: normalize_lines(x)
+preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len_percentile=99.95, max_len_ratio_percentile=99.95, remove_duplicates=True, shuffle_lines=True)
+preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 
-SOURCE_PATH = "/home/scarrion/datasets/nn/translation/europarl_cf/base/{}-{}/{}/data/raw"
-TARGET_NAME = "en-zz"
-TARGET_PATH = "/home/scarrion/datasets/nn/translation/europarl_cf/{}/{}/data/raw"
+# 1 - Create xx-yy folder
+# 2 - Run with datasets to fill the xx-yy folder (*update file paths)
+src_alias = "en"
+trg_alias = "xx"
+DATASET = "europarl"
+BASE_PATH = "/home/scarrion/datasets/translate"
 
+def main():
+    # Create preprocessing for training
+    builder = DatasetBuilder(
+        # Root folder for datasets
+        base_path=BASE_PATH,
 
-def add_tags(reverse=False, force_overwrite=True):  # reverse=> xx-en; else=> en-xx
-    for lang1 in SOURCE_LANGUAGES:
-        for lang2 in TARGET_LANGUAGES:
-            for split in ["train"]:
-                src = SOURCE_PATH.format(lang1, lang2, "original")
+        # Set of datasets, languages, training sizes to try
+        datasets=[
+            # {"name": DATASET, "languages": [f"{src_alias}-{trg_alias}"], "sizes": [("100k", 100000)]},
+            {"name": DATASET, "languages": ["cs-en", "de-en", "el-en", "es-en", "fr-en", "it-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 3000, 3000)},
+        ],
 
-                # Read files
-                f_src = read_file_lines(f"{src}/{split}.{lang1}", autoclean=False)
-                f_tgt = read_file_lines(f"{src}/{split}.{lang2}", autoclean=False)
+        # Preprocessing functions
+        preprocess_raw_fn=preprocess_raw_fn,
+        preprocess_splits_fn=preprocess_splits_fn,
+    ).build(make_plots=False, force_overwrite=False)
 
-                # Add tag
-                if reverse:
-                    f_src = [line for line in f_src]  # tgt
-                    f_tgt = [f"<{lang2}-{lang1}> " + line for line in f_tgt]  # src
-                    f_src, f_tgt = f_tgt, f_src
-                else:
-                    f_src = [f"<{lang1}-{lang2}> " + line for line in f_src]
-                    f_tgt = [line for line in f_tgt]
+    # Create preprocessing for training and testing
+    tr_datasets = builder.get_train_ds()
+    ts_datasets = builder.get_test_ds()
 
-                # # Save files
-                if force_overwrite or \
-                        (not os.path.exists(f"{src}/{split}.xx") and not os.path.exists(f"{src}/{split}.yy")):
-                    write_file_lines(f_src, f"{src}/{split}.xx")
-                    write_file_lines(f_tgt, f"{src}/{split}.yy")
-                    print(f"Language files written: {lang1}-{lang2}-{split}")
-                else:
-                    print(f"[WARNING] File/s exists. Skipping files: {lang1}-{lang2}-{split}")
+    tr_lines_xx, tr_lines_yy = [], []
+    vl_lines_xx, vl_lines_yy = [], []
+    ts_lines_xx, ts_lines_yy = [], []
+    for train_ds in tr_datasets:
+        src_lang = train_ds.src_lang
+        tgt_lang = train_ds.trg_lang
 
+        tr_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'train'}.{src_lang}"), autoclean=False)
+        tr_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'train'}.{tgt_lang}"), autoclean=False)
+        tr_lines_xx += [f"<{src_lang}>|{line}" for line in tr_lines_tgt_tmp]
+        tr_lines_yy += tr_lines_src_tmp
 
-def concat_tagged_files(shuffle=True):
-    for ds_size in reversed(["original"]):
-        datasets = {"train": {"src": [], "tgt": []}, "val": {"src": [], "tgt": []}, "test": {"src": [], "tgt": []}}
+        vl_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'val'}.{src_lang}"), autoclean=False)
+        vl_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'val'}.{tgt_lang}"), autoclean=False)
+        vl_lines_xx += [f"<{src_lang}>|{line}" for line in vl_lines_tgt_tmp]
+        vl_lines_yy += vl_lines_src_tmp
 
-        split = "train"
-        for lang1 in SOURCE_LANGUAGES:
-            for lang2 in TARGET_LANGUAGES:
-                src = SOURCE_PATH.format(lang1, lang2, ds_size)
+        ts_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'test'}.{src_lang}"), autoclean=False)
+        ts_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'test'}.{tgt_lang}"), autoclean=False)
+        ts_lines_xx += [f"<{src_lang}>|{line}" for line in ts_lines_tgt_tmp]
+        ts_lines_yy += ts_lines_src_tmp
 
-                # Read files
-                print(f"Reading files: {ds_size}-{split}")
-                f_src = read_file_lines(f"{src}/{split}.xx", autoclean=False)
-                f_tgt = read_file_lines(f"{src}/{split}.yy", autoclean=False)
+    # Shuffle lines in order
+    tr_lines_xx, tr_lines_yy = shuffle_in_order(tr_lines_xx, tr_lines_yy)
+    vl_lines_xx, vl_lines_yy = shuffle_in_order(vl_lines_xx, vl_lines_yy)
+    ts_lines_xx, ts_lines_yy = shuffle_in_order(ts_lines_xx, ts_lines_yy)
 
-                # Concat langs
-                datasets[split]["src"] += f_src
-                datasets[split]["tgt"] += f_tgt
-
-        # Write multilingual files
-        src, tgt = datasets[split]["src"], datasets[split]["tgt"]
-        if shuffle:
-            tmp = list(zip(src, tgt))
-            random.shuffle(tmp)
-            src, tgt = zip(*tmp)
-
-        # Set target path
-        src_code, trg_code = TARGET_NAME.split('-')
-        dst = TARGET_PATH.format(TARGET_NAME, ds_size)
-        Path(dst).mkdir(parents=True, exist_ok=True)
-
-        # Write files
-        write_file_lines(src, f"{dst}/{split}.{src_code}")
-        write_file_lines(tgt, f"{dst}/{split}.{trg_code}")
-        print(f"Multilingual files written: {ds_size}-{split}")
-        ewr = 33
-
+    # Write files
+    write_file_lines(tr_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/train.{src_alias}"))
+    write_file_lines(tr_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/train.{trg_alias}"))
+    write_file_lines(vl_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/val.{src_alias}"))
+    write_file_lines(vl_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/val.{trg_alias}"))
+    write_file_lines(ts_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/test.{src_alias}"))
+    write_file_lines(ts_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/test.{trg_alias}"))
+    print("Done!")
 
 if __name__ == "__main__":
-    add_tags()
-    concat_tagged_files()
-    print("Done!")
+    main()
