@@ -52,18 +52,31 @@ def main():
 
         tr_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'train'}.{src_lang}"), autoclean=False)
         tr_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'train'}.{tgt_lang}"), autoclean=False)
-        tr_lines_xx += [f"<{src_lang}>|{line}" for line in tr_lines_tgt_tmp]
-        tr_lines_yy += tr_lines_src_tmp
+
+        if src_alias == "xx":
+            tr_lines_xx += [f"<{src_lang}>-<{tgt_lang}>|{line}" for line in tr_lines_src_tmp]
+            tr_lines_yy += tr_lines_tgt_tmp
+        else:
+            tr_lines_xx += [f"<{tgt_lang}>-<{src_lang}>|{line}" for line in tr_lines_tgt_tmp]
+            tr_lines_yy += tr_lines_src_tmp
 
         vl_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'val'}.{src_lang}"), autoclean=False)
         vl_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'val'}.{tgt_lang}"), autoclean=False)
-        vl_lines_xx += [f"<{src_lang}>|{line}" for line in vl_lines_tgt_tmp]
-        vl_lines_yy += vl_lines_src_tmp
+        if src_alias == "xx":
+            vl_lines_xx += [f"<{src_lang}>-<{tgt_lang}>|{line}" for line in vl_lines_src_tmp]
+            vl_lines_yy += vl_lines_tgt_tmp
+        else:
+            vl_lines_xx += [f"<{tgt_lang}>-<{src_lang}>|{line}" for line in vl_lines_tgt_tmp]
+            vl_lines_yy += vl_lines_src_tmp
 
         ts_lines_src_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'test'}.{src_lang}"), autoclean=False)
         ts_lines_tgt_tmp = read_file_lines(filename=train_ds.get_split_path(f"{'test'}.{tgt_lang}"), autoclean=False)
-        ts_lines_xx += [f"<{src_lang}>|{line}" for line in ts_lines_tgt_tmp]
-        ts_lines_yy += ts_lines_src_tmp
+        if src_alias == "xx":
+            ts_lines_xx += [f"<{src_lang}>-<{tgt_lang}>|{line}" for line in ts_lines_src_tmp]
+            ts_lines_yy += ts_lines_tgt_tmp
+        else:
+            ts_lines_xx += [f"<{tgt_lang}>-<{src_lang}>|{line}" for line in ts_lines_tgt_tmp]
+            ts_lines_yy += ts_lines_src_tmp
 
     # Shuffle lines in order
     tr_lines_xx, tr_lines_yy = shuffle_in_order(tr_lines_xx, tr_lines_yy)
