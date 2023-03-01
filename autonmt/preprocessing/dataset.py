@@ -58,6 +58,7 @@ class Dataset:
         self.test_name = test_name
         self.split_names = (self.train_name, self.val_name, self.test_name)
         self.split_names_lang = [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
+        self.raw_preprocessed_name = "data"
 
         # Data paths
         self.data_path = data_path
@@ -309,6 +310,22 @@ class Dataset:
                 raw_files = self.get_raw_files()
                 raw_files = [self.get_raw_path(f) for f in raw_files]
                 return all([os.path.exists(p) for p in raw_files]), raw_files
+            except ValueError as e:
+                if verbose:
+                    print(f"=> [ERROR CAPTURED]: {e}")
+        return False, []
+
+    def has_raw_preprocessed_files(self, verbose=True):
+        # Check if the split directory exists (...with all the data)
+        raw_preprocessed_path = self.get_raw_preprocessed_path()
+
+        # Check if path exists
+        if os.path.exists(raw_preprocessed_path):
+            try:
+                # Check files
+                raw_preprocessed_files = self.get_raw_preprocessed_files()
+                raw_preprocessed_files = [self.get_raw_preprocessed_path(f) for f in raw_preprocessed_files]
+                return all([os.path.exists(p) for p in raw_preprocessed_files]), raw_preprocessed_files
             except ValueError as e:
                 if verbose:
                     print(f"=> [ERROR CAPTURED]: {e}")

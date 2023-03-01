@@ -131,7 +131,7 @@ class DatasetBuilder:
         print(f"\t- base_path={self.base_path}")
 
         # Check directories, creates the ones missing, and check if the data is valid
-        self._check_dir_structure(force_overwrite=force_overwrite, interactive=False)
+        self._check_dir_structure(skip_file_checks=True, force_overwrite=force_overwrite, interactive=False)
 
         # Preprocess raw files, create partitions, and process splits
         self._preprocess_raw_files(force_overwrite=force_overwrite)
@@ -159,7 +159,7 @@ class DatasetBuilder:
 
         return self
 
-    def _check_dir_structure(self, force_overwrite, interactive):
+    def _check_dir_structure(self, skip_file_checks, force_overwrite, interactive):
         print(f"=> Checking directory structure...")
         invalid_structure = False
 
@@ -178,24 +178,28 @@ class DatasetBuilder:
                 ds.source_data = "splits"
 
                 # Check that each file has the same number of lines
-                if count_file_lines(split_files_path[0]) != count_file_lines(split_files_path[1]) or \
-                        count_file_lines(split_files_path[2]) != count_file_lines(split_files_path[3]) or \
-                        count_file_lines(split_files_path[4]) != count_file_lines(split_files_path[5]):
-                    print("\t\t=> [Invalid data]: We found the 'raw' folder, but the source and target files do not "
-                            "have the same number of lines.")
-                    invalid_structure = True
-                    continue
+                if not skip_file_checks:
+                    print("\t\t- Checking that each split pair contains the same number of lines...")
+                    if count_file_lines(split_files_path[0]) != count_file_lines(split_files_path[1]) or \
+                            count_file_lines(split_files_path[2]) != count_file_lines(split_files_path[3]) or \
+                            count_file_lines(split_files_path[4]) != count_file_lines(split_files_path[5]):
+                        print("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
+                                "have the same number of lines.")
+                        invalid_structure = True
+                        continue
 
             # Check if raw data exists, and if it is valid
             elif (not splits and raw) or (splits and raw and force):  # Use raw data  (force_overwrite=True or False, as long as there is raw data)
                 ds.source_data = "raw"
 
                 # Check that each file has the same number of lines
-                if count_file_lines(raw_files_path[0]) != count_file_lines(raw_files_path[1]):
-                    print("\t\t=> [Invalid data]: We found the 'raw' folder, but the source and target files do not "
-                          "have the same number of lines.")
-                    invalid_structure = True
-                    continue
+                if not skip_file_checks:
+                    print("\t\t- Checking that each language pair contains the same number of lines...")
+                    if count_file_lines(raw_files_path[0]) != count_file_lines(raw_files_path[1]):
+                        print("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
+                              "have the same number of lines.")
+                        invalid_structure = True
+                        continue
 
             # Splits or raw folder either missing or with invalid contents
             elif not splits and not raw:  # Create directories
@@ -234,7 +238,7 @@ class DatasetBuilder:
 
         # Stop program if there are files missing
         if invalid_structure:
-            print("=> [ERROR] Closing program due to missing files")
+            print("=> [ERROR]: Closing program due to missing files")
             print("*** Restart the program when these files are added in their respective folders ***")
             exit(0)
 
@@ -248,7 +252,13 @@ class DatasetBuilder:
                 # Read lines (+minor cleaning)
                 src_lines = read_file_lines(ds.get_split_path(src_in), autoclean=True)
                 tgt_lines = read_file_lines(ds.get_split_path(trg_in), autoclean=True)
-                assert len(src_lines) == len(tgt_lines)
+
+                # Check that each file pair has the same number of lines
+                if len(src_lines) != len(tgt_lines):
+                    print(f"=> [ERROR]: The source and target files do not have the same number of lines "
+                          f"({len(src_lines)} != {len(tgt_lines)})")
+                    print(f"\t- Source file: {ds.get_split_path(src_in)}")
+                    print(f"\t- Target file: {ds.get_split_path(src_out)}")
 
                 # Preprocess lines
                 src_lines, tgt_lines = preprocess_fn(src_lines, tgt_lines)
@@ -257,13 +267,14 @@ class DatasetBuilder:
                 write_file_lines(src_lines, filename=f"{ds.get_splits_preprocessed_path(src_out)}", insert_break_line=True)
                 write_file_lines(tgt_lines, filename=f"{ds.get_splits_preprocessed_path(trg_out)}", insert_break_line=True)
     def _preprocess_raw_files(self, force_overwrite):
+        # Note: If raw_preprocess exists, but it is not preprocessed, the flag won't be updated
         if self.preprocess_raw_fn is None:
             return
 
         print(f"=> Preprocessing raw files...")
         for ds_key, ds in self.ds_refs.items():  # Dataset
             # Update source data
-            if self.ds_refs[ds_key].source_data == "raw":
+            if self.ds_refs[ds_key].source_data == "raw":  # Do not preprocess if we are going to use splits or other
                 self.ds_refs[ds_key].source_data = "raw_preprocessed"
 
                 # Create directory
@@ -328,7 +339,7 @@ class DatasetBuilder:
                 assert os.path.isfile(src_path) and os.path.isfile(trg_path)
 
                 # Read lines, clean and shuffle
-                print("\t=> Processing raw files...")
+                print(f"\t=> Processing from '{ds.source_data.replace('_', ' ')}' files...")
                 lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
                 random.shuffle(lines)  # again...
 
