@@ -36,6 +36,7 @@ class DatasetBuilder:
         # Tokenizer
         self.input_sentence_size = 1000000
         self.character_coverage = 1.0
+        self.split_digits = True
         self.truncate_at = 1024
 
         # Other
@@ -281,8 +282,8 @@ class DatasetBuilder:
                 make_dir(ds.get_raw_preprocessed_path())
 
                 # File pairs
-                input_paths = [ds.get_raw_path(f) for f in ds.get_raw_files()]
-                output_paths = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_files()]
+                input_paths = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
+                output_paths = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_fnames()]
 
                 # data.xx, data.yy
                 input_sets = (input_paths[0:2],)
@@ -301,8 +302,8 @@ class DatasetBuilder:
             make_dir(ds.get_splits_preprocessed_path())
 
             # File pairs
-            input_paths = [ds.get_split_path(f) for f in ds.get_split_files()]
-            output_paths = [ds.get_splits_preprocessed_path(f) for f in ds.get_split_files()]
+            input_paths = [ds.get_split_path(f) for f in ds.get_split_fnames()]
+            output_paths = [ds.get_splits_preprocessed_path(f) for f in ds.get_split_fnames()]
 
             # train.xx, val.xx, test.xx
             input_sets = (input_paths[0:2], input_paths[2:4], input_paths[4:6])
@@ -324,7 +325,7 @@ class DatasetBuilder:
         # Create partitions for each dataset
         for ds in datasets:
             # Check if partitions already exist
-            if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_files()]) and not force_overwrite:
+            if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]) and not force_overwrite:
                 print(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
                 continue
 
@@ -334,15 +335,15 @@ class DatasetBuilder:
             if ds.source_data in {"raw", "raw_preprocessed"}:  # Use raw data  (force_overwrite=True or False, as long as there is raw data)
                 # Get raw/raw_preprocessed files
                 if ds.source_data == "raw":
-                    src_path, trg_path = [ds.get_raw_path(f) for f in ds.get_raw_files()]
+                    src_path, trg_path = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
                 elif ds.source_data == "raw_preprocessed":
-                    src_path, trg_path = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_files()]
+                    src_path, trg_path = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_fnames()]
                 else:
                     raise ValueError(f"Invalid value for source data: {ds.source_data}")
                 assert os.path.isfile(src_path) and os.path.isfile(trg_path)
 
                 # Read lines, clean and shuffle
-                print(f"\t=> Processing from '{ds.source_data.replace('_', ' ')}' files...")
+                print(f"\t=> Processing from '{ds.source_data}'...")
                 lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
                 random.shuffle(lines)  # again...
 
@@ -388,7 +389,7 @@ class DatasetBuilder:
 
             # Add truncated splits
             print(f"\t=> Creating reduced version: {ds.id(as_path=True)}")
-            for fname in ds.get_split_files():
+            for fname in ds.get_split_fnames():
                 ref_filename = os.path.join(self.base_path, *ds_ref, ds.data_splits_path, fname)
                 new_filename = ds.get_split_path(fname)
 
@@ -408,12 +409,6 @@ class DatasetBuilder:
                         # Copy val/test files from "original" (split_size is not enforced for split files)
                         shutil.copy(ref_filename, new_filename)
 
-    def _get_splits_path_smart(self, ds, fname=""):
-        if ds.preprocess_splits_fname is None:
-            return ds.get_split_path(fname)
-        else:
-            return ds.get_splits_preprocessed_path(fname)
-
     def _pretokenize(self, ds, force_overwrite):
         # Check if this needs pretokenization
         if not ds.pretok_flag:
@@ -428,10 +423,10 @@ class DatasetBuilder:
         make_dir([pretokenize_path])
 
         print(f"\t- Pretokenizing splits: {ds.id(as_path=True)}")
-        for fname in ds.get_split_files():
+        for fname in ds.get_split_fnames():
             print(f"\t\t- Pretokenizing split file: {fname}...")
             lang = fname.split(".")[1]
-            input_file = self._get_splits_path_smart(ds)
+            input_file = ds.get_splits_auto_path(fname)
             output_file = ds.get_pretok_path(fname)
 
             # Pretokenize
@@ -441,7 +436,7 @@ class DatasetBuilder:
     def _train_tokenizer(self, force_overwrite):
         print(f"=> Building vocabularies...")
 
-        for ds in self:  # Dataset
+        for ds in self.ds_list:  # Dataset
             src_lang, trg_lang = ds.id()[1].split("-")
 
             # Create paths
@@ -459,7 +454,7 @@ class DatasetBuilder:
             self._pretokenize(ds, force_overwrite)
 
             # Get train files
-            file_path_fn = ds.get_pretok_path if ds.pretok_flag else lambda fname: self._get_splits_path_smart(ds, fname=fname)
+            file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_auto_path
             src_train_path = file_path_fn(fname=f"{ds.train_name}.{src_lang}")
             trg_train_path = file_path_fn(fname=f"{ds.train_name}.{trg_lang}")
 
@@ -486,9 +481,9 @@ class DatasetBuilder:
             for input_file, ext in files:
                 output_file = ds.get_vocab_file(lang=ext)  # without extension
                 if force_overwrite or not os.path.exists(f"{output_file}.model"):
-                    tokenizers.spm_train(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
-                                         vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
-                                         character_coverage=self.character_coverage)
+                    tokenizers.spm_train_file(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
+                                              vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
+                                              character_coverage=self.character_coverage, split_digits=self.split_digits)
                     assert os.path.exists(f"{output_file}.model")
 
     def _encode_datasets(self, force_overwrite):
@@ -504,10 +499,10 @@ class DatasetBuilder:
 
             # Encode files
             print(f"\t- Encoding dataset: {ds.id2(as_path=True)}")
-            for fname in ds.get_split_files():
+            for fname in ds.get_split_fnames():
                 lang = fname.split('.')[-1]
-                data_path = ds.data_pretokenized_path if ds.pretok_flag else ds.data_splits_preprocessed_path
-                input_file = os.path.join(ds.base_path, *ds.id(), data_path, fname)
+                file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_auto_path
+                input_file = file_path_fn(fname=fname)
                 output_file = ds.get_encoded_path(fname)
 
                 # Encode file
@@ -563,9 +558,7 @@ class DatasetBuilder:
                     vocabs = []
                     for vocabf, lang_file in vocabf_lang:
                         # Get the exact vocab from SPM
-                        spm_vocab_lines = read_file_lines(ds.get_vocab_path(fname=lang_file) + ".vocab", autoclean=False)
-                        spm_vocab_lines = spm_vocab_lines[4:]  # Remove special tokens
-                        spm_vocab = {l.split('\t')[0]: 0 for l in spm_vocab_lines}
+                        spm_vocab = tokenizers.smp_read_vocab_file(vocab_path=ds.get_vocab_path(fname=lang_file) + ".vocab")
 
                         # Important: SPM might end with words that won't use during the encoding (of the training)
                         # Only count tokens that exists in the vocabulary
@@ -636,7 +629,7 @@ class DatasetBuilder:
 
             print(f"\t\t- Creating 'Sentence length distribution' plots...")
             split_stats = {}
-            for fname in ds.get_split_files():
+            for fname in ds.get_split_fnames():
                 split_name, split_lang = fname.split('.')
 
                 # Ignore dataset

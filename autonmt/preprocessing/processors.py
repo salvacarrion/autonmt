@@ -108,8 +108,10 @@ def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remov
     print(f"\t\t- Total lines removed {total_lines0-len(lines):,} ({1-len(lines)/total_lines0:.3f}%)")
     return lines
 
-def normalize_lines(lines):
-    normalizer = normalizers.Sequence([NFKC(), Strip()])
+def normalize_lines(lines, seq=None):
+    if seq is None:  # Default sequence
+        seq = [NFKC(), Strip()]
+    normalizer = normalizers.Sequence(seq)
     lines = [normalizer.normalize_str(line) for line in lines]
     return lines
 
@@ -131,7 +133,7 @@ def preprocess_predict_file(input_file, output_file, preprocess_fn, pretokenize,
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
     # Tokenize
     if force_overwrite or not os.path.exists(output_file):
-        tokenizers.moses_tokenizer(input_file=input_file, output_file=output_file, lang=lang)
+        tokenizers.moses_tokenizer_file(input_file=input_file, output_file=output_file, lang=lang)
         assert os.path.exists(output_file)
 
 
@@ -160,13 +162,11 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
                 model_path = ds.get_vocab_file(lang=lang) + ".model"
 
             # Encode files
-            tokenizers.spm_encode(spm_model_path=model_path, input_file=input_file, output_file=output_file)
+            tokenizers.spm_encode_file(spm_model_path=model_path, input_file=input_file, output_file=output_file)
 
         # Truncate if needed
         if truncate_at:
-            lines = read_file_lines(output_file, autoclean=True)
-            lines = [" ".join(line.split(' ')[:truncate_at]).strip() for line in lines]
-            write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
+            tokenizers.truncate_file(input_file=output_file, output_file=output_file, max_tokens=truncate_at)
 
         # Check that the output file exist
         assert os.path.exists(output_file)
@@ -191,7 +191,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         else:
             # Decode files
-            tokenizers.spm_decode(model_vocab_path + ".model", input_file=input_file, output_file=output_file)
+            tokenizers.spm_decode_file(model_vocab_path + ".model", input_file=input_file, output_file=output_file)
 
             # Remove the hyphen of unknown words when needed
             if remove_unk_hyphen:
@@ -199,7 +199,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         # Detokenize with moses
         if pretok_flag:
-            tokenizers.moses_detokenizer(input_file=output_file, output_file=output_file, lang=lang)
+            tokenizers.moses_detokenizer_file(input_file=output_file, output_file=output_file, lang=lang)
 
         # Check that the output file exist
         assert os.path.exists(output_file)

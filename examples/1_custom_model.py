@@ -7,9 +7,10 @@ from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
 
 from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from tokenizers.normalizers import NFKC, Strip
 
 # Preprocess functions
-normalize_fn = lambda x: normalize_lines(x)
+normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
 preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=True, shuffle_lines=True)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)

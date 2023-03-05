@@ -24,14 +24,14 @@ from typing import List, Set
 from autonmt.bundle.metrics import *
 from autonmt.bundle.utils import *
 from autonmt.preprocessing.dataset import Dataset
-from autonmt.preprocessing.processors import normalize_file, pretokenize_file, encode_file, decode_file
+from autonmt.preprocessing.processors import pretokenize_file, encode_file, decode_file
 from autonmt.toolkits.base import _check_datasets, _check_supported_metrics
 
 
 class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
 
     def __init__(self, model, wandb_params=None, print_samples=False, **kwargs):
-        super().__init__(engine="autonmt", **kwargs)
+        super().__init__(engine="autonmtv2", **kwargs)
         self.model = model
         self.ckpt_cb = None
         self.wandb_params = wandb_params
@@ -48,9 +48,7 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.filter_train_fn = None
         self.filter_eval_fn = None
 
-        # Other
-
-    def _preprocess(self, ds, src_lang, trg_lang, output_path, train_path, val_path, test_path,
+    def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path,
                     src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
         # Create preprocessing
         self.subword_model = ds.subword_model
@@ -80,7 +78,7 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
                 self.test_tds.append(Seq2SeqDataset(file_prefix=test_path, filter_langs=lang_pairs,
                                                     filter_fn=self.filter_eval_fn, **params, **kwargs))
 
-    def _train(self, data_bin_path, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
+    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, ds_alias, resume_training, force_overwrite, **kwargs):
         # Notes:
         # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
@@ -104,6 +102,7 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
         self.model._print_samples = self.print_samples
+
         self.model._filter_train = self.filter_train
         self.model._filter_eval = self.filter_eval
 
@@ -143,9 +142,9 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         if self.wandb_params:
             wandb.finish()
 
-    def _translate(self, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
-                   data_bin_path, output_path, load_best_checkpoint, num_workers, devices, accelerator,
-                   model_ds, model_src_vocab_path, model_trg_vocab_path, force_overwrite, checkpoints_dir=None, **kwargs):
+    def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
+                   data_bin_path, load_best_checkpoint, num_workers, devices, accelerator,
+                   model_src_vocab_path, model_trg_vocab_path, force_overwrite, checkpoints_dir=None, **kwargs):
         # Checkpoint
         if load_best_checkpoint:
             if self.ckpt_cb:
@@ -226,88 +225,88 @@ class AutonmtTranslatorV2(BaseTranslator):  # AutoNMT Translator
         _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
         assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
 
-        # Set run names
-        run_name = model_ds.get_run_name(self.run_prefix)
-        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
-
-        # Checkpoints dir
-        checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, run_name)
-
-        # [Trained model]: Create eval folder
-        model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
-        model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
-        model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
-                                                                 eval_name=eval_name)
-        model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name,
-                                                                         eval_name=eval_name)
-
-        # Create dirs
-        make_dir([model_eval_data_path, model_eval_data_bin_path])
-
-        # [Encode extern data]: Encode test data using the subword model of the trained model
-        for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
-            lang = ts_fname.split('.')[-1]
-            input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
-            output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
-                                                            eval_name=eval_name)
-
-            # Create directories
-            make_dir([
-                os.path.join(output_file, "raw"),
-                os.path.join(output_file, "normalized"),
-                os.path.join(output_file, "tokenized"),
-                os.path.join(output_file, "encoded"),
-            ])
-
-            # Copy raw
-            raw_file = os.path.join(output_file, "raw", ts_fname)
-            shutil.copyfile(input_file, raw_file)
-            input_file = raw_file
-
-            # Normalize data
-            norm_file = os.path.join(output_file, "normalized", ts_fname)
-            normalize_file(input_file=input_file, output_file=norm_file,
-                           normalizer=model_ds.normalizer, force_overwrite=force_overwrite)
-            input_file = norm_file
-
-            # Pretokenize data (if needed)
-            if model_ds.pretok_flag:
-                pretok_file = os.path.join(output_file, "tokenized", ts_fname)
-                pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
-                                 force_overwrite=force_overwrite)
-                input_file = pretok_file
-
-            # Encode file
-            enc_file = os.path.join(output_file, "encoded", ts_fname)
-            encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
-                        lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
-                        force_overwrite=force_overwrite)
-
-        # Preprocess external data
-        test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
-        self._preprocess(ds=model_ds, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                         output_path=model_eval_data_bin_path,
-                         train_path=None, val_path=None, test_path=test_path,
-                         src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                         external_data=True, force_overwrite=force_overwrite,
-                         **kwargs)
-
-        # Iterate over beams
-        for beam in beams:
-            start_time = time.time()
-            # Create output path (if needed)
-            output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name,
-                                                       beam=beam)
-            make_dir(output_path)
-            self._translate(
-                src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size,
-                max_tokens=max_tokens,
-                data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoints_dir=checkpoints_dir,
-                model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                num_workers=num_workers, model_ds=model_ds, force_overwrite=force_overwrite,
-                **kwargs)
+        # # Set run names
+        # run_name = model_ds.get_run_name(self.run_prefix)
+        # eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
+        #
+        # # Checkpoints dir
+        # checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, run_name)
+        #
+        # # [Trained model]: Create eval folder
+        # model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
+        # model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
+        # model_eval_data_path = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
+        #                                                          eval_name=eval_name)
+        # model_eval_data_bin_path = model_ds.get_model_eval_data_bin_path(toolkit=self.engine, run_name=run_name,
+        #                                                                  eval_name=eval_name)
+        #
+        # # Create dirs
+        # make_dir([model_eval_data_path, model_eval_data_bin_path])
+        #
+        # # [Encode extern data]: Encode test data using the subword model of the trained model
+        # for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
+        #     lang = ts_fname.split('.')[-1]
+        #     input_file = eval_ds.get_split_path(ts_fname)  # as raw as possible
+        #     output_file = model_ds.get_model_eval_data_path(toolkit=self.engine, run_name=run_name,
+        #                                                     eval_name=eval_name)
+        #
+        #     # Create directories
+        #     make_dir([
+        #         os.path.join(output_file, "raw"),
+        #         os.path.join(output_file, "normalized"),
+        #         os.path.join(output_file, "tokenized"),
+        #         os.path.join(output_file, "encoded"),
+        #     ])
+        #
+        #     # Copy raw
+        #     raw_file = os.path.join(output_file, "raw", ts_fname)
+        #     shutil.copyfile(input_file, raw_file)
+        #     input_file = raw_file
+        #
+        #     # Normalize data
+        #     norm_file = os.path.join(output_file, "normalized", ts_fname)
+        #     normalize_file(input_file=input_file, output_file=norm_file,
+        #                    normalizer=model_ds.normalizer, force_overwrite=force_overwrite)
+        #     input_file = norm_file
+        #
+        #     # Pretokenize data (if needed)
+        #     if model_ds.pretok_flag:
+        #         pretok_file = os.path.join(output_file, "tokenized", ts_fname)
+        #         pretokenize_file(input_file=input_file, output_file=pretok_file, lang=lang,
+        #                          force_overwrite=force_overwrite)
+        #         input_file = pretok_file
+        #
+        #     # Encode file
+        #     enc_file = os.path.join(output_file, "encoded", ts_fname)
+        #     encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
+        #                 lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
+        #                 force_overwrite=force_overwrite)
+        #
+        # # Preprocess external data
+        # test_path = os.path.join(model_eval_data_path, "encoded", eval_ds.test_name)
+        # self._preprocess(ds=model_ds, src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+        #                  output_path=model_eval_data_bin_path,
+        #                  train_path=None, val_path=None, test_path=test_path,
+        #                  src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+        #                  subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
+        #                  external_data=True, force_overwrite=force_overwrite,
+        #                  **kwargs)
+        #
+        # # Iterate over beams
+        # for beam in beams:
+        #     start_time = time.time()
+        #     # Create output path (if needed)
+        #     output_path = model_ds.get_model_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name,
+        #                                                beam=beam)
+        #     make_dir(output_path)
+        #     self._translate(
+        #         src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+        #         beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size,
+        #         max_tokens=max_tokens,
+        #         data_bin_path=model_eval_data_bin_path, output_path=output_path, checkpoints_dir=checkpoints_dir,
+        #         model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
+        #         num_workers=num_workers, model_ds=model_ds, force_overwrite=force_overwrite,
+        #         **kwargs)
 
     @staticmethod
     def _count_model_parameters(model):

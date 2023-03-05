@@ -125,14 +125,26 @@ class Dataset:
     def get_raw_preprocessed_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_raw_preprocessed_path, fname)
 
-    def get_splits_preprocessed_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_splits_preprocessed_path, fname)
-
-    def get_pretok_path(self, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
+    def get_raw_auto_path(self, fname=""):
+        if self.preprocess_raw_fn:
+           return self.get_raw_preprocessed_path(fname)
+        else:
+            return self.get_raw_path(fname)
 
     def get_split_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.data_splits_path, fname)
+
+    def get_splits_preprocessed_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_splits_preprocessed_path, fname)
+
+    def get_splits_auto_path(self, fname=""):
+        if self.preprocess_splits_fn:
+            return self.get_splits_preprocessed_path(fname)
+        else:
+            return self.get_split_path(fname)
+
+    def get_pretok_path(self, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.data_pretokenized_path, fname)
 
     def get_encoded_path(self, fname=""):
         if self.subword_model in {None, "none"}:
@@ -189,7 +201,7 @@ class Dataset:
     def get_stats_path(self, fname=""):
         return os.path.join(self.base_path, *self.id(), self.stats_path, *self.vocab_size_id(), fname)
 
-    def get_raw_files(self):
+    def get_raw_fnames(self):
         raw_files = [f for f in os.listdir(self.get_raw_path()) if f[-2:] in {self.src_lang, self.trg_lang}]
 
         # Check number of files
@@ -213,10 +225,10 @@ class Dataset:
 
         return src_path, trg_path
 
-    def get_raw_preprocessed_files(self):
+    def get_raw_preprocessed_fnames(self):
         return [f"{self.raw_preprocessed_name}.{ext}" for ext in (self.src_lang, self.trg_lang)]
 
-    def get_split_files(self):
+    def get_split_fnames(self):
         return [f"{fname}.{ext}" for fname in self.split_names for ext in (self.src_lang, self.trg_lang)]
 
     def get_compatible_datasets(self, ts_datasets):
@@ -268,7 +280,7 @@ class Dataset:
             return d
 
         if not splits:
-            splits = self.get_split_files()
+            splits = self.get_split_fnames() # Split names
 
         split_stats = {}
         for fname in splits:
@@ -288,8 +300,10 @@ class Dataset:
 
             # Count unknowns
             if count_unknowns and self.subword_model not in {None, "none", "bytes"}:
-                vocab_path = self.get_vocab_path(split_lang) + ".vocab"
+                vocab_lang = self.dataset_lang_pair if self.merge_vocabs else split_lang
+                vocab_path = self.get_vocab_path(vocab_lang) + ".vocab"
                 vocab_keys = set([line.split('\t')[0] for line in utils.read_file_lines(vocab_path, autoclean=False)][4:])
+
                 lines = utils.read_file_lines(self.get_encoded_path(fname), autoclean=True)
                 unknowns = [len(set(line.split(' ')).difference(vocab_keys)) for line in lines]
                 unknowns = np.array(unknowns)
@@ -307,7 +321,7 @@ class Dataset:
         if os.path.exists(raw_path):
             try:
                 # Check files
-                raw_files = self.get_raw_files()
+                raw_files = self.get_raw_fnames()
                 raw_files = [self.get_raw_path(f) for f in raw_files]
                 return all([os.path.exists(p) for p in raw_files]), raw_files
             except ValueError as e:
@@ -323,7 +337,7 @@ class Dataset:
         if os.path.exists(raw_preprocessed_path):
             try:
                 # Check files
-                raw_preprocessed_files = self.get_raw_preprocessed_files()
+                raw_preprocessed_files = self.get_raw_preprocessed_fnames()
                 raw_preprocessed_files = [self.get_raw_preprocessed_path(f) for f in raw_preprocessed_files]
                 return all([os.path.exists(p) for p in raw_preprocessed_files]), raw_preprocessed_files
             except ValueError as e:
@@ -338,6 +352,6 @@ class Dataset:
         # Check if path exists
         if os.path.exists(splits_path):
             # Check files
-            split_files = [self.get_split_path(f) for f in self.get_split_files()]
+            split_files = [self.get_split_path(f) for f in self.get_split_fnames()]
             return all([os.path.exists(p) for p in split_files]), split_files
         return False, []

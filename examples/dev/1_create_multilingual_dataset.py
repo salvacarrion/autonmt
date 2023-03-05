@@ -19,9 +19,10 @@ preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normaliz
 src_alias = "en"
 trg_alias = "xx"
 DATASET = "europarl"
-BASE_PATH = "datasets/translate"
+BASE_PATH = "/home/scarrion/datasets/translate"
 
 # Create folders
+print("Creating dataset folder...")
 output_path = os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits")
 make_dir([output_path])
 
@@ -33,12 +34,12 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": DATASET, "languages": ["cs-en", "de-en", "el-en", "es-en", "fr-en", "it-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 3000, 3000)},
+            {"name": DATASET, "languages": ["es-en", "fr-en", "de-en", "cs-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1500, 1500)},
         ],
 
         # Preprocessing functions
         preprocess_raw_fn=preprocess_raw_fn,
-        preprocess_splits_fn=preprocess_splits_fn,
+        preprocess_splits_fn=None,
     ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
