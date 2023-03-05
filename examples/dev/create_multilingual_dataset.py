@@ -8,19 +8,22 @@ from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
 
 from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
-from autonmt.bundle.utils import read_file_lines, shuffle_in_order, write_file_lines
+from autonmt.bundle.utils import read_file_lines, shuffle_in_order, write_file_lines, make_dir
 
 # Preprocess functions
 normalize_fn = lambda x: normalize_lines(x)
 preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len_percentile=99.95, max_len_ratio_percentile=99.95, remove_duplicates=True, shuffle_lines=True)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 
-# 1 - Create xx-yy folder
-# 2 - Run with datasets to fill the xx-yy folder (*update file paths)
+# Constants
 src_alias = "en"
 trg_alias = "xx"
 DATASET = "europarl"
-BASE_PATH = "/home/scarrion/datasets/translate"
+BASE_PATH = "datasets/translate"
+
+# Create folders
+output_path = os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits")
+make_dir([output_path])
 
 def main():
     # Create preprocessing for training
@@ -30,7 +33,6 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            # {"name": DATASET, "languages": [f"{src_alias}-{trg_alias}"], "sizes": [("100k", 100000)]},
             {"name": DATASET, "languages": ["cs-en", "de-en", "el-en", "es-en", "fr-en", "it-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 3000, 3000)},
         ],
 
@@ -43,6 +45,7 @@ def main():
     tr_datasets = builder.get_train_ds()
     ts_datasets = builder.get_test_ds()
 
+    print("Tagging lines with languages...")
     tr_lines_xx, tr_lines_yy = [], []
     vl_lines_xx, vl_lines_yy = [], []
     ts_lines_xx, ts_lines_yy = [], []
@@ -79,18 +82,21 @@ def main():
             ts_lines_yy += ts_lines_src_tmp
 
     # Shuffle lines in order
+    print("Shuffling lines...")
     tr_lines_xx, tr_lines_yy = shuffle_in_order(tr_lines_xx, tr_lines_yy)
     vl_lines_xx, vl_lines_yy = shuffle_in_order(vl_lines_xx, vl_lines_yy)
     ts_lines_xx, ts_lines_yy = shuffle_in_order(ts_lines_xx, ts_lines_yy)
 
     # Write files
-    write_file_lines(tr_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/train.{src_alias}"))
-    write_file_lines(tr_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/train.{trg_alias}"))
-    write_file_lines(vl_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/val.{src_alias}"))
-    write_file_lines(vl_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/val.{trg_alias}"))
-    write_file_lines(ts_lines_xx, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/test.{src_alias}"))
-    write_file_lines(ts_lines_yy, filename=os.path.join(BASE_PATH, f"{DATASET}/{src_alias}-{trg_alias}/original/data/1_splits/test.{trg_alias}"))
-    print("Done!")
+    print("Writing files...")
+    write_file_lines(tr_lines_xx, filename=os.path.join(output_path, f"train.{src_alias}"))
+    write_file_lines(tr_lines_yy, filename=os.path.join(output_path, f"train.{trg_alias}"))
+    write_file_lines(vl_lines_xx, filename=os.path.join(output_path, f"val.{src_alias}"))
+    write_file_lines(vl_lines_yy, filename=os.path.join(output_path, f"val.{trg_alias}"))
+    write_file_lines(ts_lines_xx, filename=os.path.join(output_path, f"test.{src_alias}"))
+    write_file_lines(ts_lines_yy, filename=os.path.join(output_path, f"test.{trg_alias}"))
 
 if __name__ == "__main__":
     main()
+    print("Done!")
+
