@@ -134,10 +134,10 @@ class DatasetBuilder:
         self._check_dir_structure(skip_file_checks=True, force_overwrite=force_overwrite, interactive=False)
 
         # Preprocess raw files, create partitions, and process splits
-        self._preprocess_raw_files(force_overwrite=force_overwrite)
-        self._create_partitions(use_ref_partitions=True, force_overwrite=force_overwrite)
-        self._create_reduced_versions(force_overwrite=force_overwrite)
-        self._preprocess_split_files(force_overwrite=force_overwrite)
+        self._preprocess_raw_files(force_overwrite=force_overwrite)  # preprocess_raw?
+        self._create_partitions(use_ref_partitions=True, force_overwrite=force_overwrite) # splits! (original)
+        self._create_reduced_versions(force_overwrite=force_overwrite) # splits! (all)
+        self._preprocess_split_files(force_overwrite=force_overwrite) # preprocess_splits?
 
         # Ignore further preprocessing if there is not encoding
         if not self.encoding:
@@ -250,22 +250,22 @@ class DatasetBuilder:
             if force_overwrite or not all(os.path.exists(f) for f in [src_out, trg_out]):
                 print(f"\t=> Preprocessing file-pair ({i}/{len(input_sets)}) dataset '{ds.id(as_path=True)}'")
                 # Read lines (+minor cleaning)
-                src_lines = read_file_lines(ds.get_split_path(src_in), autoclean=True)
-                tgt_lines = read_file_lines(ds.get_split_path(trg_in), autoclean=True)
+                src_lines = read_file_lines(src_in, autoclean=True)
+                tgt_lines = read_file_lines(trg_in, autoclean=True)
 
                 # Check that each file pair has the same number of lines
                 if len(src_lines) != len(tgt_lines):
                     print(f"=> [ERROR]: The source and target files do not have the same number of lines "
                           f"({len(src_lines)} != {len(tgt_lines)})")
-                    print(f"\t- Source file: {ds.get_split_path(src_in)}")
-                    print(f"\t- Target file: {ds.get_split_path(src_out)}")
+                    print(f"\t- Source file: {src_in}")
+                    print(f"\t- Target file: {src_out}")
 
                 # Preprocess lines
                 src_lines, tgt_lines = preprocess_fn(src_lines, tgt_lines)
 
                 # Write lines (do not overwrite original files)
-                write_file_lines(src_lines, filename=f"{ds.get_splits_preprocessed_path(src_out)}", insert_break_line=True)
-                write_file_lines(tgt_lines, filename=f"{ds.get_splits_preprocessed_path(trg_out)}", insert_break_line=True)
+                write_file_lines(src_lines, filename=f"{src_out}", insert_break_line=True)
+                write_file_lines(tgt_lines, filename=f"{trg_out}", insert_break_line=True)
     def _preprocess_raw_files(self, force_overwrite):
         # Note: If raw_preprocess exists, but it is not preprocessed, the flag won't be updated
         if self.preprocess_raw_fn is None:
@@ -292,8 +292,10 @@ class DatasetBuilder:
                 self._preprocess_files(ds, input_sets, output_sets, self.preprocess_raw_fn, force_overwrite)
 
     def _preprocess_split_files(self, force_overwrite):
-        print(f"=> Preprocessing split files...")
+        if self.preprocess_splits_fn is None:
+            return
 
+        print(f"=> Preprocessing split files...")
         for ds in self.ds_list_parents:  # Dataset
             # Create directory
             make_dir(ds.get_splits_preprocessed_path())
@@ -326,7 +328,8 @@ class DatasetBuilder:
                 print(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
                 continue
 
-            # Create partitions (overwrite all partitions even if only one  is missing - due to the randomization)
+            # Create partitions (overwrite all partitions even if only one is missing - due to the randomization)
+            # If the force_overwrite flag is set, the source_data was set to "raw" in a previous step
             print(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
             if ds.source_data in {"raw", "raw_preprocessed"}:  # Use raw data  (force_overwrite=True or False, as long as there is raw data)
                 # Get raw/raw_preprocessed files
@@ -367,7 +370,8 @@ class DatasetBuilder:
                         utils.write_file_lines(list(zip(*split_lines))[i], savepath)
                         print(f"\t\t- Partition saved: {split_name}.{lang}")
             else:
-                pass  # Use existing split data
+                # The source data is not raw, then the partitions must be already created
+                raise ValueError(f"Invalid value for source data: {ds.source_data}")
 
     def _create_reduced_versions(self, force_overwrite):
         print("=> Creating reduced versions...")
@@ -404,6 +408,11 @@ class DatasetBuilder:
                         # Copy val/test files from "original" (split_size is not enforced for split files)
                         shutil.copy(ref_filename, new_filename)
 
+    def _get_splits_path_smart(self, ds, fname=""):
+        if ds.preprocess_splits_fname is None:
+            return ds.get_split_path(fname)
+        else:
+            return ds.get_splits_preprocessed_path(fname)
 
     def _pretokenize(self, ds, force_overwrite):
         # Check if this needs pretokenization
@@ -422,7 +431,7 @@ class DatasetBuilder:
         for fname in ds.get_split_files():
             print(f"\t\t- Pretokenizing split file: {fname}...")
             lang = fname.split(".")[1]
-            input_file = ds.get_splits_preprocessed_path(fname)
+            input_file = self._get_splits_path_smart(ds)
             output_file = ds.get_pretok_path(fname)
 
             # Pretokenize
@@ -450,7 +459,7 @@ class DatasetBuilder:
             self._pretokenize(ds, force_overwrite)
 
             # Get train files
-            file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_preprocessed_path
+            file_path_fn = ds.get_pretok_path if ds.pretok_flag else lambda fname: self._get_splits_path_smart(ds, fname=fname)
             src_train_path = file_path_fn(fname=f"{ds.train_name}.{src_lang}")
             trg_train_path = file_path_fn(fname=f"{ds.train_name}.{trg_lang}")
 
