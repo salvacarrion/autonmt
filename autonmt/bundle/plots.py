@@ -234,7 +234,7 @@ def do_all_figs_exists(output_dir, fname, formats):
     return False
 
 
-def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_figures=False):
+def plot_metrics(output_path, df_report, plot_metric, xlabel=None, ylabel=None, save_figures=True, show_figures=False):
     # Check if the metric id is in the dataframe
     if plot_metric not in df_report.columns:
         raise ValueError(f"Metric '{plot_metric}' was not found in the given dataframe")
@@ -249,12 +249,10 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
     print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
     # Parse metric name
-    beam_width, metric_name = plot_metric.split('__')
-    beam_width = beam_width.replace("beam", "beam=")
-    metric_name = metric_name.replace('_', ' ').replace("score", "").strip().title()
 
     # Set other values
-    ylabel = f"{metric_name} ({beam_width})"
+    xlabel = f"Models" if not xlabel else xlabel
+    ylabel = f"{plot_metric}" if not ylabel else ylabel
     fname = f"report__{plot_metric}"
 
     # Make run name smaller with break lines
@@ -269,7 +267,7 @@ def plot_metrics(output_path, df_report, plot_metric, save_figures=True, show_fi
     width = 16  #min(max(total_tr, 8), 24)
     height = 8
     catplot(data=df_report, x="alias", y=plot_metric, hue=hue,
-            title=f"Model comparison", xlabel="Models", ylabel=ylabel, leyend_title=None,
+            title=f"Model comparison", xlabel=xlabel, ylabel=ylabel, leyend_title=None,
             output_dir=output_path, fname=fname, aspect_ratio=(width, height), size=1.5, rotate_xlabels=90,
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}", loc="lower right")
 

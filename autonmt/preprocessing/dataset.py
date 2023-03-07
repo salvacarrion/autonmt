@@ -59,6 +59,7 @@ class Dataset:
         self.split_names = (self.train_name, self.val_name, self.test_name)
         self.split_names_lang = [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
         self.raw_preprocessed_name = "data"
+        self.eval_translations_name = "translations"
 
         # Data paths
         self.data_path = data_path
@@ -179,12 +180,15 @@ class Dataset:
     def get_model_eval_path(self, toolkit, run_name, eval_name, fname=""):
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, fname)
 
-    def get_model_eval_beam_path(self, toolkit, run_name, eval_name, beam=""):
-        beam_n = f"beam{str(beam)}" if beam else ""
-        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), self.models_eval_beam_path, beam_n)
+    def get_model_eval_translations_path(self, toolkit, run_name, eval_name, split_name=""):
+        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), self.eval_translations_name, split_name)
 
-    def get_model_eval_beam_scores_path(self, toolkit, run_name, eval_name, beam):
-        return os.path.join(self.get_model_eval_beam_path(toolkit, run_name, eval_name, beam), self.models_eval_beam_scores_path)
+    def get_model_eval_translations_beam_path(self, toolkit, run_name, eval_name, split_name, beam, fname=""):
+        beam_n = f"beam{str(beam)}"
+        return os.path.join(self.get_model_eval_translations_path(toolkit, run_name, eval_name, split_name), self.models_eval_beam_path, beam_n, fname)
+
+    def get_model_eval_translations_beam_scores_path(self, toolkit, run_name, eval_name, split_name, beam, fname=""):
+        return os.path.join(self.get_model_eval_translations_beam_path(toolkit, run_name, eval_name, split_name, beam), self.models_eval_beam_scores_path, fname)
 
     def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, data_bin_name, fname=""):
         return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), data_bin_name, fname)

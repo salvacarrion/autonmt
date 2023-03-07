@@ -17,6 +17,7 @@ preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
 def main(fairseq_args):
     # Create preprocessing for training
+    # Create preprocessing for training
     builder = DatasetBuilder(
         # Root folder for datasets
         base_path="datasets/translate",
@@ -51,13 +52,13 @@ def main(fairseq_args):
     scores = []
     for train_ds in tr_datasets:
         model = FairseqTranslator()
-        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=10, strategy="dp", fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
+        # model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=10, strategy="ddp", fairseq_args=fairseq_args)
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
         scores.append(m_scores)
 
     # Make report and print it
     output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="translations.beam1.sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 
@@ -93,5 +94,5 @@ if __name__ == "__main__":
     cmd_args = fairseq_model_args+fairseq_training_args
 
     # Run grid
-    main(fairseq_args=cmd_args, venv_path=None)
+    main(fairseq_args=cmd_args)
 

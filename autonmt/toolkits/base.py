@@ -67,6 +67,7 @@ class BaseTranslator(ABC):
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
     def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None,
+                 filter_tr_data_fn=None, filter_vl_data_fn=None, filter_ts_data_fn=None,
                  safe_seconds=3, **kwargs):
         # Store vars
         self.engine = engine
@@ -79,6 +80,11 @@ class BaseTranslator(ABC):
         # Set vocab (optional)
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
+
+        # Further split/preprocess each dataset if needed
+        self.filter_tr_data_fn = ('', None) if not filter_tr_data_fn else filter_tr_data_fn
+        self.filter_vl_data_fn = [('', None)] if not filter_vl_data_fn else filter_vl_data_fn
+        self.filter_ts_data_fn = [('', None)] if not filter_ts_data_fn else filter_ts_data_fn
 
         # Check dataset
         _check_datasets(train_ds=self.model_ds) if self.model_ds else None
@@ -116,7 +122,7 @@ class BaseTranslator(ABC):
     def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1,
             learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
-            monitor="loss", resume_training=False, force_overwrite=False, **kwargs):
+            monitor="val_loss", resume_training=False, force_overwrite=False, **kwargs):
         print("=> [Fit]: Started.")
 
         # Set model
@@ -130,7 +136,7 @@ class BaseTranslator(ABC):
         save_json(self.config, savepath=os.path.join(logs_path, "config_train.json"))
 
         # Train and preprocess
-        self.preprocess(train_ds, force_overwrite=force_overwrite, **kwargs)
+        self.preprocess(train_ds, apply2train=True, apply2val=True, apply2test=False, force_overwrite=force_overwrite, **kwargs)
         self.train(train_ds, max_tokens=max_tokens, batch_size=batch_size, max_epochs=max_epochs,
                    learning_rate=learning_rate, optimizer=optimizer, weight_decay=weight_decay,
                    gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
@@ -192,7 +198,7 @@ class BaseTranslator(ABC):
     def _preprocess(self, *args, **kwargs):
         pass
 
-    def preprocess(self, ds: Dataset, force_overwrite, **kwargs):
+    def preprocess(self, ds: Dataset, apply2train, apply2val, apply2test, force_overwrite, **kwargs):
         print(f"=> [Preprocess]: Started. ({ds.id2(as_path=True)})")
 
         # Set vars
@@ -209,6 +215,7 @@ class BaseTranslator(ABC):
                          src_lang=src_lang, trg_lang=trg_lang,
                          train_path=train_path, val_path=val_path, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+                         apply2train=apply2train, apply2val=apply2val, apply2test=apply2test,
                          force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
@@ -305,53 +312,71 @@ class BaseTranslator(ABC):
                          train_path=None, val_path=None, test_path=test_path,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
                          subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                         external_data=True, force_overwrite=force_overwrite,
+                         apply2train=False, apply2val=False, apply2test=True, force_overwrite=force_overwrite,
                          **kwargs)
 
-        # Iterate over beams
-        for beam in beams:
-            start_time = time.time()
-            # Create output path (if needed)
-            output_path = model_ds.get_model_eval_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
-            make_dir(output_path)
+        # Allow to split ts data (optional)
+        for i, (fn_name, filter_fn) in enumerate(self.filter_ts_data_fn):
+            extra_str = f" | split='{fn_name}'" if fn_name else ""
 
-            # Translate
-            tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
-            if force_overwrite or not all(tok_flag):
-                self._translate(model_ds=model_ds, data_path=model_eval_path, output_path=output_path,
-                    src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                    beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
-                    checkpoints_dir=checkpoints_dir,
-                    model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                    num_workers=num_workers, force_overwrite=force_overwrite, **kwargs)
+            # Iterate over beams
+            for beam in beams:
+                start_time = time.time()
+                # Create output path (if needed)
+                output_path = model_ds.get_model_eval_translations_beam_path(toolkit=self.engine, run_name=run_name,
+                                                                             eval_name=eval_name, split_name=fn_name,
+                                                                             beam=beam)
+                make_dir(output_path)
 
-                # Copy src/ref raw
-                for fname, lang in [("src", model_ds.src_lang), ("ref", model_ds.trg_lang)]:
-                    raw_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{lang}")
-                    output_file = os.path.join(output_path, f"{fname}.txt")
-                    shutil.copyfile(raw_file, output_file)  # Copy raw files
+                # Translate
+                tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
+                if force_overwrite or not all(tok_flag):
+                    self._translate(model_ds=model_ds, data_path=model_eval_path, output_path=output_path,
+                        src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
+                        beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
+                        checkpoints_dir=checkpoints_dir,
+                        model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
+                        num_workers=num_workers, force_overwrite=force_overwrite, filter_idx=i, **kwargs)
 
-                # Postprocess tokenized files
-                for fname, lang in [("hyp", model_ds.trg_lang)]:
-                    input_file = os.path.join(output_path, f"{fname}.tok")
-                    output_file = os.path.join(output_path, f"{fname}.txt")
-                    model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
+                    # Copy src/ref raw
+                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{model_ds.src_lang}")
+                    src_output_file = os.path.join(output_path, f"src.txt")
+                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{model_ds.trg_lang}")
+                    ref_output_file = os.path.join(output_path, f"ref.txt")
 
-                    # Post-process files
-                    decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                                subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                                model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
-                                force_overwrite=force_overwrite)
+                    # Filter src/ref if needed
+                    if not filter_fn:
+                        shutil.copyfile(src_input_file, src_output_file)  # Copy src raw files
+                        shutil.copyfile(ref_input_file, ref_output_file)  # Copy trg raw files
+                    else:
+                        print(f"Filtering src/ref raw files (split='{fn_name}')...")
+                        src_ref_lines = read_file_lines(filename=src_input_file, autoclean=True)
+                        trg_ref_lines = read_file_lines(filename=ref_input_file, autoclean=True)
+                        src_ref_lines, trg_ref_lines = filter_fn(src_ref_lines, trg_ref_lines, from_translate=True)
+                        write_file_lines(filename=src_output_file, lines=src_ref_lines, autoclean=True, insert_break_line=True)
+                        write_file_lines(filename=ref_output_file, lines=trg_ref_lines, autoclean=True, insert_break_line=True)
 
-                # Check amount of lines
-                num_lines_ref = count_file_lines(os.path.join(output_path, "ref.txt"))
-                num_lines_hyp = count_file_lines(os.path.join(output_path, "hyp.txt"))
-                if num_lines_ref != num_lines_hyp:
-                    raise ValueError(f"The number of lines in 'ref.txt' ({num_lines_ref}) and 'hyp.txt' ({num_lines_hyp}) "
-                                     f"does not match. If you see a 'CUDA out of memory' message, try again with "
-                                     f"smaller batch.")
+                    # Postprocess tokenized files
+                    for fname, lang in [("hyp", model_ds.trg_lang)]:
+                        input_file = os.path.join(output_path, f"{fname}.tok")
+                        output_file = os.path.join(output_path, f"{fname}.txt")
+                        model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
 
-            print(f"\t- [INFO]: Translating time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+                        # Post-process files
+                        decode_file(input_file=input_file, output_file=output_file, lang=lang,
+                                    subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
+                                    model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
+                                    force_overwrite=force_overwrite)
+
+                    # Check amount of lines
+                    num_lines_ref = count_file_lines(os.path.join(output_path, "ref.txt"))
+                    num_lines_hyp = count_file_lines(os.path.join(output_path, "hyp.txt"))
+                    if num_lines_ref != num_lines_hyp:
+                        raise ValueError(f"The number of lines in 'ref.txt' ({num_lines_ref}) and 'hyp.txt' ({num_lines_hyp}) "
+                                         f"does not match. If you see a 'CUDA out of memory' message, try again with "
+                                         f"smaller batch.")
+
+                print(f"\t- [INFO]: Translating time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
 
     def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
@@ -370,59 +395,63 @@ class BaseTranslator(ABC):
         run_name = model_ds.get_run_name(self.run_prefix)
         eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
-        # Iterate over beams
-        for beam in beams:
-            start_time = time.time()
+        # Allow to split ts data (optional)
+        for fn_name, _ in self.filter_ts_data_fn:
+            extra_str = f" | split='{fn_name}'" if fn_name else ""
 
-            # Paths
-            beam_path = model_ds.get_model_eval_beam_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
-            scores_path = model_ds.get_model_eval_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, beam=beam)
+            # Iterate over beams
+            for beam in beams:
+                start_time = time.time()
 
-            # Create dirs
-            make_dir([scores_path])
+                # Paths
+                beam_path = model_ds.get_model_eval_translations_beam_path(toolkit=self.engine, run_name=run_name,
+                                                                           eval_name=eval_name, split_name=fn_name,
+                                                                           beam=beam)
+                scores_path = model_ds.get_model_eval_translations_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, split_name=fn_name, beam=beam)
+                make_dir([scores_path])
 
-            # Set input files (results)
-            src_file_path = os.path.join(beam_path, "src.txt")
-            ref_file_path = os.path.join(beam_path, "ref.txt")
-            hyp_file_path = os.path.join(beam_path, "hyp.txt")
+                # Set input files (results)
+                src_file_path = os.path.join(beam_path, "src.txt")
+                ref_file_path = os.path.join(beam_path, "ref.txt")
+                hyp_file_path = os.path.join(beam_path, "hyp.txt")
 
-            # Check that the paths exists
-            if not all([os.path.exists(p) for p in [src_file_path, ref_file_path, hyp_file_path]]):
-                raise IOError("Missing files to compute scores")
+                # Check that the paths exists
+                if not all([os.path.exists(p) for p in [src_file_path, ref_file_path, hyp_file_path]]):
+                    raise IOError("Missing files to compute scores")
 
-            # Score: bleu, chrf and ter
-            if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
-                output_file = os.path.join(scores_path, f"sacrebleu_scores.json")
-                if force_overwrite or not os.path.exists(output_file):
-                    compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics)
+                # Score: bleu, chrf and ter
+                if self.TOOL2METRICS["sacrebleu"].intersection(metrics):
+                    output_file = os.path.join(scores_path, f"sacrebleu_scores.json")
+                    if force_overwrite or not os.path.exists(output_file):
+                        compute_sacrebleu(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, metrics=metrics)
 
-            # Score: bertscore
-            if self.TOOL2METRICS["bertscore"].intersection(metrics):
-                output_file = os.path.join(scores_path, f"bertscore_scores.json")
-                if force_overwrite or not os.path.exists(output_file):
-                    compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang)
+                # Score: bertscore
+                if self.TOOL2METRICS["bertscore"].intersection(metrics):
+                    output_file = os.path.join(scores_path, f"bertscore_scores.json")
+                    if force_overwrite or not os.path.exists(output_file):
+                        compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang)
 
-            # Score: comet
-            if self.TOOL2METRICS["comet"].intersection(metrics):
-                output_file = os.path.join(scores_path, f"comet_scores.json")
-                if force_overwrite or not os.path.exists(output_file):
-                    compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
+                # Score: comet
+                if self.TOOL2METRICS["comet"].intersection(metrics):
+                    output_file = os.path.join(scores_path, f"comet_scores.json")
+                    if force_overwrite or not os.path.exists(output_file):
+                        compute_comet(src_file=src_file_path, ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
 
-             # Score: fairseq
-            if self.TOOL2METRICS["fairseq"].intersection(metrics):
-                output_file = os.path.join(scores_path, f"fairseq_scores.txt")
-                if force_overwrite or not os.path.exists(output_file):
-                    compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
+                 # Score: fairseq
+                if self.TOOL2METRICS["fairseq"].intersection(metrics):
+                    output_file = os.path.join(scores_path, f"fairseq_scores.txt")
+                    if force_overwrite or not os.path.exists(output_file):
+                        compute_fairseq(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file)
 
-            # Huggingface metrics
-            hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}
-            if hg_metrics:
-                output_file = os.path.join(scores_path, f"huggingface_scores.json")
-                if force_overwrite or not os.path.exists(output_file):
-                    compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
-                                        output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang)
+                # Huggingface metrics
+                hg_metrics = {x[3:] for x in metrics if x.startswith("hg_")}
+                if hg_metrics:
+                    output_file = os.path.join(scores_path, f"huggingface_scores.json")
+                    if force_overwrite or not os.path.exists(output_file):
+                        compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
+                                            output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang)
 
-            print(f"\t- [INFO]: Scoring time (beam={str(beam)}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+                print(f"\t- [INFO]: Scoring time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
 
     def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
@@ -454,39 +483,45 @@ class BaseTranslator(ABC):
             "vocab_size": str(model_ds.vocab_size).lower(),
             "run_name": run_name,
             "train_max_lines": model_ds.dataset_lines,
-            "beams": {},
+            "translations": {},
             "config": self.config,
         }
 
-        # Iterate over beams
-        for beam in beams:
-            # Paths
-            scores_path = model_ds.get_model_eval_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name,beam=beam)
+        # Allow to split ts data (optional)
+        for fn_name, _ in self.filter_ts_data_fn:
+            extra_str = f" | split='{fn_name}'" if fn_name else ""
 
-            # Walk through metric files
-            beam_scores = {}
-            for m_tool in metric_tools:
-                values = self.TOOL_PARSERS[m_tool]
-                m_parser, ext = values["py"]
-                m_fname = f"{values['filename']}.{ext}"
+            # Iterate over beams
+            for beam in beams:
+                # Paths
+                scores_path = model_ds.get_model_eval_translations_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, split_name=fn_name, beam=beam)
 
-                # Read file
-                filename = os.path.join(scores_path, m_fname)
-                if os.path.exists(filename):
-                    try:
-                        with open(filename, 'r') as f:
-                            m_scores = m_parser(text=f.readlines())
-                            for m_name, m_values in m_scores.items():  # [bleu_score, chrf_score, ter_score], [bertscore_precision]
-                                for score_name, score_value in m_values.items():
-                                    m_name_full = f"{m_tool}_{m_name}_{score_name}".lower().strip()
-                                    beam_scores[m_name_full] = score_value
-                    except Exception as e:
-                        print(f"\t- [PARSING ERROR]: ({m_fname}) {str(e)}")
-                else:
-                    print(f"\t- [WARNING]: There are no metrics from '{m_tool}'")
+                # Walk through metric files
+                beam_scores = {}
+                for m_tool in metric_tools:
+                    values = self.TOOL_PARSERS[m_tool]
+                    m_parser, ext = values["py"]
+                    m_fname = f"{values['filename']}.{ext}"
 
-            # Add beam scores
-            scores["beams"].update({f"beam{str(beam)}": beam_scores})
+                    # Read file
+                    filename = os.path.join(scores_path, m_fname)
+                    if os.path.exists(filename):
+                        try:
+                            with open(filename, 'r') as f:
+                                m_scores = m_parser(text=f.readlines())
+                                for m_name, m_values in m_scores.items():  # [bleu_score, chrf_score, ter_score], [bertscore_precision]
+                                    for score_name, score_value in m_values.items():
+                                        m_name_full = f"{m_tool}_{m_name}_{score_name}".lower().strip()
+                                        beam_scores[m_name_full] = score_value
+                        except Exception as e:
+                            print(f"\t- [PARSING ERROR]: ({m_fname}) {str(e)}")
+                    else:
+                        print(f"\t- [WARNING]: There are no metrics from '{m_tool}'")
+
+                # Add beam scores
+                d = {f"beam{str(beam)}": beam_scores}
+                d = {fn_name: d} if fn_name else d  # Pretty
+                scores["translations"].update(d)
         return scores
 
     @staticmethod

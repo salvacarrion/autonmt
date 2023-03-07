@@ -156,7 +156,7 @@ def save_json(d, savepath, ignore_empty=True):
 
 
 def create_logger(logs_path, log_level=logging.INFO):
-    # Create logget path
+    # Create logger path
     Path(logs_path).mkdir(parents=True, exist_ok=True)
 
     mylogger = logging.getLogger()

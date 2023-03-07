@@ -22,8 +22,8 @@ def _spm_encode(lines, model_file):
 
 def _spm_decode(lines, model_file):
     sp = spm.SentencePieceProcessor(model_file=model_file)
-    lines = sp.encode(lines, out_type=str)
     lines = [line.split(' ') for line in tqdm(lines, total=len(lines))]
+    lines = sp.decode_pieces(lines, out_type=str)
     return lines
 
 def moses_tokenizer_file(input_file, output_file, lang):

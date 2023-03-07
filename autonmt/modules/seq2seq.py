@@ -10,40 +10,58 @@ from autonmt.preprocessing.processors import decode_lines
 
 class LitSeq2Seq(pl.LightningModule):
 
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx,
-                 criterion="cross_entropy", learning_rate=0.001, optimizer="adam", weight_decay=0, **kwargs):
+    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
+        self.padding_idx = padding_idx
 
-        # Hyperparams
-        self.learning_rate = learning_rate
-        self.criterion = criterion
-        self.optimizer = optimizer
-        self.weight_decay = weight_decay
-
-        # Set criterion
-        self.criterion_fn = self.configure_criterion(padding_idx)
+        # Hyperparams (PyTorch Lightning stuff)
+        self.optimizer = None
+        self.learning_rate = None
+        self.weight_decay = None
+        self.criterion_fn = None
 
         # Other
-        self.save_hyperparameters()
         self.best_scores = defaultdict(float)
 
     def configure_optimizers(self):
-        if self.optimizer == "adam":
-            optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        elif self.optimizer == "sgd":
-            optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        else:
-            raise ValueError("Unknown value for optimizer")
-        return optimizer
+        optim_fn = {
+            "adadelta": torch.optim.Adadelta,
+            "adagrad": torch.optim.Adagrad,
+            "adam": torch.optim.Adam,
+            "adamax": torch.optim.Adamax,
+            "adamw": torch.optim.AdamW,
+            "asgd": torch.optim.ASGD,
+            "lbfgs": torch.optim.LBFGS,
+            "nadam": torch.optim.NAdam,
+            "radam": torch.optim.RAdam,
+            "rmsprop": torch.optim.RMSprop,
+            "rprop": torch.optim.Rprop,
+            "sgd": torch.optim.SGD,
+            "sparseadam": torch.optim.SparseAdam
+        }
 
-    def configure_criterion(self, padding_idx):
-        if self.criterion == "cross_entropy":
-            criterion_fn = nn.CrossEntropyLoss(ignore_index=padding_idx)
+        # Select optimizer
+        if isinstance(self.optimizer, str):
+            optim_key = self.optimizer.lower().strip()
+            if optim_key in optim_fn:
+                return optim_fn[optim_key](self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+            else:
+                raise ValueError(f"Unknown value '{self.optimizer}' for optimizer")
         else:
-            raise ValueError("Unknown value for optimizer")
-        return criterion_fn
+            return self.optimizer
+
+    def configure_criterion(self, criterion):
+        # Set criterion
+        if isinstance(criterion, str):
+            criterion_key = criterion.lower().strip()
+            if criterion_key == "cross_entropy":
+                self.criterion_fn = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
+            else:
+                raise ValueError(f"Unknown value '{criterion}' for criterion")
+        else:
+            self.criterion_fn = criterion
 
     def training_step(self, batch, batch_idx, dataloader_idx=None):
         loss, _ = self._step(batch, batch_idx, log_prefix=f"train")
@@ -52,17 +70,22 @@ class LitSeq2Seq(pl.LightningModule):
     def validation_step(self, batch, batch_idx, dataloader_idx=None):
         eval_prefix = "val"
         if dataloader_idx is not None:
-            extra = 'all' if self._filter_eval[dataloader_idx] is None else '+'.join(self._filter_eval[dataloader_idx])
-            eval_prefix += "_" + extra
+            fn_name, _ = self._filter_eval[dataloader_idx]
+            eval_prefix += "_" + fn_name
         loss, outputs = self._step(batch, batch_idx, log_prefix=eval_prefix)
         return loss, outputs
 
     def validation_epoch_end(self, outputs):
         # Print samples
         if self._print_samples:
-            iter_yield = zip([outputs], ["all"]) if len(self._filter_eval) <= 1 else zip(outputs, self._filter_eval)
+            if len(self._filter_eval) > 1:
+                iter_yield = zip(outputs, self._filter_eval)
+            else:
+                iter_yield = zip([outputs], self._filter_eval)
+
             for i, (preds, ts_filter) in enumerate(iter_yield):  # Iterate over dataloader
-                print(f"=> Printing samples: (Filter: {'+'.join(ts_filter) if ts_filter else str(ts_filter)}; val. dataloader_idx={i})")
+                fn_name, _ = ts_filter
+                print(f"=> Printing samples: (Filter: {fn_name}; val. dataloader_idx={i})")
                 src, hyp, ref = list(zip(*[(x["src"], x["hyp"], x["ref"]) for x in list(zip(*preds))[1]]))
                 src, hyp, ref = sum(src, []), sum(hyp, []), sum(ref, [])
                 for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):

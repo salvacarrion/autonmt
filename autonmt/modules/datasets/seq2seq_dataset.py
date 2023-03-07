@@ -7,8 +7,7 @@ from itertools import compress
 from autonmt.bundle.utils import read_file_lines
 
 class Seq2SeqDataset(Dataset):
-    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, limit=None,
-                 filter_langs=None, filter_fn=None, **kwargs):
+    def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, filter_fn=None, **kwargs):
         # Set vocabs
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
@@ -23,11 +22,7 @@ class Seq2SeqDataset(Dataset):
 
         # Filter langs
         if filter_fn:
-            self.src_lines, self.trg_lines = filter_fn(self.src_lines, self.trg_lines, filter_langs)
-
-        # Limit lines
-        self.src_lines = self.src_lines[:limit] if limit else self.src_lines
-        self.trg_lines = self.trg_lines[:limit] if limit else self.trg_lines
+            self.src_lines, self.trg_lines = filter_fn(self.src_lines, self.trg_lines)
 
         assert len(self.src_lines) == len(self.trg_lines)
 

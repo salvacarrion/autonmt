@@ -11,7 +11,7 @@ from tokenizers.normalizers import NFKC, Strip
 
 # Preprocess functions
 normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
-preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=True, shuffle_lines=True)
+preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=True)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
@@ -58,13 +58,13 @@ def main():
         # Train model
         wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
         model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params)
-        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=10, strategy="dp")
-        m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
+        model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=10, strategy="ddp")
+        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
         scores.append(m_scores)
 
     # Make report and print it
     output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="translations.beam1.sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
 

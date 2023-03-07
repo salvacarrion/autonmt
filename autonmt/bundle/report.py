@@ -19,7 +19,7 @@ def generate_report(scores, output_path, plot_metric=None, **kwargs):
     df_report = scores2pandas(scores=scores)
 
     # Create summary
-    df_summary = summarize_scores([df_report])
+    df_summary = summarize_scores(df_report)
 
     # Save report: json
     json_report_path = os.path.join(reports_path, "report.json")
@@ -42,47 +42,23 @@ def generate_report(scores, output_path, plot_metric=None, **kwargs):
 
 def scores2pandas(scores):
     # Convert to pandas
-    rows = []
+    pd_rows = []
     for model_scores in scores:
         for eval_scores in model_scores:
-            eval_scores = dict(eval_scores)  # Copy
-            beams_unrolled = {f"{beam_width}__{m_name_full}": score for beam_width in eval_scores["beams"].keys() for m_name_full, score in eval_scores["beams"].get(beam_width, {}).items()}
-            config_fit_unrolled = {f"config_fit_{key}":  str(value) for key, value in eval_scores["config"].get("fit", {}).items()}
-            config_predict_unrolled = {f"config_predict_{key}": str(value) for key, value in eval_scores["config"].get("predict", {}).items()}
-            eval_scores.update(beams_unrolled)
-            eval_scores.update(config_fit_unrolled)
-            eval_scores.update(config_predict_unrolled)
-            eval_scores.pop("beams")
-            eval_scores.pop("config")
-            rows.append(eval_scores)
+            pd_rows.append(pd.json_normalize(eval_scores))
 
     # Convert to pandas
-    df = pd.DataFrame(rows)
+    df = pd.concat(pd_rows)
     return df
 
 
-def summarize_scores(scores_collection, default_cols=None, ref_metric="bleu"):
+def summarize_scores(df_report, default_cols=None, ref_metric="bleu"):
     if default_cols is None:
         default_cols = ["train_dataset", "eval_dataset", "lang_pair", "subword_model", "vocab_size"]
 
-    collections = []
-    for c in scores_collection:
-        collections.append([row for i, row in c.iterrows()])
-
-    rows = []
-    for run_scores in zip(*collections):
-        # This MUST be fixed to compare several toolkits
-        row = {}
-        for c in default_cols:
-            row[c] = run_scores[0][c]
-
-        # Add scores from other toolkits (including itself)
-        for m_scores in run_scores:
-            m_col = [x for x in list(m_scores.keys()) if '_' + ref_metric.lower() in x.lower()]
-            m_col.sort(reverse=True)  # Descending (beam 5 before 1)
-            row[f"{m_scores['engine']}_{ref_metric}"] = m_scores[m_col[0]]
-        rows.append(row)
-    df = pd.DataFrame(rows)
+    # Select columns
+    selected_cols = [c for c in df_report.columns.values if c in default_cols or ref_metric in c]
+    df = df_report[selected_cols]
     return df
 
 

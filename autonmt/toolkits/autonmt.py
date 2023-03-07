@@ -30,8 +30,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.val_tds = None
         self.test_tds = None
 
+
     def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path,
-                    src_vocab_path, trg_vocab_path, force_overwrite, **kwargs):
+                    src_vocab_path, trg_vocab_path, apply2train, apply2val, apply2test,
+                    force_overwrite, **kwargs):
         # Create preprocessing
         self.subword_model = ds.subword_model
         self.pretok_flag = ds.pretok_flag
@@ -41,11 +43,25 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Set common params
         params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
                       filter_langs=ds.filter_train_langs)
-        if not kwargs.get("external_data"):  # Training
-            self.train_tds = Seq2SeqDataset(file_prefix=train_path, **params, **kwargs)
-            self.val_tds = Seq2SeqDataset(file_prefix=val_path, **params, **kwargs)
-        else:  # Evaluation
-            self.test_tds = Seq2SeqDataset(file_prefix=test_path, **params, **kwargs)
+
+        # Training data
+        if apply2train:
+            fn_name, filter_fn = self.filter_tr_data_fn
+            self.train_tds = Seq2SeqDataset(file_prefix=train_path, filter_fn=filter_fn, **params, **kwargs)
+
+        # Validation data
+        if apply2val:
+            self.val_tds = []
+            for fn_name, filter_fn in self.filter_vl_data_fn:
+                sds = Seq2SeqDataset(file_prefix=val_path, filter_fn=filter_fn, **params, **kwargs)
+                self.val_tds.append(sds)
+
+        # Test data
+        if apply2test:
+            self.test_tds = []
+            for fn_name, filter_fn in self.filter_ts_data_fn:
+                sds = Seq2SeqDataset(file_prefix=test_path, filter_fn=filter_fn, **params, **kwargs)
+                self.test_tds.append(sds)
 
     def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, resume_training, force_overwrite, **kwargs):
@@ -53,9 +69,21 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
         # - "resume_training" is not needed. models are initialized by the user.
 
-        # Define dataloaders
+        # Training dataloaders
         train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
-        val_loader = DataLoader(self.val_tds, shuffle=False, collate_fn=lambda x: self.val_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+
+        # Validation dataloaders
+        val_loaders = []
+        for val_tds_i in self.val_tds:
+            val_loaders.append(DataLoader(val_tds_i, shuffle=False,
+                                          collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
+                                          batch_size=batch_size, num_workers=num_workers))
+
+        # Model hyperparams
+        self.model.optimizer = kwargs.get("optimizer")
+        self.model.learning_rate = kwargs.get("learning_rate")
+        self.model.weight_decay = kwargs.get("weight_decay")
+        self.model.configure_criterion(kwargs.get("criterion"))
 
         # Additional information for metrics
         self.model._src_vocab = self.train_tds.src_vocab
@@ -65,20 +93,21 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._src_model_vocab_path = self.src_vocab_path
         self.model._trg_model_vocab_path = self.trg_vocab_path
         self.model._print_samples = self.print_samples
+        self.model._filter_train = self.filter_tr_data_fn
+        self.model._filter_eval = self.filter_vl_data_fn
 
         # Callbacks: Checkpoint
         callbacks = []
-        mode = "min" if monitor == "loss" else "max"
-        str_monitor = f"val_{monitor}"
-        filename = "checkpoint_best__{epoch}-{" + str_monitor + ":.2f}"
-        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=str_monitor, mode=mode,
+        mode = "min" if "loss" in monitor.lower() else "max"
+        filename = "checkpoint_best__{epoch}-{" + monitor.replace('/', '-') + ":.2f}"
+        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=monitor, mode=mode,
                                        filename=filename, save_weights_only=True)
         self.ckpt_cb.FILE_EXTENSION = ".pt"
         callbacks += [self.ckpt_cb]
 
         # Callback: EarlyStop
         if patience:
-            early_stop = EarlyStopping(monitor=str_monitor, patience=patience, mode=mode)
+            early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode)
             callbacks += [early_stop]
 
         # Loggers
@@ -98,7 +127,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
         pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
-        trainer.fit(self.model, train_loader, val_loader)
+        trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
         # Force finish
         if self.wandb_params:
@@ -106,7 +135,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
     def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    load_best_checkpoint, num_workers, devices, accelerator,
-                   force_overwrite, checkpoints_dir=None, **kwargs):
+                   force_overwrite, checkpoints_dir=None, filter_idx=0, **kwargs):
         # Checkpoint
         if load_best_checkpoint:
             if self.ckpt_cb:
@@ -135,9 +164,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Iterative decoding
         search_algorithm = beam_search if beam_width > 1 else greedy_search
-        predictions, log_probabilities = search_algorithm(model=self.model, dataset=self.test_tds,
-                                                          sos_id=self.test_tds.src_vocab.sos_id,
-                                                          eos_id=self.test_tds.src_vocab.eos_id,
+        predictions, log_probabilities = search_algorithm(model=self.model, dataset=self.test_tds[filter_idx],
+                                                          sos_id=self.trg_vocab.sos_id,
+                                                          eos_id=self.trg_vocab.eos_id,
                                                           batch_size=batch_size, max_tokens=max_tokens,
                                                           beam_width=beam_width, max_len_a=max_len_a, max_len_b=max_len_b,
                                                           num_workers=num_workers)
@@ -149,7 +178,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         Important: src and ref will be overwritten with the original preprocessed files to avoid problems with unknowns
         """
         # Decode: hyp
-        hyp_tok = [self.test_tds.trg_vocab.decode(tokens) for tokens in predictions]
+        hyp_tok = [self.trg_vocab.decode(tokens) for tokens in predictions]
         write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"), insert_break_line=True)
 
     @staticmethod

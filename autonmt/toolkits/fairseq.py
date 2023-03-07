@@ -122,7 +122,7 @@ class FairseqTranslator(BaseTranslator):
         self.data_bin_name = "data-bin"
 
     def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path, src_vocab_path,
-                    trg_vocab_path, force_overwrite, **kwargs):
+                    trg_vocab_path, apply2train, apply2val, apply2test, force_overwrite, **kwargs):
 
         # Create data-bin directory if it doesn't exist
         if not output_path:  # Train
@@ -154,7 +154,7 @@ class FairseqTranslator(BaseTranslator):
 
         # Trick for generation.
         # Fairseq always requires a train path, but during evaluation there is no need.
-        if kwargs.get("external_data"):
+        if apply2test:
             train_path = test_path
 
         # Write command
