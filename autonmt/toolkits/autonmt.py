@@ -69,15 +69,20 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
         # - "resume_training" is not needed. models are initialized by the user.
 
+        # Checks
+        pin_memory = False if kwargs.get('devices') == "cpu" else True
+
         # Training dataloaders
-        train_loader = DataLoader(self.train_tds, shuffle=True, collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens), batch_size=batch_size, num_workers=num_workers)
+        train_loader = DataLoader(self.train_tds, shuffle=True,
+                                  collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens),
+                                  batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
         # Validation dataloaders
         val_loaders = []
         for val_tds_i in self.val_tds:
             val_loaders.append(DataLoader(val_tds_i, shuffle=False,
                                           collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
-                                          batch_size=batch_size, num_workers=num_workers))
+                                          batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
 
         # Model hyperparams
         self.model.optimizer = kwargs.get("optimizer")

@@ -84,5 +84,5 @@ def smp_read_vocab_file(vocab_path, ignore_special_tokens=4):
     spm_vocab = {}
     for line in spm_vocab_lines:
         cols = line.split('\t')
-        spm_vocab[cols[0]] = int(cols[-1].strip())  # word -> id
+        spm_vocab[cols[0]] = float(cols[-1].strip())  # word -> id
     return spm_vocab

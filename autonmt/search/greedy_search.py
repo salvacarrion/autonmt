@@ -6,11 +6,12 @@ import tqdm
 def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
     model.eval()
     device = next(model.parameters()).device
+    pin_memory = False if device.type == "cpu" else True
 
     # Create dataloader
     collate_fn = lambda x: dataset.collate_fn(x, max_tokens=max_tokens)
     eval_dataloader = tud.DataLoader(dataset, shuffle=False, collate_fn=collate_fn, batch_size=batch_size,
-                                     num_workers=num_workers)
+                                     num_workers=num_workers, pin_memory=pin_memory)
 
     idxs = []
     probabilities = []

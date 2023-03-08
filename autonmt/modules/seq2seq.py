@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 
 import pytorch_lightning as pl
@@ -23,6 +24,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.criterion_fn = None
 
         # Other
+        self.save_hyperparameters()
         self.best_scores = defaultdict(float)
 
     def configure_optimizers(self):
@@ -114,6 +116,7 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Log params
         self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         # Compute metrics for validaiton

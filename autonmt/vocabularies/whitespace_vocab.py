@@ -58,9 +58,9 @@ class Vocabulary(BaseVocabulary):
         self._assert_vocab()
         return self
 
-    def build_from_ds(self, ds, lang):
-        self.lang = lang
-        vocab_path = ds.get_vocab_path(lang) + ".vocab"
+    def build_from_ds(self, ds, lang=None):
+        self.lang = ds.dataset_lang_pair if lang is None else lang
+        vocab_path = ds.get_vocab_path(self.lang) + ".vocab"
         self.build_from_vocab(vocab_path)
         self._assert_vocab()
         return self

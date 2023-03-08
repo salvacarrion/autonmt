@@ -23,9 +23,9 @@ def filter_data_fn(x, y, keys, **kwargs):
     else:
         keys = set(keys)
         if kwargs.get("from_translate"):
-            x, y = zip(*[(l1, l2) for l1, l2 in zip(x, y) if l1[0:2] in keys])  # de-en
+            x, y = zip(*[(l1, l2) for l1, l2 in zip(x, y) if l1[0:2] in keys])
         else:
-            x, y = zip(*[(l1, l2) for l1, l2 in zip(x, y) if l1[1:3] in keys])  # _de-en
+            x, y = zip(*[(l1, l2) for l1, l2 in zip(x, y) if l1[1:3] in keys])
         return x, y
 
 def _gen_filter_data_fn(keys):
@@ -36,11 +36,11 @@ def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
         # Root folder for datasets
-        base_path="datasets/translate",
+        base_path="/home/scarrion/datasets/translate",
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "europarl", "languages": ["en-xx"], "sizes": [("100k", 100000)]}, #("original", None),
+            {"name": "scielo/_merged", "languages": ["en-xx"], "sizes": [("10k", 10000)]}, #("original", None),
         ],
 
         # Set of subword models and vocab sizes to try
@@ -68,8 +68,8 @@ def main():
     checkpoint_path = None #'mymodels/single/1_xx_last.pt'
 
     # Filter pairs
-    filter_tr_pairs = [None, ["en-es"], ["en-fr", "en-de"], ["en-cs"]]  # Training data
-    filter_ts_pairs = [None, ["en-es"], ["en-fr"], ["en-de"], ["en-cs"]]  # For each model
+    filter_tr_pairs = [None, ["hh"], ["bb"]]  # Training data
+    filter_ts_pairs = [None, ["hh"], ["bb"]]  # For each model
 
     # Train and test models
     scores = []
