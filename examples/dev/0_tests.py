@@ -53,10 +53,10 @@ def main():
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
         # Train model
-        wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
-        model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params)
+        wandb_params = dict(project="autonmt-cf", entity="salvacarrion")
+        model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params, skip_val_metrics=True)
         model.fit(train_ds, max_epochs=10, learning_rate=0.0005, optimizer="adam", gradient_clip_val=1.0,
-                  batch_size=128, seed=1234, patience=10, num_workers=10, devices="auto", accelerator="gpu", strategy="ddp", precision=16)
+                  batch_size=128, seed=1234, patience=10, num_workers=10, devices="auto", accelerator="gpu", strategy="ddp", precision=32)
         m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
         scores.append(m_scores)
 

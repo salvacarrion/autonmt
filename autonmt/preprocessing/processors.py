@@ -205,7 +205,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
         assert os.path.exists(output_file)
 
 
-def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  remove_unk_hyphen=False):
+def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None, remove_unk_hyphen=False):
     # Detokenize
     if subword_model in {None, "none"}:
         # Rename or copy files (tok==txt)
@@ -214,10 +214,9 @@ def decode_lines(lines, lang, subword_model, pretok_flag, model_vocab_path,  rem
     elif subword_model in {"bytes"}:
         # Decode files
         lines = [utils.clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
-
     else:
         # Decode files
-        lines = tokenizers._spm_decode(lines, model_vocab_path + ".model")
+        lines = tokenizers._spm_decode(lines, spm_model)
 
         # Remove the hyphen of unknown words when needed
         if remove_unk_hyphen:

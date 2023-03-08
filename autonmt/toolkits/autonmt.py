@@ -15,15 +15,18 @@ from autonmt.search.beam_search import beam_search
 from autonmt.search.greedy_search import greedy_search
 from autonmt.toolkits.base import BaseTranslator
 
+from torch.utils.data.sampler import SequentialSampler
+from torchnlp.samplers import BucketBatchSampler
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, wandb_params=None, print_samples=False, **kwargs):
+    def __init__(self, model, wandb_params=None, print_samples=False, skip_val_metrics=False, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
         self.ckpt_cb = None
         self.wandb_params = wandb_params
         self.print_samples = print_samples
+        self.skip_val_metrics = skip_val_metrics
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
@@ -63,6 +66,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
                 sds = Seq2SeqDataset(file_prefix=test_path, filter_fn=filter_fn, **params, **kwargs)
                 self.test_tds.append(sds)
 
+    def len_func(self, ds, i):
+        return len(ds.datasets.iloc[i]["src"].split())
+
     def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
                num_workers, patience, resume_training, force_overwrite, **kwargs):
         # Notes:
@@ -72,10 +78,17 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Checks
         pin_memory = False if kwargs.get('devices') == "cpu" else True
 
+        # Samplers
+        # train_sampler = BucketBatchSampler(SequentialSampler(self.train_tds), batch_size=batch_size, drop_last=False,
+        #                                    sort_key=lambda i: self.len_func(self.train_tds, i))
+
         # Training dataloaders
-        train_loader = DataLoader(self.train_tds, shuffle=True,
+        train_loader = DataLoader(self.train_tds,
                                   collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens),
-                                  batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
+                                  num_workers=num_workers, pin_memory=pin_memory,
+                                  batch_size=batch_size, shuffle=True,
+                                  # batch_sampler=train_sampler,
+                                  )
 
         # Validation dataloaders
         val_loaders = []
@@ -95,11 +108,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._trg_vocab = self.train_tds.trg_vocab
         self.model._subword_model = self.subword_model
         self.model._pretok_flag = self.pretok_flag
-        self.model._src_model_vocab_path = self.src_vocab_path
-        self.model._trg_model_vocab_path = self.trg_vocab_path
         self.model._print_samples = self.print_samples
         self.model._filter_train = self.filter_tr_data_fn
         self.model._filter_eval = self.filter_vl_data_fn
+        self.model._skip_val_metrics = self.skip_val_metrics
 
         # Callbacks: Checkpoint
         callbacks = []

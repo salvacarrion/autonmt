@@ -14,14 +14,12 @@ def _moses_detokenizer(lines, lang):
     mt = MosesDetokenizer(lang=lang)
     return [mt.detokenize(line.split()) for line in tqdm(lines, total=len(lines))]
 
-def _spm_encode(lines, model_file):
-    sp = spm.SentencePieceProcessor(model_file=model_file)
+def _spm_encode(lines, sp):
     lines = sp.encode(lines, out_type=str)
     lines = [' '.join(line) for line in tqdm(lines, total=len(lines))]
     return lines
 
-def _spm_decode(lines, model_file):
-    sp = spm.SentencePieceProcessor(model_file=model_file)
+def _spm_decode(lines, sp):
     lines = [line.split(' ') for line in tqdm(lines, total=len(lines))]
     lines = sp.decode_pieces(lines, out_type=str)
     return lines
@@ -54,16 +52,22 @@ def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_se
 
 
 def spm_encode_file(spm_model_path, input_file, output_file):
+    # Load processor
+    sp = spm.SentencePieceProcessor(model_file=spm_model_path)
+
     # Read, encode and write lines
     lines = utils.read_file_lines(input_file, autoclean=True)
-    lines = _spm_encode(lines, spm_model_path)
+    lines = _spm_encode(lines, sp)
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 
 def spm_decode_file(spm_model_path, input_file, output_file):
+    # Load processor
+    sp = spm.SentencePieceProcessor(model_file=spm_model_path)
+
     # Read, decode and write lines
     lines = utils.read_file_lines(input_file, autoclean=True)
-    lines = _spm_decode(lines, spm_model_path)
+    lines = _spm_decode(lines, sp)
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 

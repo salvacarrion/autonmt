@@ -121,7 +121,7 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Compute metrics for validaiton
         outputs = None
-        if log_prefix.startswith("val"):
+        if not self._skip_val_metrics and log_prefix.startswith("val"):
             outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)
         return loss, outputs
 
@@ -133,9 +133,12 @@ class LitSeq2Seq(pl.LightningModule):
         src_lines = [self._src_vocab.decode(list(x)) for x in x.detach().cpu().numpy()]
 
         # Full decoding
-        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
-        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag, self._trg_model_vocab_path,  remove_unk_hyphen=True)
-        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._subword_model, self._pretok_flag, self._src_model_vocab_path,  remove_unk_hyphen=True)
+        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag,
+                                 self._trg_vocab.spm_model, remove_unk_hyphen=True)
+        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag,
+                                 self._trg_vocab.spm_model, remove_unk_hyphen=True)
+        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._subword_model, self._pretok_flag,
+                                 self._src_vocab.spm_model, remove_unk_hyphen=True)
 
         # Compute metrics
         scores = []

@@ -58,11 +58,16 @@ class Vocabulary(BaseVocabulary):
         self._assert_vocab()
         return self
 
+    def _load_spm_model_from_path(self, path):
+        import sentencepiece as spm
+        self.spm_model = spm.SentencePieceProcessor(model_file=path)
+
     def build_from_ds(self, ds, lang=None):
         self.lang = ds.dataset_lang_pair if lang is None else lang
         vocab_path = ds.get_vocab_path(self.lang) + ".vocab"
         self.build_from_vocab(vocab_path)
         self._assert_vocab()
+        self._load_spm_model_from_path(ds.get_vocab_path(self.lang) + ".model")
         return self
 
     def get_tokens(self):
