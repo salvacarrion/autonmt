@@ -119,7 +119,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True)
         self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-        # Compute metrics for validaiton
+        # Compute metrics for validation
         outputs = None
         if not self._skip_val_metrics and log_prefix.startswith("val"):
             outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)

@@ -65,6 +65,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             for fn_name, filter_fn in self.filter_ts_data_fn:
                 sds = Seq2SeqDataset(file_prefix=test_path, filter_fn=filter_fn, **params, **kwargs)
                 self.test_tds.append(sds)
+        asd = 3
 
     def len_func(self, ds, i):
         return len(ds.datasets.iloc[i]["src"].split())

@@ -352,7 +352,7 @@ class BaseTranslator(ABC):
                         print(f"Filtering src/ref raw files (split='{fn_name}')...")
                         src_ref_lines = read_file_lines(filename=src_input_file, autoclean=True)
                         trg_ref_lines = read_file_lines(filename=ref_input_file, autoclean=True)
-                        src_ref_lines, trg_ref_lines = filter_fn(src_ref_lines, trg_ref_lines, from_translate=True)
+                        src_ref_lines, trg_ref_lines = filter_fn(src_ref_lines, trg_ref_lines, from_fn="translate")
                         write_file_lines(filename=src_output_file, lines=src_ref_lines, autoclean=True, insert_break_line=True)
                         write_file_lines(filename=ref_output_file, lines=trg_ref_lines, autoclean=True, insert_break_line=True)
 
