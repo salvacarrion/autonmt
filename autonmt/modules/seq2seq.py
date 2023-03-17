@@ -26,6 +26,7 @@ class LitSeq2Seq(pl.LightningModule):
         # Other
         self.save_hyperparameters()
         self.best_scores = defaultdict(float)
+        self.validation_step_outputs = []
 
     def configure_optimizers(self):
         optim_fn = {
@@ -77,7 +78,10 @@ class LitSeq2Seq(pl.LightningModule):
         loss, outputs = self._step(batch, batch_idx, log_prefix=eval_prefix)
         return loss, outputs
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
+        # Get validation outputs
+        outputs = torch.stack(self.validation_step_outputs)
+
         # Print samples
         if self._print_samples:
             if len(self._filter_eval) > 1:
@@ -96,6 +100,9 @@ class LitSeq2Seq(pl.LightningModule):
                     print(f"- Hyp. #{i}: {hyp_i}")
                     print("")
                 print("-"*100)
+
+        # Free memory
+        self.validation_step_outputs.clear()
 
     def _step(self, batch, batch_idx, log_prefix):
         x, y = batch
