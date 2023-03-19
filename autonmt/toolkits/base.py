@@ -356,6 +356,17 @@ class BaseTranslator(ABC):
                         write_file_lines(filename=src_output_file, lines=src_ref_lines, autoclean=True, insert_break_line=True)
                         write_file_lines(filename=ref_output_file, lines=trg_ref_lines, autoclean=True, insert_break_line=True)
 
+                    # Postprocess src/ref files (lowercase, strip,...)
+                    if model_ds.preprocess_predict_fn:
+                        preprocess_predict_file(input_file=src_output_file, output_file=src_output_file,
+                                                preprocess_fn=model_ds.preprocess_predict_fn,
+                                                pretokenize=model_ds.pretok_flag, lang=model_ds.src_lang,
+                                                force_overwrite=force_overwrite)
+                        preprocess_predict_file(input_file=ref_output_file, output_file=ref_output_file,
+                                                preprocess_fn=model_ds.preprocess_predict_fn,
+                                                pretokenize=model_ds.pretok_flag, lang=model_ds.trg_lang,
+                                                force_overwrite=force_overwrite)
+
                     # Postprocess tokenized files
                     for fname, lang in [("hyp", model_ds.trg_lang)]:
                         input_file = os.path.join(output_path, f"{fname}.tok")

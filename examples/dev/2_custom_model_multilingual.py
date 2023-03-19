@@ -218,30 +218,32 @@ def main():
                 # Train model
                 BATCH_SIZE = 256
                 NUM_WORKERS = 10
-                model.fit(default_ds, max_epochs=75, learning_rate=0.001, optimizer="adamw", gradient_clip_val=0.0,  monitor=monitor,
-                          batch_size=BATCH_SIZE, seed=1234, patience=10, num_workers=NUM_WORKERS, devices="auto", accelerator="auto", strategy="ddp")
+                # model.fit(default_ds, max_epochs=75, learning_rate=0.001, optimizer="adamw", gradient_clip_val=0.0,  monitor=monitor,
+                #           batch_size=BATCH_SIZE, seed=1234, patience=10, num_workers=NUM_WORKERS, devices="auto", accelerator="auto", strategy="ddp")
 
-                # # Predict
+                # Predict
+                # model.load_best_checkpoint(model_ds=default_ds)
                 # m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1],
-                #                          load_best_checkpoint=False, max_len_a=0.0, max_len_b=10,
-                #                          model_ds=default_ds)  # model_ds=train_ds => if fit() was not used before
+                #                          batch_size=BATCH_SIZE, num_workers=NUM_WORKERS,
+                #                          load_best_checkpoint=False, max_len_a=0.0, max_len_b=200,
+                #                          model_ds=default_ds, force_overwrite=True)  # model_ds=train_ds => if fit() was not used before
                 # scores.append(m_scores)
                 ############################################################
 
-                # Load model
-                checkpoint_path = model.load_best_checkpoint(model_ds=default_ds)
-
-                # Compute weights and gradients
-                model.preprocess(default_ds, apply2train=True, apply2val=False, apply2test=False, force_overwrite=False)
-                weights, grads = compute_grads(model.model, model.train_tds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
-                d_tasks[run_prefix] = {"weights": weights, "gradients": grads}
-
-                # Save weights and grads
-                run_name = default_ds.get_run_name(model.run_prefix)
-                path = default_ds.get_model_checkpoints_path(model.engine, run_name)
-                torch.save(weights, os.path.join(path, f'checkpoint_last__weights.pt'))
-                torch.save(grads, os.path.join(path, f'checkpoint_last__gradients.pt'))
-                ############################################################
+                # # Load model
+                # checkpoint_path = model.load_best_checkpoint(model_ds=default_ds)
+                #
+                # # Compute weights and gradients
+                # model.preprocess(default_ds, apply2train=True, apply2val=False, apply2test=False, force_overwrite=False)
+                # weights, grads = compute_grads(model.model, model.train_tds, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
+                # d_tasks[run_prefix] = {"weights": weights, "gradients": grads}
+                #
+                # # Save weights and grads
+                # run_name = default_ds.get_run_name(model.run_prefix)
+                # path = default_ds.get_model_checkpoints_path(model.engine, run_name)
+                # torch.save(weights, os.path.join(path, f'checkpoint_last__weights.pt'))
+                # torch.save(grads, os.path.join(path, f'checkpoint_last__gradients.pt'))
+                # ############################################################
 
                 # Add new pairs to past pairs
                 if sequential_tr:
@@ -251,12 +253,12 @@ def main():
 
     print(f"Total models trained: {counter}")
 
-    # # Make report and print it
-    # output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    # df_report, df_summary = generate_report(scores=scores, output_path=output_path,
-    #                                         plot_metric="translations.xx.beam1.sacrebleu_bleu_score")
-    # print("Summary:")
-    # print(df_summary.to_string(index=False))
+    # Make report and print it
+    output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path,
+                                            plot_metric="translations.xx.beam1.sacrebleu_bleu_score")
+    print("Summary:")
+    print(df_summary.to_string(index=False))
 
 if __name__ == "__main__":
     main()
