@@ -16,7 +16,7 @@ from autonmt.search.greedy_search import greedy_search
 from autonmt.toolkits.base import BaseTranslator
 
 from torch.utils.data.sampler import SequentialSampler
-from torchnlp.samplers import BucketBatchSampler
+# from torchnlp.samplers import BucketBatchSampler
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
@@ -139,7 +139,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             loggers.append(wandb_logger)
 
             # Monitor
-            wandb_logger.watch(self.model)
+            #wandb_logger.watch(self.model)
 
         # Training
         remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
@@ -156,24 +156,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
                    force_overwrite, checkpoints_dir=None, filter_idx=0, **kwargs):
         # Checkpoint
         if load_best_checkpoint:
-            if self.ckpt_cb:
-                checkpoint_path = self.ckpt_cb.best_model_path
-            else:
-                # Find last checkpoint
-                checkpoints = sorted(glob.iglob(os.path.join(checkpoints_dir, "*.pt")), key=os.path.getctime, reverse=True)
-                if not checkpoints:
-                    raise ValueError(f"No checkpoints were found in {checkpoints_dir}")
-                elif len(checkpoints) > 1:
-                    checkpoint_path = checkpoints[0]
-                    print(f"[WARNING] Multiple checkpoints were found. Using latest: {checkpoint_path}")
-                else:
-                    checkpoint_path = checkpoints[0]
-                    print(f"[INFO] Loading checkpoint: {checkpoint_path}")
-
-            # Load checkpoint
-            model_state_dict = torch.load(checkpoint_path)
-            model_state_dict = model_state_dict.get("state_dict", model_state_dict)
-            self.model.load_state_dict(model_state_dict)
+            self.load_best_checkpoint()
 
         # Set evaluation model
         if accelerator in {"auto", "cuda", "gpu"} and self.model.device.type != "cuda":
@@ -204,5 +187,43 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         non_trainable_params = sum(p.numel() for p in model.parameters() if not p.requires_grad)
         return trainable_params, non_trainable_params
+
+    @staticmethod
+    def _get_checkpoints(checkpoints_dir):
+        # Find last checkpoint
+        # checkpoints = sorted(glob.iglob(os.path.join(checkpoints_dir, "*.pt")), key=os.path.getctime, reverse=True)
+        checkpoints = sorted([os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.endswith('.pt')], key=os.path.getctime, reverse=True)
+        if not checkpoints:
+            raise ValueError(f"No checkpoints were found in {checkpoints_dir}")
+        elif len(checkpoints) > 1:
+            # Choose first string that has "best_" in its name, else, choose first string
+            checkpoint_path = checkpoints[0]
+            for path in checkpoints:
+                if "_best_" in path:
+                    checkpoint_path = path
+                    print(f"[WARNING] Multiple checkpoints were found. Using latest best: {checkpoint_path}")
+                    return checkpoint_path
+            print(f"[WARNING] Multiple checkpoints were found. Using latest: {checkpoint_path}")
+        else:
+            checkpoint_path = checkpoints[0]
+            print(f"[INFO] Loading checkpoint: {checkpoint_path}")
+        return checkpoint_path
+
+    def load_best_checkpoint(self, checkpoints_dir=None, model_ds=None):
+        if self.ckpt_cb:
+            checkpoint_path = self.ckpt_cb.best_model_path
+        elif checkpoints_dir:
+            checkpoint_path = self._get_checkpoints(checkpoints_dir)
+        elif model_ds:
+            checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, model_ds.get_run_name(self.run_prefix))
+            checkpoint_path = self._get_checkpoints(checkpoints_dir)
+        else:
+            raise ValueError("Either 'checkpoints_dir' or 'model_ds' must be provided")
+
+        # Load checkpoint
+        model_state_dict = torch.load(checkpoint_path)
+        model_state_dict = model_state_dict.get("state_dict", model_state_dict)
+        self.model.load_state_dict(model_state_dict)
+        return checkpoint_path
 
 

@@ -22,11 +22,14 @@ class LitSeq2Seq(pl.LightningModule):
         self.learning_rate = None
         self.weight_decay = None
         self.criterion_fn = None
+        self._skip_val_metrics = None
+        self.d_tasks = {}
+        self.reg_type = None
 
         # Other
         self.save_hyperparameters()
         self.best_scores = defaultdict(float)
-        self.validation_step_outputs = []
+        self.validation_step_outputs = defaultdict(list)
 
     def configure_optimizers(self):
         optim_fn = {
@@ -76,24 +79,23 @@ class LitSeq2Seq(pl.LightningModule):
             fn_name, _ = self._filter_eval[dataloader_idx]
             eval_prefix += "_" + fn_name
         loss, outputs = self._step(batch, batch_idx, log_prefix=eval_prefix)
+        self.validation_step_outputs[dataloader_idx].append(outputs)
         return loss, outputs
 
     def on_validation_epoch_end(self):
         # Get validation outputs
-        outputs = torch.stack(self.validation_step_outputs)
+        outputs = self.validation_step_outputs
 
         # Print samples
         if self._print_samples:
-            if len(self._filter_eval) > 1:
-                iter_yield = zip(outputs, self._filter_eval)
-            else:
-                iter_yield = zip([outputs], self._filter_eval)
-
-            for i, (preds, ts_filter) in enumerate(iter_yield):  # Iterate over dataloader
-                fn_name, _ = ts_filter
+            for (i, preds), (fn_name, _) in zip(outputs.items(), self._filter_eval):  # Iterate over dataloader
                 print(f"=> Printing samples: (Filter: {fn_name}; val. dataloader_idx={i})")
-                src, hyp, ref = list(zip(*[(x["src"], x["hyp"], x["ref"]) for x in list(zip(*preds))[1]]))
-                src, hyp, ref = sum(src, []), sum(hyp, []), sum(ref, [])
+                d = defaultdict(list)
+                for d_batch in preds:
+                    for key, value in d_batch.items():
+                        d[key].extend(value)
+                d = dict(d)
+                src, hyp, ref = d["src"], d["hyp"], d["ref"]
                 for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
                     print(f"- Src. #{i}: {src_i}")
                     print(f"- Ref. #{i}: {ref_i}")
@@ -116,20 +118,43 @@ class LitSeq2Seq(pl.LightningModule):
         y = y[:, 1:]  # Remove <sos>
         loss = self.criterion_fn(output, y)
 
+        # Apply regularization
+        if self.reg_type is None:
+            pass
+        elif self.reg_type == "l1":
+            raise NotImplementedError("L1 regularization not implemented yet")
+        elif self.reg_type == "l2":
+            l2_lambda = 0.4
+            for task_id in self.d_tasks.keys():
+                for name, param in self.named_parameters():
+                    optpar = torch.tensor(self.d_tasks[task_id]["weights"][name]).to(output.device)
+                    loss += ((optpar - param).pow(2)).sum() * l2_lambda
+        elif self.reg_type == "ewc":
+            ewc_lambda = 0.4
+            for task_id in self.d_tasks.keys():
+                for name, param in self.named_parameters():
+                    grads = torch.tensor(self.d_tasks[task_id]["gradients"][name]).to(output.device)
+                    optpar = torch.tensor(self.d_tasks[task_id]["weights"][name]).to(output.device)
+                    fisher = grads.pow(2)
+                    loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
+        else:
+            raise ValueError(f"Unknown value '{self.reg_type}' for reg_type")
+
         # Metrics: Accuracy
         predictions = output.detach().argmax(1)
         batch_errors = (predictions != y).sum().item()
         accuracy = 1 - (batch_errors / predictions.numel())
 
         # Log params
-        self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-
-        # Compute metrics for validation
         outputs = None
-        if not self._skip_val_metrics and log_prefix.startswith("val"):
-            outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)
+        if log_prefix:
+            self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+            # Compute metrics for validation
+            if not self._skip_val_metrics and log_prefix.startswith("val"):
+                outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)
         return loss, outputs
 
     def _compute_metrics(self, y_hat, y, x, metrics, log_prefix):
