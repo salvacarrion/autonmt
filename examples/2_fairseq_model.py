@@ -37,11 +37,9 @@ def main(fairseq_args):
         # Preprocessing functions
         preprocess_raw_fn=preprocess_raw_fn,
         preprocess_splits_fn=preprocess_splits_fn,
-        preprocess_predict_fn=preprocess_predict_fn,
 
         # Additional args
         merge_vocabs=False,
-        eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
@@ -51,9 +49,18 @@ def main(fairseq_args):
     # Train & Score a model for each dataset
     scores = []
     for train_ds in tr_datasets:
-        model = FairseqTranslator()
-        # model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=10, strategy="ddp", fairseq_args=fairseq_args)
-        m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, model_ds=train_ds)  # model_ds=train_ds => if fit() was not used before
+        # Define trainer
+        runs_dir = train_ds.get_runs_path(toolkit="autonmt")
+        run_name = train_ds.get_run_name(run_prefix="mymodel")
+        trainer = FairseqTranslator(runs_dir=runs_dir, run_name=run_name)
+
+        # Train model
+        trainer.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
+                    patience=10, num_workers=10, strategy="ddp", fairseq_args=fairseq_args)
+
+        # Test model
+        m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], load_checkpoint="best",
+                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
         scores.append(m_scores)
 
     # Make report and print it

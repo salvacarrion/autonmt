@@ -81,23 +81,15 @@ builder = DatasetBuilder(
     # Preprocessing functions
     preprocess_raw_fn=lambda x, y: preprocess_pairs(x, y,...),
     preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y,...),
-    preprocess_predict_fn=lambda x: preprocess_lines(x,...),
     
     # Additional args
     merge_vocabs=False,
-    eval_mode="compatible",
 ).build(make_plots=False, force_overwrite=False)
 
 # Create preprocessing for training and testing
 tr_datasets = builder.get_train_ds()
 ts_datasets = builder.get_test_ds()
 ```
-
-> **Note:**
-> 
-> The `eval_model` indicates the datasets for which each model can be evaluated:
-> -  `same`: evaluates a model only with its test set.
-> -  `compatible`: evaluates a model with all compatible test sets}
 
 #### Format
 
@@ -129,11 +121,20 @@ for train_ds in tr_datasets:
     trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
     model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
+    # Define trainer
+    runs_dir = train_ds.get_runs_path(toolkit="autonmt")
+    run_name = train_ds.get_run_name(run_prefix="mymodel")
+    trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+                                runs_dir=runs_dir, run_name=run_name)
+    
     # Train model
     wandb_params = None  #dict(project="autonmt", entity="salvacarrion")
-    model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params)
-    model.fit(train_ds, max_epochs=1, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, strategy="dp")
-    m_scores = model.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1], load_best_checkpoint=True)
+    trainer.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
+                patience=10, num_workers=10, strategy="ddp", save_best=True, save_last=True, wandb_params=wandb_params)
+
+    # Test model
+    m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], load_checkpoint="best",
+                               preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
     scores.append(m_scores)
 ```
 
@@ -165,7 +166,7 @@ from autonmt.bundle.report import generate_report
 
 # Make report and print it
 output_path = f".outputs/autonmt/run1"
-df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="beam1__sacrebleu_bleu_score")
+df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="translations.beam1.sacrebleu_bleu_score")
 print("Summary:")
 print(df_summary.to_string(index=False))
 ```
@@ -209,23 +210,6 @@ class CustomModel(LitSeq2Seq):
     
     def forward_decoder(self, y, memory):
         pass  # output = (Batch, Length, probabilities)
-
-# Build datasets
-# tr_datasets, ts_datasets = ...
-
-# Train & Score a model for each dataset
-scores = []
-for train_ds in tr_datasets:
-    # Instantiate vocabs and model
-    src_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.src_lang)
-    trg_vocab = Vocabulary(max_tokens=100).build_from_ds(ds=ds, lang=ds.trg_lang)
-    model = CustomModel(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
-
-    # Train model
-    model = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab)
-    model.fit(train_ds, max_epochs=5, batch_size=128, seed=1234, patience=10, num_workers=12, force_overwrite=True)
-    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_best_checkpoint=True, force_overwrite=True)
-    scores.append(m_scores)
 ```
 
 **Custom trainer/evaluator**
@@ -246,7 +230,7 @@ class CustomModel(LitCustomSeq2Seq):
 
 
 # Custom model
-model = AutonmtTranslator(model= CustomModel(...), ...)
+model = AutonmtTranslator(model=CustomModel(...), ...)
 ```
 
 #### Fairseq models
@@ -277,9 +261,18 @@ fairseq_args = [
 # Train & Score a model for each dataset
 scores = []
 for train_ds in tr_datasets:
-    model = FairseqTranslator()
-    model.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234, patience=10, num_workers=12, fairseq_args=fairseq_args, force_overwrite=True)
-    m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1, 5], model_ds=train_ds, force_overwrite=True)
+    # Define trainer
+    runs_dir = train_ds.get_runs_path(toolkit="autonmt")
+    run_name = train_ds.get_run_name(run_prefix="mymodel")
+    trainer = FairseqTranslator(runs_dir=runs_dir, run_name=run_name)
+    
+    # Train model
+    trainer.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
+                patience=10, num_workers=10, strategy="ddp", fairseq_args=fairseq_args)
+
+    # Test model
+    m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], load_checkpoint="best",
+                               preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
     scores.append(m_scores)
 ```
 
@@ -322,40 +315,6 @@ containing its data, summary and statistics
 **Split sizes:**
 
 ![](docs/images/multi30k/split_size_tok__multi30k_original_de-en__word_16000.png)
-
-
-
-### Reproducibility
-
-#### Deprecated due to shell problems
-
-The python implementations produces the same results as the command line version.
-
-> By default, AutoNMT tries to operate directly through the python apis. However, for reproducibility purposes you can
-> force AutoNMT to use the command line version of thoses libraries with the flag `use_cmd=True` (available in 
-> the DatasetBuilder and Trainers).
-> 
-> ```python
-> builder = DatasetBuilder(..., use_cmd=True)
-> model = AutonmtTranslator(..., use_cmd=True)
-> ```
-> 
-> By enabling this flag, AutoNMT will use the command line tools as a typical user. 
-> 
-> ```bash
-> ...
-> - Command used: sed -i 's/<<unk>>/<unk>/' /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok
-> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/src.txt
-> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt
-> - Command used: spm_decode --model=/home/salva/preprocessing/multi30k/de-en/original/vocabs/spm/word/8000/spm_de-en.model --input_format=piece < /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.tok > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt
-> - Command used: sacrebleu /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/ref.txt -i /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/hyp.txt -m bleu chrf ter  -w 5 > /home/salva/preprocessing/multi30k/de-en/original/models/fairseq/runs/model_word_8000/eval/multi30k_de-en_original/beams/beam1/scores/sacrebleu_scores.json
-> ...
-> ```
-> By default, AutoNMT will try to use the programs available from the `/bin/bash` (.bashrc), but you can also specify a conda environment if you want, with the flag `venv_path="myenv"`
-> 
-> ```python
-> model = AutonmtTranslator(model=Transformer(...), ..., venv_path="myenv")
-> ```
 
 
 ### Layout example

@@ -101,6 +101,33 @@ def compute_grads(model, train_tds, num_workers=10, batch_size=64, max_tokens=No
 
     return weights_dict, grad_dict
 
+def regularization_fn(model, loss, **kwargs):
+    d_tasks = kwargs.get("d_tasks")
+    reg_type = kwargs.get("reg_type")
+    lmda = kwargs.get("lmda")
+
+    # Apply regularization
+    if reg_type is None:
+        pass
+    elif reg_type == "l1":
+        for task_id in d_tasks.keys():
+            for name, param in model.named_parameters():
+                optpar = torch.tensor(d_tasks[task_id]["weights"][name]).to(param.device)
+                loss += ((optpar - param).abs()).sum() * lmda
+    elif reg_type == "l2":
+        for task_id in d_tasks.keys():
+            for name, param in model.named_parameters():
+                optpar = torch.tensor(d_tasks[task_id]["weights"][name]).to(param.device)
+                loss += ((optpar - param).pow(2)).sum() * lmda
+    elif reg_type == "ewc":
+        for task_id in d_tasks.keys():
+            for name, param in model.named_parameters():
+                grads = torch.tensor(d_tasks[task_id]["gradients"][name]).to(param.device)
+                optpar = torch.tensor(d_tasks[task_id]["weights"][name]).to(param.device)
+                fisher = grads.pow(2)
+                loss += (fisher * (optpar - param).pow(2)).sum() * lmda
+    else:
+        raise ValueError(f"Unknown value '{reg_type}' for reg_type")
 
 def main():
     # Create preprocessing for training
@@ -111,8 +138,8 @@ def main():
         # Set of datasets, languages, training sizes to try
         datasets=[
             # {"name": "scielo/_merged", "languages": ["en-xx"], "sizes": [("original", None)]}, #("10k", 10000)
-            {"name": "europarl", "languages": ["en-xx"], "sizes": [("original", None)]}, #("10k", 10000)
-            # {"name": "europarl", "languages": ["en-xx"], "sizes": [("40k", 40000)]}, #("10k", 10000)
+            # {"name": "europarl", "languages": ["en-xx"], "sizes": [("original", None)]}, #("10k", 10000)
+            {"name": "europarl", "languages": ["en-xx"], "sizes": [("40k", 40000)]}, #("10k", 10000)
         ],
 
         # Set of subword models and vocab sizes to try
@@ -123,11 +150,9 @@ def main():
         # Preprocessing functions
         preprocess_raw_fn=None,
         preprocess_splits_fn=preprocess_splits_fn,
-        preprocess_predict_fn=preprocess_predict_fn,
 
         # Additional args
         merge_vocabs=True,
-        eval_mode="same",
     ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing
@@ -140,7 +165,7 @@ def main():
     # checkpoint_path = 'mymodels/single/1_xx_last.pt'
 
     # Filter pairs
-    tr_pairs = [None, ["es"], ["fr"], ["de"], ["cs"]]  # Training data
+    tr_pairs = [["es"], ["fr"], ["de"], ["cs"]]  # Training data
     ts_pairs = [None, ["es"], ["fr"], ["de"], ["cs"]]  # For each model
     _ts_pairs = ["xx" if x is None else '+'.join(x) for x in ts_pairs]
 
@@ -149,22 +174,23 @@ def main():
     scores = []
 
     for ratio_past_data in [0.0]: #[0.0, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0]:
-        for reg_past_data in [None]:
+        for reg_type in [None]:
 
             # Load base model/grads
             d_tasks = {}
             past_pairs = []
             checkpoint_path = None
-            sequential_tr = False
+            sequential_tr = True
 
             # Load previous checkpoint
             if sequential_tr:
                 past_pairs = [["es"]]  # Past training data
-                run_prefix = f"cf__tr_[]->[es]+[]x[0.0]__reg_(none)"
+                run_prefix = f"cf__tr_[]->[es]+[]x[0.0]__reg_(none)"  # First model
                 run_name = default_ds.get_run_name(run_prefix)
                 path = default_ds.get_model_checkpoints_path("autonmt", run_name)
-                checkpoint_path = os.path.join(path, f'checkpoint_best__epoch=37-val_es_loss-dataloader_idx_1=0.00.pt')
-                weights = torch.load(os.path.join(path, f'checkpoint_last__weights.pt'))
+                checkpoint_path = os.path.join(path, f'checkpoint_best__epoch=33-val_es_loss-dataloader_idx_1=0.00.pt')
+                weights = torch.load(os.path.join(path, f'checkpoint_best__epoch=33-val_es_loss-dataloader_idx_1=0.00.pt'))
+                weights1 = torch.load(os.path.join(path, f'checkpoint_last__weights.pt'))
                 grads = torch.load(os.path.join(path, f'checkpoint_last__gradients.pt'))
                 d_tasks[run_prefix] = {"weights": weights, "gradients": grads}
 
@@ -179,10 +205,10 @@ def main():
                 ts_pairs_str = '|'.join(_ts_pairs)
 
                 # Run name
-                alias = "cf"
+                alias = "xxxcf"
                 tr_pairs_str = f"tr_[{tr_pairs_old_str}]->[{tr_pairs_new_str}]"
                 tr_pairs_str += f"+[{tr_pairs_old_str}]x[{ratio_past_data}]"# if ratio_past_data else ""
-                tr_pairs_str += f"__reg_" + (reg_past_data.lower().strip() if reg_past_data else "(none)")
+                tr_pairs_str += f"__reg_" + (reg_type.lower().strip() if reg_type else "(none)")
                 run_prefix = f"{alias}__{tr_pairs_str}"
 
                 # Set data and stuff
@@ -195,32 +221,32 @@ def main():
                 print(f"\t- TESTING ({len(ts_pairs)}): {ts_pairs_str}")
                 print(f"\t- MODEL PREFIX: {run_prefix}")
                 print(f"\t- LOSS MONITOR: {monitor}")
-                asd = 3
 
                 # Train model
                 t_model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
-                t_model.d_tasks = d_tasks
-                t_model.reg_type = reg_past_data
-                if checkpoint_path:
-                    print(f"\t- Loading previous checkpoint: {checkpoint_path}")
-                    model_state_dict = torch.load(checkpoint_path)
-                    model_state_dict = model_state_dict.get("state_dict", model_state_dict)
-                    t_model.load_state_dict(model_state_dict)
+                t_model.regularization_fn = lambda model, loss: regularization_fn(model, loss, d_tasks=d_tasks, reg_type=reg_type)
+
+                # if checkpoint_path:
+                #     print(f"\t- Loading previous checkpoint: {checkpoint_path}")
+                #     model_state_dict = torch.load(checkpoint_path)
+                #     model_state_dict = model_state_dict.get("state_dict", model_state_dict)
+                #     t_model.load_state_dict(model_state_dict)
 
                 # Set toolkit
-                model = AutonmtTranslator(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab, wandb_params=wandb_params,
-                                              run_prefix=run_prefix, load_best_checkpoint=False, print_samples=3,
-                                              filter_tr_data_fn=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=ratio_past_data),
-                                              filter_vl_data_fn=[_gen_filter_data_fn("val", valid_pairs=p) for p in ts_pairs],
-                                              filter_ts_data_fn=[_gen_filter_data_fn("test", valid_pairs=p) for p in ts_pairs],
-                                              )
+                trainer = AutonmtTranslator(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+                                           filter_tr_data_fn=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=ratio_past_data),
+                                           filter_vl_data_fn=[_gen_filter_data_fn("val", valid_pairs=p) for p in ts_pairs],
+                                           filter_ts_data_fn=[_gen_filter_data_fn("test", valid_pairs=p) for p in ts_pairs],
+                                           )
 
                 # Train model
-                BATCH_SIZE = 256
+                BATCH_SIZE = 64
                 NUM_WORKERS = 10
-                # model.fit(default_ds, max_epochs=75, learning_rate=0.001, optimizer="adamw", gradient_clip_val=0.0,  monitor=monitor,
-                #           batch_size=BATCH_SIZE, seed=1234, patience=10, num_workers=NUM_WORKERS, devices="auto", accelerator="auto", strategy="ddp")
-
+                trainer.fit(default_ds, max_epochs=1, learning_rate=0.001, optimizer="adamw", gradient_clip_val=0.0,
+                          monitor=monitor,batch_size=BATCH_SIZE, seed=1234, patience=10, num_workers=NUM_WORKERS,
+                          devices="auto", accelerator="auto", strategy="ddp",
+                          print_samples=3, wandb_params=wandb_params)
+                asd = 333
                 # Predict
                 # model.load_best_checkpoint(model_ds=default_ds)
                 # m_scores = model.predict(ts_datasets, metrics={"bleu"}, beams=[1],
@@ -230,7 +256,7 @@ def main():
                 # scores.append(m_scores)
                 ############################################################
 
-                # # Load model
+                # Load model
                 # checkpoint_path = model.load_best_checkpoint(model_ds=default_ds)
                 #
                 # # Compute weights and gradients
@@ -243,6 +269,7 @@ def main():
                 # path = default_ds.get_model_checkpoints_path(model.engine, run_name)
                 # torch.save(weights, os.path.join(path, f'checkpoint_last__weights.pt'))
                 # torch.save(grads, os.path.join(path, f'checkpoint_last__gradients.pt'))
+                # torch.save(t_model.state_dict(), os.path.join(path, "checkpoint_last.pt"))
                 # ############################################################
 
                 # Add new pairs to past pairs
@@ -253,12 +280,12 @@ def main():
 
     print(f"Total models trained: {counter}")
 
-    # Make report and print it
-    output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path,
-                                            plot_metric="translations.xx.beam1.sacrebleu_bleu_score")
-    print("Summary:")
-    print(df_summary.to_string(index=False))
+    # # Make report and print it
+    # output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+    # df_report, df_summary = generate_report(scores=scores, output_path=output_path,
+    #                                         plot_metric="translations.xx.beam1.sacrebleu_bleu_score")
+    # print("Summary:")
+    # print(df_summary.to_string(index=False))
 
 if __name__ == "__main__":
     main()

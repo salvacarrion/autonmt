@@ -23,6 +23,10 @@ class Vocabulary(BaseVocabulary):
         self.voc2idx = {}
         self.idx2voc = {}
         self.voc2freq = {}
+        self.vocab_path = None
+        self.model_path = None
+        self.pretok_flag = None
+        self.subword_model = None
 
     def __len__(self):
         return len(self.voc2idx)
@@ -64,10 +68,16 @@ class Vocabulary(BaseVocabulary):
 
     def build_from_ds(self, ds, lang=None):
         self.lang = ds.dataset_lang_pair if lang is None else lang
-        vocab_path = ds.get_vocab_path(self.lang) + ".vocab"
-        self.build_from_vocab(vocab_path)
+
+        # Load spm vocab
+        self.vocab_path = ds.get_vocab_path(self.lang) + ".vocab"
+        self.model_path = ds.get_vocab_path(self.lang) + ".model"
+        self.pretok_flag = ds.pretok_flag
+        self.subword_model = ds.subword_model
+        self._load_spm_model_from_path(self.model_path)
+
+        self.build_from_vocab(self.vocab_path)
         self._assert_vocab()
-        self._load_spm_model_from_path(ds.get_vocab_path(self.lang) + ".model")
         return self
 
     def get_tokens(self):

@@ -1,3 +1,4 @@
+import datetime
 import os.path
 import shutil
 from abc import ABC, abstractmethod
@@ -6,6 +7,7 @@ from typing import List, Set
 from autonmt.bundle.metrics import *
 from autonmt.bundle.utils import *
 from autonmt.preprocessing.dataset import Dataset
+from autonmt.preprocessing.scores import Score
 from autonmt.preprocessing.processors import preprocess_predict_file, pretokenize_file, encode_file, decode_file
 
 
@@ -66,28 +68,32 @@ class BaseTranslator(ABC):
                     }
     METRICS2TOOL = {m: tool for tool, metrics in TOOL2METRICS.items() for m in metrics}
 
-    def __init__(self, engine, run_prefix="model", model_ds=None, src_vocab=None, trg_vocab=None,
+    def __init__(self, engine, runs_dir="runs", run_name=None, src_vocab=None, trg_vocab=None,
                  filter_tr_data_fn=None, filter_vl_data_fn=None, filter_ts_data_fn=None,
                  safe_seconds=3, **kwargs):
         # Store vars
-        self.engine = engine
-        self.run_prefix = run_prefix
-        self.model_ds = model_ds
         self.config = {}
-        self.model_ds = None
-        self.safe_seconds = safe_seconds
-
-        # Set vocab (optional)
+        self.engine = engine
+        self.runs_dir = runs_dir if runs_dir else "runs/"
+        self.run_name = run_name if run_name else f"{str(datetime.datetime.now().strftime('%Y.%m.%d_%H.%M.%S'))}"
         self.src_vocab = src_vocab
         self.trg_vocab = trg_vocab
+        self.from_checkpoint = None
+        self.safe_seconds = safe_seconds
+        self.trained_ds = []  # Trick to perform evaluate "same"
 
         # Further split/preprocess each dataset if needed
         self.filter_tr_data_fn = ('', None) if not filter_tr_data_fn else filter_tr_data_fn
         self.filter_vl_data_fn = [('', None)] if not filter_vl_data_fn else filter_vl_data_fn
         self.filter_ts_data_fn = [('', None)] if not filter_ts_data_fn else filter_ts_data_fn
 
-        # Check dataset
-        _check_datasets(train_ds=self.model_ds) if self.model_ds else None
+        # Models paths: toolkit/runs/model_name/[checkpoints, logs, eval]
+        self.models_checkpoints_path = "checkpoints"
+        self.model_logs_path = "logs"
+        self.models_eval_path = "eval"
+        self.models_eval_translations_name = "translations"
+        self.models_eval_beam_path = "beam"
+        self.models_eval_beam_scores_path = "scores"
 
     def _get_metrics_tool(self, metrics):
         tools = set()
@@ -119,80 +125,60 @@ class BaseTranslator(ABC):
         # Update values
         self.config[key].update({k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
-    def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1,
-            learning_rate=0.001, optimizer="adam", weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
-            criterion="cross_entropy", patience=None, seed=None, devices="auto", accelerator="auto", num_workers=0,
-            monitor="val_loss", resume_training=False, force_overwrite=False, **kwargs):
+    def _save_config(self, fname="config.json"):
+        logs_path = self.get_model_logs_path()
+        make_dir(logs_path)
+        save_json(self.config, savepath=os.path.join(logs_path, fname))
+
+    def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1, patience=None,
+            optimizer="adam", learning_rate=0.001, weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
+            criterion="cross_entropy", monitor="val_loss",
+            devices="auto", accelerator="auto", num_workers=0,
+            seed=None, force_overwrite=False, **kwargs):
         print("=> [Fit]: Started.")
 
-        # Set model
-        self.model_ds = train_ds
-
-        # Store config (and save file)
+        # Save training config
         self._add_config(key="fit", values=locals(), reset=False)
         self._add_config(key="fit", values=kwargs, reset=False)
-        logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=train_ds.get_run_name(self.run_prefix))
-        make_dir(logs_path)
-        save_json(self.config, savepath=os.path.join(logs_path, "config_train.json"))
+        self._save_config(fname="config_train.json")
 
         # Train and preprocess
         self.preprocess(train_ds, apply2train=True, apply2val=True, apply2test=False, force_overwrite=force_overwrite, **kwargs)
-        self.train(train_ds, max_tokens=max_tokens, batch_size=batch_size, max_epochs=max_epochs,
-                   learning_rate=learning_rate, optimizer=optimizer, weight_decay=weight_decay,
-                   gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
-                   criterion=criterion, patience=patience, seed=seed, devices=devices, accelerator=accelerator,
-                   num_workers=num_workers, monitor=monitor, resume_training=resume_training,
-                   force_overwrite=force_overwrite, **kwargs)
+        self.train(train_ds, max_tokens=max_tokens, batch_size=batch_size, max_epochs=max_epochs, patience=patience,
+                   optimizer=optimizer, learning_rate=learning_rate, weight_decay=weight_decay, gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
+                   criterion=criterion, monitor=monitor,
+                   devices=devices, accelerator=accelerator, num_workers=num_workers,
+                   seed=seed, force_overwrite=force_overwrite, **kwargs)
 
-    def predict(self, eval_datasets: List[Dataset], beams: List[int] = None,
-                metrics: Set[str] = None, batch_size=64, max_tokens=None, max_len_a=1.2, max_len_b=50, truncate_at=None,
-                devices="auto", accelerator="auto", num_workers=0, load_best_checkpoint=False,
-                model_ds=None, force_overwrite=False, **kwargs):
+    def predict(self, eval_datasets, metrics=None, beams=None, max_len_a=1.2, max_len_b=50,
+                max_tokens=None, batch_size=64,
+                devices="auto", accelerator="auto", num_workers=0,
+                load_checkpoint=None, preprocess_fn=None, eval_mode="same", force_overwrite=False, **kwargs):
         print("=> [Predict]: Started.")
 
         # Set default values
-        if beams is None:
-            beams = [5]
-        else:
-            beams = list(set(beams))
-            beams.sort(reverse=True)
-
-        # Default metrics
-        if metrics is None:
-            metrics = {"bleu"}
-        else:
-            metrics = set(metrics)
-
-        # Get model dataset
-        if model_ds:
-            self.model_ds = model_ds
-        elif self.model_ds:
-            pass
-        else:
-            raise ValueError(f"Missing 'model_ds'. It's needed to get the model's path (training and eval).\n"
-                             f"Use the 'model_ds=train_ds' argument, if fit() was not used before predict().")
+        beams = [1] if beams is None else list(sorted(list(set(beams)), reverse=True))
+        metrics = {"bleu"} if metrics is None else set(metrics)
 
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
         self._add_config(key="predict", values=kwargs, reset=False)
-        logs_path = self.model_ds.get_model_logs_path(toolkit=self.engine, run_name=self.model_ds.get_run_name(self.run_prefix))
-        make_dir(logs_path)
-        save_json(self.config, savepath=os.path.join(logs_path, "config_predict.json"))
+        self._save_config(fname="config_predict.json")
 
         # Translate and score
-        eval_scores = []
-        eval_datasets = self.model_ds.get_eval_datasets(eval_datasets)
+        scores = []
+        eval_datasets = self.filter_eval_datasets(eval_datasets, eval_mode=eval_mode)
         for eval_ds in eval_datasets:
-            self.translate(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, max_len_a=max_len_a, max_len_b=max_len_b,
-                           truncate_at=truncate_at, batch_size=batch_size, max_tokens=max_tokens,
+            self.translate(eval_ds, beams=beams, max_len_a=max_len_a, max_len_b=max_len_b,
+                           batch_size=batch_size, max_tokens=max_tokens,
                            devices=devices, accelerator=accelerator, num_workers=num_workers,
-                           load_best_checkpoint=load_best_checkpoint, force_overwrite=force_overwrite, **kwargs)
-            self.score(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
-                       force_overwrite=force_overwrite, **kwargs)
-            model_scores = self.parse_metrics(model_ds=self.model_ds, eval_ds=eval_ds, beams=beams, metrics=metrics,
+                           checkpoint=load_checkpoint, preprocess_fn=preprocess_fn,
+                           force_overwrite=force_overwrite, **kwargs)
+            self.score_translations(eval_ds, beams=beams, metrics=metrics, force_overwrite=force_overwrite, **kwargs)
+            run_scores = self.parse_metrics(eval_ds, beams=beams, metrics=metrics,
                                               engine=self.engine, force_overwrite=force_overwrite, **kwargs)
-            eval_scores.append(model_scores)
-        return eval_scores
+            scores.append(run_scores)
+        return scores
 
     @abstractmethod
     def _preprocess(self, *args, **kwargs):
@@ -201,20 +187,20 @@ class BaseTranslator(ABC):
     def preprocess(self, ds: Dataset, apply2train, apply2val, apply2test, force_overwrite, **kwargs):
         print(f"=> [Preprocess]: Started. ({ds.id2(as_path=True)})")
 
-        # Set vars
-        src_lang = ds.src_lang
-        trg_lang = ds.trg_lang
+        # Set vocab paths
+        model_src_vocab_path = ds.get_vocab_file(lang=ds.src_lang)
+        model_trg_vocab_path = ds.get_vocab_file(lang=ds.trg_lang)
+
+        # Get split paths
         train_path = ds.get_encoded_path(fname=ds.train_name)
         val_path = ds.get_encoded_path(fname=ds.val_name)
         test_path = ds.get_encoded_path(fname=ds.test_name)
-        model_src_vocab_path = ds.get_vocab_file(lang=src_lang)
-        model_trg_vocab_path = ds.get_vocab_file(lang=trg_lang)
 
         start_time = time.time()
         self._preprocess(ds=ds, output_path=None,
-                         src_lang=src_lang, trg_lang=trg_lang,
-                         train_path=train_path, val_path=val_path, test_path=test_path,
+                         src_lang=ds.src_lang, trg_lang=ds.trg_lang,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
+                         train_path=train_path, val_path=val_path, test_path=test_path,
                          apply2train=apply2train, apply2val=apply2val, apply2test=apply2test,
                          force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Preprocess time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
@@ -223,7 +209,7 @@ class BaseTranslator(ABC):
     def _train(self, *args, **kwargs):
         pass
 
-    def train(self, train_ds: Dataset, resume_training, force_overwrite, **kwargs):
+    def train(self, train_ds, force_overwrite, **kwargs):
         print(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
 
         # Check preprocessing
@@ -233,56 +219,51 @@ class BaseTranslator(ABC):
         if is_debug_enabled():
             print("\t=> [WARNING]: Debug is enabled. This could lead to critical problems when using a data parallel strategy.")
 
-        # Set run name
-        run_name = train_ds.get_run_name(self.run_prefix)
-
-        # Set paths
-        checkpoints_dir = train_ds.get_model_checkpoints_path(toolkit=self.engine, run_name=run_name)
-        logs_path = train_ds.get_model_logs_path(toolkit=self.engine, run_name=run_name)
-
-        # Create dirs
+        # Set stuff
+        self.trained_ds.append(train_ds)
+        checkpoints_dir = self.get_model_checkpoints_path()
+        logs_path = self.get_model_logs_path()
         make_dir([checkpoints_dir, logs_path])
 
         # Set seed
         self.manual_seed(seed=kwargs.get("seed"))
 
+        # Train
         start_time = time.time()
-        self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
-                    run_name=run_name, resume_training=resume_training, force_overwrite=force_overwrite, **kwargs)
+        # self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
+        #             force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
+
 
     @abstractmethod
     def _translate(self, *args, **kwargs):
         pass
 
-    def translate(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], max_len_a, max_len_b, truncate_at,
-                  batch_size, max_tokens, num_workers, force_overwrite, **kwargs):
-        print(f"=> [Translate]: Started. ({model_ds.id2(as_path=True)})")
+    def translate(self, eval_ds, beams, preprocess_fn, force_overwrite, **kwargs):
+        print(f"=> [Translate]: Started. (Model: {self.run_name} | Test: {str(eval_ds)})")
 
         # Check preprocessing
-        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
-
-        # Set run names
-        run_name = model_ds.get_run_name(self.run_prefix)
-        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
+        _check_datasets(eval_ds=eval_ds)
 
         # Checkpoints dir
-        checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, run_name)
+        checkpoints_dir = self.get_model_checkpoints_path()
 
         # [Trained model]: Create eval folder
-        model_src_vocab_path = model_ds.get_vocab_file(lang=model_ds.src_lang)  # Needed to preprocess
-        model_trg_vocab_path = model_ds.get_vocab_file(lang=model_ds.trg_lang)  # Needed to preprocess
-        model_eval_path = model_ds.get_model_eval_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name)
+        model_src_vocab_path = self.src_vocab.vocab_path  # Needed to preprocess
+        model_trg_vocab_path = self.trg_vocab.vocab_path  # Needed to preprocess
+        model_eval_path = self.get_model_eval_path(eval_name=str(eval_ds))
         make_dir([model_eval_path])  # Create dir
 
         # Create data directories
-        dst_raw_path = os.path.join(model_eval_path, model_ds.data_raw_path)
-        dst_preprocessed_path = os.path.join(model_eval_path, model_ds.data_raw_preprocessed_path)
-        dst_encoded_path = os.path.join(model_eval_path, model_ds.data_encoded_path)
+        dst_raw_path = os.path.join(model_eval_path, "data/0_raw")
+        dst_preprocessed_path = os.path.join(model_eval_path, "data/1_preprocessed")
+        dst_encoded_path = os.path.join(model_eval_path, "data/3_encoded")
         make_dir([dst_raw_path, dst_preprocessed_path, dst_encoded_path])  # Create dirs
 
         # [Encode extern data]: Encode test data using the subword model of the trained model
+        pretok_flags = {self.src_vocab.lang: self.src_vocab.pretok_flag, self.trg_vocab.lang: self.trg_vocab.pretok_flag}
+        model_vocab_paths = {self.src_vocab.lang: self.src_vocab.model_path, self.trg_vocab.lang: self.trg_vocab.model_path}
+        subword_models = {self.src_vocab.lang: self.src_vocab.subword_model, self.trg_vocab.lang: self.trg_vocab.subword_model}
         for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
             lang = ts_fname.split('.')[-1]
             input_file = eval_ds.get_split_path(ts_fname)  # As "raw" as possible. The split preprocessing will depend on the model
@@ -295,25 +276,22 @@ class BaseTranslator(ABC):
             # 2 - Preprocess file (+pretokenization if needed)
             preprocessed_file = os.path.join(dst_preprocessed_path, ts_fname)
             preprocess_predict_file(input_file=input_file, output_file=preprocessed_file,
-                           preprocess_fn=model_ds.preprocess_predict_fn, pretokenize=model_ds.pretok_flag, lang=lang,
+                           preprocess_fn=preprocess_fn, pretokenize=pretok_flags[lang], lang=lang,
                            force_overwrite=force_overwrite)
             input_file = preprocessed_file
 
             # Encode file
             enc_file = os.path.join(dst_encoded_path, ts_fname)
-            encode_file(ds=model_ds, input_file=input_file, output_file=enc_file,
-                        lang=lang, merge_vocabs=model_ds.merge_vocabs, truncate_at=truncate_at,
-                        force_overwrite=force_overwrite)
+            encode_file(input_file=input_file, output_file=enc_file, model_vocab_path=model_vocab_paths[lang],
+                        subword_model=subword_models[lang], force_overwrite=force_overwrite)
 
         # Preprocess external data
         test_path = os.path.join(dst_encoded_path, eval_ds.test_name)  # without lang extension
-        self._preprocess(ds=model_ds, output_path=model_eval_path,
-                         src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                         train_path=None, val_path=None, test_path=test_path,
+        self._preprocess(train_path=None, val_path=None, test_path=test_path,
+                         src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
-                         subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                         apply2train=False, apply2val=False, apply2test=True, force_overwrite=force_overwrite,
-                         **kwargs)
+                         apply2train=False, apply2val=False, apply2test=True,
+                         output_path=model_eval_path, force_overwrite=force_overwrite, **kwargs)
 
         # Allow to split ts data (optional)
         for i, (fn_name, filter_fn) in enumerate(self.filter_ts_data_fn):
@@ -323,25 +301,22 @@ class BaseTranslator(ABC):
             for beam in beams:
                 start_time = time.time()
                 # Create output path (if needed)
-                output_path = model_ds.get_model_eval_translations_beam_path(toolkit=self.engine, run_name=run_name,
-                                                                             eval_name=eval_name, split_name=fn_name,
-                                                                             beam=beam)
+                output_path = self.get_model_eval_translations_beam_path(eval_name=str(eval_ds), split_name=fn_name, beam=beam)
                 make_dir(output_path)
 
                 # Translate
                 tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
                 if force_overwrite or not all(tok_flag):
-                    self._translate(model_ds=model_ds, data_path=model_eval_path, output_path=output_path,
-                        src_lang=model_ds.src_lang, trg_lang=model_ds.trg_lang,
-                        beam_width=beam, max_len_a=max_len_a, max_len_b=max_len_b, batch_size=batch_size, max_tokens=max_tokens,
-                        checkpoints_dir=checkpoints_dir,
+                    self._translate(data_path=model_eval_path, output_path=output_path,
+                        src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
+                        beam_width=beam, checkpoints_dir=checkpoints_dir,
                         model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
-                        num_workers=num_workers, force_overwrite=force_overwrite, filter_idx=i, **kwargs)
+                        force_overwrite=force_overwrite, filter_idx=i, **kwargs)
 
                     # Copy src/ref raw
-                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{model_ds.src_lang}")
+                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.src_vocab.lang}")
                     src_output_file = os.path.join(output_path, f"src.txt")
-                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{model_ds.trg_lang}")
+                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.trg_vocab.lang}")
                     ref_output_file = os.path.join(output_path, f"ref.txt")
 
                     # Filter src/ref if needed
@@ -357,26 +332,25 @@ class BaseTranslator(ABC):
                         write_file_lines(filename=ref_output_file, lines=trg_ref_lines, autoclean=True, insert_break_line=True)
 
                     # Postprocess src/ref files (lowercase, strip,...)
-                    if model_ds.preprocess_predict_fn:
+                    if preprocess_fn:
                         preprocess_predict_file(input_file=src_output_file, output_file=src_output_file,
-                                                preprocess_fn=model_ds.preprocess_predict_fn,
-                                                pretokenize=model_ds.pretok_flag, lang=model_ds.src_lang,
+                                                preprocess_fn=preprocess_fn,
+                                                pretokenize=pretok_flags[self.src_vocab.lang], lang=self.src_vocab.lang,
                                                 force_overwrite=force_overwrite)
                         preprocess_predict_file(input_file=ref_output_file, output_file=ref_output_file,
-                                                preprocess_fn=model_ds.preprocess_predict_fn,
-                                                pretokenize=model_ds.pretok_flag, lang=model_ds.trg_lang,
+                                                preprocess_fn=preprocess_fn,
+                                                pretokenize=pretok_flags[self.trg_vocab.lang], lang=self.trg_vocab.lang,
                                                 force_overwrite=force_overwrite)
 
                     # Postprocess tokenized files
-                    for fname, lang in [("hyp", model_ds.trg_lang)]:
+                    for fname, lang in [("hyp", self.trg_vocab.lang)]:
                         input_file = os.path.join(output_path, f"{fname}.tok")
                         output_file = os.path.join(output_path, f"{fname}.txt")
-                        model_vocab_path = model_src_vocab_path if lang == model_ds.src_lang else model_trg_vocab_path
 
                         # Post-process files
                         decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                                    subword_model=model_ds.subword_model, pretok_flag=model_ds.pretok_flag,
-                                    model_vocab_path=model_vocab_path, remove_unk_hyphen=True,
+                                    subword_model=subword_models[lang], pretok_flag=pretok_flags[lang],
+                                    model_vocab_path=model_vocab_paths[lang], remove_unk_hyphen=True,
                                     force_overwrite=force_overwrite)
 
                     # Check amount of lines
@@ -390,21 +364,16 @@ class BaseTranslator(ABC):
                 print(f"\t- [INFO]: Translating time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
 
-    def score(self, model_ds: Dataset, eval_ds: Dataset, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
-        print(f"=> [Score]: Started. ({model_ds.id2(as_path=True)})")
+    def score_translations(self, eval_ds: Dataset, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
+        print(f"=> [Scoring translations]: Started. (Model: {self.run_name} | Test: {str(eval_ds)})")
 
         # Check preprocessing
-        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
+        _check_datasets(eval_ds=eval_ds)
 
         # Check supported metrics
         metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
         if not metrics_valid:
             return
-
-        # Set run names
-        run_name = model_ds.get_run_name(self.run_prefix)
-        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
 
         # Allow to split ts data (optional)
         for fn_name, _ in self.filter_ts_data_fn:
@@ -415,10 +384,8 @@ class BaseTranslator(ABC):
                 start_time = time.time()
 
                 # Paths
-                beam_path = model_ds.get_model_eval_translations_beam_path(toolkit=self.engine, run_name=run_name,
-                                                                           eval_name=eval_name, split_name=fn_name,
-                                                                           beam=beam)
-                scores_path = model_ds.get_model_eval_translations_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, split_name=fn_name, beam=beam)
+                beam_path = self.get_model_eval_translations_beam_path(eval_name=str(eval_ds), split_name=fn_name, beam=beam)
+                scores_path = self.get_model_eval_translations_beam_scores_path(eval_name=str(eval_ds), split_name=fn_name, beam=beam)
                 make_dir([scores_path])
 
                 # Set input files (results)
@@ -440,7 +407,7 @@ class BaseTranslator(ABC):
                 if self.TOOL2METRICS["bertscore"].intersection(metrics):
                     output_file = os.path.join(scores_path, f"bertscore_scores.json")
                     if force_overwrite or not os.path.exists(output_file):
-                        compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=model_ds.trg_lang)
+                        compute_bertscore(ref_file=ref_file_path, hyp_file=hyp_file_path, output_file=output_file, trg_lang=self.trg_vocab.lang)
 
                 # Score: comet
                 if self.TOOL2METRICS["comet"].intersection(metrics):
@@ -460,17 +427,16 @@ class BaseTranslator(ABC):
                     output_file = os.path.join(scores_path, f"huggingface_scores.json")
                     if force_overwrite or not os.path.exists(output_file):
                         compute_huggingface(src_file=src_file_path, hyp_file=hyp_file_path, ref_file=ref_file_path,
-                                            output_file=output_file, metrics=hg_metrics, trg_lang=model_ds.trg_lang)
+                                            output_file=output_file, metrics=hg_metrics, trg_lang=self.trg_vocab.lang)
 
                 print(f"\t- [INFO]: Scoring time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
 
 
-    def parse_metrics(self, model_ds, eval_ds, beams: List[int], metrics: Set[str], force_overwrite, **kwargs):
-        print(f"=> [Parsing]: Started. ({model_ds.id2(as_path=True)})")
+    def parse_metrics(self, eval_ds, beams, metrics, **kwargs):
+        print(f"=> [Parsing]: Started. ({str(eval_ds)})")
 
         # Check preprocessing
-        _check_datasets(train_ds=model_ds, eval_ds=eval_ds)
-        assert model_ds.dataset_lang_pair == eval_ds.dataset_lang_pair
+        _check_datasets(eval_ds=eval_ds)
 
         # Check supported metrics
         metrics_valid = _check_supported_metrics(metrics, self.METRICS2TOOL.keys())
@@ -480,20 +446,18 @@ class BaseTranslator(ABC):
         # Metrics to retrieve
         metric_tools = self._get_metrics_tool(metrics)
 
-        # Set run names
-        run_name = model_ds.get_run_name(self.run_prefix)
-        eval_name = '_'.join(eval_ds.id())  # Subword model and vocab size don't characterize the dataset!
-
         # Walk through beams
-        scores = {
-            "engine": kwargs.get("engine"),
-            "lang_pair": model_ds.dataset_lang_pair,
-            "train_dataset": model_ds.dataset_name,
+        assert self.src_vocab.subword_model == self.trg_vocab.subword_model
+        assert len(self.src_vocab) == len(self.trg_vocab)
+        run_scores = {
+            "engine": self.engine,
+            "run_name": self.run_name,
+            "lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
+            "vocab_size": len(self.src_vocab),
+            "subword_model": self.src_vocab.subword_model,
+            "train_dataset": "no_specified",
+            "train_max_lines": "no_specified",
             "eval_dataset": eval_ds.dataset_name,
-            "subword_model": str(model_ds.subword_model).lower(),
-            "vocab_size": str(model_ds.vocab_size).lower(),
-            "run_name": run_name,
-            "train_max_lines": model_ds.dataset_lines,
             "translations": {},
             "config": self.config,
         }
@@ -504,8 +468,10 @@ class BaseTranslator(ABC):
 
             # Iterate over beams
             for beam in beams:
+                start_time = time.time()
+
                 # Paths
-                scores_path = model_ds.get_model_eval_translations_beam_scores_path(toolkit=self.engine, run_name=run_name, eval_name=eval_name, split_name=fn_name, beam=beam)
+                scores_path = self.get_model_eval_translations_beam_scores_path(eval_name=str(eval_ds), split_name=fn_name, beam=beam)
 
                 # Walk through metric files
                 beam_scores = {}
@@ -532,8 +498,10 @@ class BaseTranslator(ABC):
                 # Add beam scores
                 d = {f"beam{str(beam)}": beam_scores}
                 d = {fn_name: d} if fn_name else d  # Pretty
-                scores["translations"].update(d)
-        return scores
+                run_scores["translations"].update(d)
+
+                print(f"\t- [INFO]: Parsed time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
+        return run_scores
 
     @staticmethod
     def manual_seed(seed, use_deterministic_algorithms=False):
@@ -561,3 +529,39 @@ class BaseTranslator(ABC):
         print(f"\t\t- torch: {torch.rand(1)}")
 
         return seed
+
+    def filter_eval_datasets(self, ts_datasets, eval_mode):
+        langs = {self.src_vocab.lang, self.trg_vocab.lang}
+        if eval_mode == "all":  # Whatever
+            return ts_datasets
+        elif eval_mode == "compatible":  # Check language
+            return [ds for ds in ts_datasets if set(ds.langs).issubset(set(langs))]
+        elif eval_mode == "same":  # Same as training
+            trained_ds = {str(ds.id()) for ds in self.trained_ds}  # Name
+            return [ds for ds in ts_datasets if str(ds.id()) in trained_ds]
+        else:
+            raise ValueError(f"Unknown 'eval_mode' ({str(eval_mode)})")
+    def get_model_eval_path(self, eval_name, fname=""):
+        return os.path.join(self.runs_dir, self.run_name, self.models_eval_path, eval_name, fname)
+
+    def get_model_eval_data_bin_path(self, eval_name, data_bin_name, fname=""):
+        eval_path = self.get_model_eval_path(eval_name)
+        return os.path.join(eval_path, data_bin_name, fname)
+
+    def get_model_eval_translations_path(self, eval_name, split_name=""):
+        eval_path = self.get_model_eval_path(eval_name)
+        return os.path.join(eval_path, self.models_eval_translations_name, split_name)
+
+    def get_model_eval_translations_beam_path(self, eval_name, split_name, beam, fname=""):
+        beam_n = f"beam{str(beam)}"
+        eval_translations_path = self.get_model_eval_translations_path(eval_name, split_name)
+        return os.path.join(eval_translations_path, self.models_eval_beam_path, beam_n, fname)
+
+    def get_model_eval_translations_beam_scores_path(self, eval_name, split_name, beam, fname=""):
+        eval_translations_beam_path = self.get_model_eval_translations_beam_path(eval_name, split_name, beam)
+        return os.path.join(eval_translations_beam_path, self.models_eval_beam_scores_path, fname)
+
+    def get_model_logs_path(self, fname=""):
+        return os.path.join(self.runs_dir, self.run_name, self.model_logs_path, fname)
+    def get_model_checkpoints_path(self, fname=""):
+        return os.path.join(self.runs_dir, self.run_name, self.models_checkpoints_path, fname)

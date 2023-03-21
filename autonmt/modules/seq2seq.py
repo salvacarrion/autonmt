@@ -22,9 +22,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.learning_rate = None
         self.weight_decay = None
         self.criterion_fn = None
-        self._skip_val_metrics = None
-        self.d_tasks = {}
-        self.reg_type = None
+        self.regularization_fn = None
 
         # Other
         self.save_hyperparameters()
@@ -119,26 +117,8 @@ class LitSeq2Seq(pl.LightningModule):
         loss = self.criterion_fn(output, y)
 
         # Apply regularization
-        if self.reg_type is None:
-            pass
-        elif self.reg_type == "l1":
-            raise NotImplementedError("L1 regularization not implemented yet")
-        elif self.reg_type == "l2":
-            l2_lambda = 0.4
-            for task_id in self.d_tasks.keys():
-                for name, param in self.named_parameters():
-                    optpar = torch.tensor(self.d_tasks[task_id]["weights"][name]).to(output.device)
-                    loss += ((optpar - param).pow(2)).sum() * l2_lambda
-        elif self.reg_type == "ewc":
-            ewc_lambda = 0.4
-            for task_id in self.d_tasks.keys():
-                for name, param in self.named_parameters():
-                    grads = torch.tensor(self.d_tasks[task_id]["gradients"][name]).to(output.device)
-                    optpar = torch.tensor(self.d_tasks[task_id]["weights"][name]).to(output.device)
-                    fisher = grads.pow(2)
-                    loss += (fisher * (optpar - param).pow(2)).sum() * ewc_lambda
-        else:
-            raise ValueError(f"Unknown value '{self.reg_type}' for reg_type")
+        if self.regularization_fn:
+            self.regularization_fn(self, loss)
 
         # Metrics: Accuracy
         predictions = output.detach().argmax(1)
@@ -153,7 +133,7 @@ class LitSeq2Seq(pl.LightningModule):
             self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
             # Compute metrics for validation
-            if not self._skip_val_metrics and log_prefix.startswith("val"):
+            if log_prefix.startswith("val"):
                 outputs = self._compute_metrics(y_hat=predictions, y=y, metrics={"bleu"}, x=x, log_prefix=log_prefix)
         return loss, outputs
 

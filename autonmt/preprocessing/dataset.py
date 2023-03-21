@@ -13,16 +13,13 @@ class Dataset:
     # Level 4-data: raw/splits/pretokenized/encoded/...
     # Level 4-models: frameworks->runs->(run_name)->[checkpoints/eval/logs]
     def __init__(self, base_path, parent_ds, dataset_name, dataset_lang_pair, dataset_size_name, dataset_lines,
-                 splits_sizes, subword_model, vocab_size, merge_vocabs, eval_mode,
+                 splits_sizes, subword_model, vocab_size, merge_vocabs,
                  preprocess_raw_fn=None, preprocess_splits_fn=None, preprocess_predict_fn=None,
                  train_name="train", val_name="val", test_name="test",
                  # Data
                  data_path="data", data_raw_path="0_raw", data_raw_preprocessed_path="1_raw_preprocessed",
                  data_splits_path="1_splits", data_splits_preprocessed_path="2_preprocessed",
                  data_pretokenized_path="3_pretokenized", data_encoded_path="4_encoded",
-                 # Models
-                 models_path="models", models_runs_path="runs", models_checkpoints_path="checkpoints",
-                 model_logs_path="logs", models_eval_path="eval", models_eval_beam_path="beam", models_eval_beam_scores_path="scores",
                  # Stats
                  stats_path="stats",
                  # Vocabs
@@ -45,7 +42,6 @@ class Dataset:
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
         self.pretok_flag = (self.subword_model == "word")
         self.merge_vocabs = merge_vocabs
-        self.eval_mode = eval_mode
 
         # Preprocessing
         self.preprocess_raw_fn = preprocess_raw_fn
@@ -59,7 +55,6 @@ class Dataset:
         self.split_names = (self.train_name, self.val_name, self.test_name)
         self.split_names_lang = [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
         self.raw_preprocessed_name = "data"
-        self.eval_translations_name = "translations"
 
         # Data paths
         self.data_path = data_path
@@ -70,15 +65,9 @@ class Dataset:
         self.data_pretokenized_path = os.path.join(self.data_path, data_pretokenized_path)
         self.data_encoded_path = os.path.join(self.data_path, data_encoded_path)
 
-        # Models paths: toolkit/runs/model_name/[checkpoints, logs, eval]
-        self.models_path = models_path
-        self.models_runs_path = models_runs_path
-        self.model_logs_path = model_logs_path
-        self.models_checkpoints_path = models_checkpoints_path
-        self.models_eval_path = models_eval_path
-        # Models paths: Eval data
-        self.models_eval_beam_path = models_eval_beam_path
-        self.models_eval_beam_scores_path = models_eval_beam_scores_path
+        # Models path
+        self.models_path = "models"
+        self.models_runs_path = "runs"
 
         # Stats paths
         self.stats_path = stats_path
@@ -86,11 +75,6 @@ class Dataset:
         # Vocabs path
         self.vocab_path = vocab_path
         self.plots_path = plots_path
-
-        # Filtering
-        self.filter_train_langs = None
-        self.filter_val_langs = None
-        self.filter_test_langs = None
 
         # Other
         self.source_data = None  # Raw or Splits
@@ -175,29 +159,11 @@ class Dataset:
         return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, fname)
 
     def get_bin_data(self, toolkit, data_bin_name, fname=""):
-        return os.path.join(self.get_toolkit_path(toolkit), data_bin_name, *self.vocab_size_id(), fname)
+        toolkit_path = self.get_toolkit_path(toolkit)
+        return os.path.join(toolkit_path, data_bin_name, *self.vocab_size_id(), fname)
 
-    def get_model_eval_path(self, toolkit, run_name, eval_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_eval_path, eval_name, fname)
-
-    def get_model_eval_translations_path(self, toolkit, run_name, eval_name, split_name=""):
-        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), self.eval_translations_name, split_name)
-
-    def get_model_eval_translations_beam_path(self, toolkit, run_name, eval_name, split_name, beam, fname=""):
-        beam_n = f"beam{str(beam)}"
-        return os.path.join(self.get_model_eval_translations_path(toolkit, run_name, eval_name, split_name), self.models_eval_beam_path, beam_n, fname)
-
-    def get_model_eval_translations_beam_scores_path(self, toolkit, run_name, eval_name, split_name, beam, fname=""):
-        return os.path.join(self.get_model_eval_translations_beam_path(toolkit, run_name, eval_name, split_name, beam), self.models_eval_beam_scores_path, fname)
-
-    def get_model_eval_data_bin_path(self, toolkit, run_name, eval_name, data_bin_name, fname=""):
-        return os.path.join(self.get_model_eval_path(toolkit, run_name, eval_name), data_bin_name, fname)
-
-    def get_model_logs_path(self, toolkit, run_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.model_logs_path, fname)
-
-    def get_model_checkpoints_path(self, toolkit, run_name, fname=""):
-        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, run_name, self.models_checkpoints_path, fname)
+    def get_runs_path(self, toolkit, fname=""):
+        return os.path.join(self.base_path, *self.id(), self.models_path, toolkit, self.models_runs_path, fname)
 
     def get_plots_path(self):
         return os.path.join(self.base_path, *self.id(), self.plots_path, *self.vocab_size_id())
@@ -234,36 +200,6 @@ class Dataset:
 
     def get_split_fnames(self):
         return [f"{fname}.{ext}" for fname in self.split_names for ext in (self.src_lang, self.trg_lang)]
-
-    def get_compatible_datasets(self, ts_datasets):
-        # Keep only relevant preprocessing
-        compatible_datasets = []
-        compatible_datasets_ids = set()
-        for ds in ts_datasets:
-            ds_name = '_'.join(os.path.join(*ds.id()[:2]))  # Exclude size name
-            ds_ref_name = '_'.join(os.path.join(*ds.id()[:2]))
-
-            # Check language compatibility
-            if ds.langs != self.langs:
-                print(f"Skipping '{ds_name}' as it is not compatible with the '{ds_ref_name}'")
-                continue
-
-            # Check if it has already been included
-            if ds_name in compatible_datasets_ids:
-                print(f"Skipping '{ds_name}' as a variant of it has already been included")
-            else:
-                compatible_datasets.append(ds)
-                compatible_datasets_ids.add(ds_name)
-        return compatible_datasets
-
-    def get_eval_datasets(self, ts_datasets):
-        if self.eval_mode == "compatible":
-            compatible_datasets = self.get_compatible_datasets(ts_datasets)
-            return compatible_datasets
-        elif self.eval_mode == "same":
-            return [eval_ds for eval_ds in ts_datasets if eval_ds.id() == self.id()]
-        else:
-            raise ValueError(f"Unknown 'eval_mode' ({str(self.eval_mode)})")
 
     def get_run_name(self, run_prefix):
         return f"{run_prefix}_{self.subword_model}_{self.vocab_size}".lower()

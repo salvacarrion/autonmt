@@ -1,7 +1,10 @@
+import os.path
+
 import pytorch_lightning as pl
 import torch
 import wandb
 import glob
+import inspect
 
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
@@ -20,13 +23,9 @@ from torch.utils.data.sampler import SequentialSampler
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
-    def __init__(self, model, wandb_params=None, print_samples=False, skip_val_metrics=False, **kwargs):
+    def __init__(self, model, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
-        self.ckpt_cb = None
-        self.wandb_params = wandb_params
-        self.print_samples = print_samples
-        self.skip_val_metrics = skip_val_metrics
 
         # Translation preprocessing (do not confuse with 'train_ds')
         self.train_tds = None
@@ -34,18 +33,13 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.test_tds = None
 
 
-    def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path,
-                    src_vocab_path, trg_vocab_path, apply2train, apply2val, apply2test,
-                    force_overwrite, **kwargs):
-        # Create preprocessing
-        self.subword_model = ds.subword_model
-        self.pretok_flag = ds.pretok_flag
-        self.src_vocab_path = src_vocab_path
-        self.trg_vocab_path = trg_vocab_path
+    def _preprocess(self, train_path, val_path, test_path,
+                    apply2train, apply2val, apply2test,
+                    src_lang, trg_lang, src_vocab_path, trg_vocab_path,
+                    output_path, force_overwrite, **kwargs):
 
         # Set common params
-        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
-                      filter_langs=ds.filter_train_langs)
+        params = dict(src_lang=src_lang, trg_lang=trg_lang, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
 
         # Training data
         if apply2train:
@@ -65,38 +59,26 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             for fn_name, filter_fn in self.filter_ts_data_fn:
                 sds = Seq2SeqDataset(file_prefix=test_path, filter_fn=filter_fn, **params, **kwargs)
                 self.test_tds.append(sds)
-        asd = 3
 
-    def len_func(self, ds, i):
-        return len(ds.datasets.iloc[i]["src"].split())
+    # def _len_func(self, ds, i):
+    #     return len(ds.datasets.iloc[i]["src"].split())
 
-    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, monitor, run_name,
-               num_workers, patience, resume_training, force_overwrite, **kwargs):
-        # Notes:
-        # - "force_overwrite" is not needed. checkpoints are versioned, not deleted
-        # - "resume_training" is not needed. models are initialized by the user.
-
-        # Checks
+    def _train(self, train_ds, checkpoints_dir, logs_path, force_overwrite, **kwargs):
+        # Training params
+        batch_size = kwargs.get("batch_size")
+        max_tokens = kwargs.get("max_tokens")
+        num_workers = kwargs.get("num_workers")
+        monitor = kwargs.get("monitor")
+        patience = kwargs.get("patience")
+        save_last = kwargs.get("save_last")
+        save_best = kwargs.get("save_best")
+        wandb_params = kwargs.get("wandb_params")
+        print_samples = kwargs.get("print_samples")
+        skip_val_metrics = kwargs.get("skip_val_metrics")
+        mode_str = "min" if "loss" in monitor.lower() else "max"
+        ckpt_filename = "{epoch:03d}-{" + monitor.replace('/', '-') + ":.3f}"
         pin_memory = False if kwargs.get('devices') == "cpu" else True
-
-        # Samplers
-        # train_sampler = BucketBatchSampler(SequentialSampler(self.train_tds), batch_size=batch_size, drop_last=False,
-        #                                    sort_key=lambda i: self.len_func(self.train_tds, i))
-
-        # Training dataloaders
-        train_loader = DataLoader(self.train_tds,
-                                  collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens),
-                                  num_workers=num_workers, pin_memory=pin_memory,
-                                  batch_size=batch_size, shuffle=True,
-                                  # batch_sampler=train_sampler,
-                                  )
-
-        # Validation dataloaders
-        val_loaders = []
-        for val_tds_i in self.val_tds:
-            val_loaders.append(DataLoader(val_tds_i, shuffle=False,
-                                          collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
-                                          batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
+        loggers, callbacks = [], []
 
         # Model hyperparams
         self.model.optimizer = kwargs.get("optimizer")
@@ -107,56 +89,70 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Additional information for metrics
         self.model._src_vocab = self.train_tds.src_vocab
         self.model._trg_vocab = self.train_tds.trg_vocab
-        self.model._subword_model = self.subword_model
-        self.model._pretok_flag = self.pretok_flag
-        self.model._print_samples = self.print_samples
         self.model._filter_train = self.filter_tr_data_fn
         self.model._filter_eval = self.filter_vl_data_fn
-        self.model._skip_val_metrics = self.skip_val_metrics
+        self.model._print_samples = print_samples
+        self.model._skip_val_metrics = skip_val_metrics
+
+        # Dataloader: Training
+        train_loader = DataLoader(self.train_tds,
+                                  collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens),
+                                  num_workers=num_workers, pin_memory=pin_memory,
+                                  batch_size=batch_size, shuffle=True,
+                                  )
+
+        # Dataloader: Validation
+        val_loaders = []
+        for val_tds_i in self.val_tds:
+            val_loaders.append(DataLoader(val_tds_i, shuffle=False,
+                                          collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
+                                          batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
+
 
         # Callbacks: Checkpoint
-        callbacks = []
-        mode = "min" if "loss" in monitor.lower() else "max"
-        filename = "checkpoint_best__{epoch}-{" + monitor.replace('/', '-') + ":.2f}"
-        self.ckpt_cb = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, monitor=monitor, mode=mode,
-                                       filename=filename, save_weights_only=True)
-        self.ckpt_cb.FILE_EXTENSION = ".pt"
-        callbacks += [self.ckpt_cb]
+        ckpt_p = {}
+        if save_best:
+            ckpt_p.update({"monitor": monitor, "mode": mode_str, "filename": ckpt_filename + "__best"})
+        if save_last:
+            ckpt_p.update({"save_last": save_last})
+        if ckpt_p:
+            checkpoint_callback = ModelCheckpoint(dirpath=checkpoints_dir, save_top_k=1, **ckpt_p)
+            checkpoint_callback.FILE_EXTENSION = ".pt"
+            if save_last:  # Change last checkpoint name
+                checkpoint_callback.CHECKPOINT_NAME_LAST = ckpt_filename + "__last"
+            callbacks += [checkpoint_callback]
 
         # Callback: EarlyStop
         if patience:
-            early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode)
+            early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode_str)
             callbacks += [early_stop]
 
-        # Loggers
-        tb_logger = TensorBoardLogger(save_dir=logs_path, name=run_name)
-        loggers = [tb_logger]
+        # Loggers: Tensorboard
+        if logs_path:
+            tb_logger = TensorBoardLogger(save_dir=logs_path, name=self.run_name)
+            loggers += [tb_logger]
 
-        # Add wandb logger (if requested)
-        if self.wandb_params:
-            alias = f"{'_'.join(train_ds.id())}_{run_name}"
-            wandb_logger = WandbLogger(name=alias, **self.wandb_params)
-            loggers.append(wandb_logger)
-
-            # Monitor
-            #wandb_logger.watch(self.model)
+        # Loggers: WandB
+        if wandb_params:
+            wandb_logger = WandbLogger(name=self.run_name, **wandb_params)
+            loggers += [wandb_logger]
 
         # Training
-        remove_params = {'weight_decay', 'criterion', 'optimizer', 'patience', 'seed', 'learning_rate', "fairseq_args"}
-        pl_params = {k: v for k, v in kwargs.items() if k not in remove_params}
+        pl_whitelist = set(inspect.signature(pl.Trainer.__init__).parameters)
+        pl_params = {k: v for k, v in kwargs.items() if k in pl_whitelist}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)  # pl_params must be compatible with PL
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
-        # Force finish
-        if self.wandb_params:
-            wandb.finish()
+        # Close stuff
+        wandb.finish() if wandb_params else None
 
-    def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
-                   load_best_checkpoint, num_workers, devices, accelerator,
+
+    def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
+                   checkpoint, num_workers, devices, accelerator,
                    force_overwrite, checkpoints_dir=None, filter_idx=0, **kwargs):
         # Checkpoint
-        if load_best_checkpoint:
-            self.load_best_checkpoint()
+        if checkpoint:
+            self.from_checkpoint = self.load_checkpoint(checkpoint)
 
         # Set evaluation model
         if accelerator in {"auto", "cuda", "gpu"} and self.model.device.type != "cuda":
@@ -189,41 +185,31 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         return trainable_params, non_trainable_params
 
     @staticmethod
-    def _get_checkpoints(checkpoints_dir):
-        # Find last checkpoint
-        # checkpoints = sorted(glob.iglob(os.path.join(checkpoints_dir, "*.pt")), key=os.path.getctime, reverse=True)
-        checkpoints = sorted([os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.endswith('.pt')], key=os.path.getctime, reverse=True)
-        if not checkpoints:
-            raise ValueError(f"No checkpoints were found in {checkpoints_dir}")
-        elif len(checkpoints) > 1:
-            # Choose first string that has "best_" in its name, else, choose first string
-            checkpoint_path = checkpoints[0]
-            for path in checkpoints:
-                if "_best_" in path:
-                    checkpoint_path = path
-                    print(f"[WARNING] Multiple checkpoints were found. Using latest best: {checkpoint_path}")
-                    return checkpoint_path
-            print(f"[WARNING] Multiple checkpoints were found. Using latest: {checkpoint_path}")
+    def _get_checkpoints(checkpoints_dir, mode):
+        # Find checkpoint (sorted by creation time)
+        checkpoint_paths = sorted([os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.endswith(f'__{mode}.pt')], key=os.path.getctime, reverse=True)
+        if not checkpoint_paths:
+            raise ValueError(f"No ({mode}) checkpoints were found in {checkpoints_dir}")
+        elif len(checkpoint_paths) > 1:  # Choose latests
+            checkpoint_path = checkpoint_paths[0]
+            print(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {checkpoint_path}")
         else:
-            checkpoint_path = checkpoints[0]
-            print(f"[INFO] Loading checkpoint: {checkpoint_path}")
+            checkpoint_path = checkpoint_paths[0]
+            print(f"[INFO] Checkpoint found: {checkpoint_path}")
         return checkpoint_path
 
-    def load_best_checkpoint(self, checkpoints_dir=None, model_ds=None):
-        if self.ckpt_cb:
-            checkpoint_path = self.ckpt_cb.best_model_path
-        elif checkpoints_dir:
-            checkpoint_path = self._get_checkpoints(checkpoints_dir)
-        elif model_ds:
-            checkpoints_dir = model_ds.get_model_checkpoints_path(self.engine, model_ds.get_run_name(self.run_prefix))
-            checkpoint_path = self._get_checkpoints(checkpoints_dir)
+    def load_checkpoint(self, checkpoint):
+        # Get checkpoint path
+        if os.path.isfile(checkpoint): # Path
+            checkpoint_path = checkpoint
+        elif checkpoint in {"best", "last"}:  # Checkpoint name
+            checkpoint_path = self._get_checkpoints(self.get_model_checkpoints_path(), mode=checkpoint)
         else:
-            raise ValueError("Either 'checkpoints_dir' or 'model_ds' must be provided")
+            raise ValueError("'checkpoint' must be a filename or 'best' or 'last'")
 
         # Load checkpoint
-        model_state_dict = torch.load(checkpoint_path)
-        model_state_dict = model_state_dict.get("state_dict", model_state_dict)
-        self.model.load_state_dict(model_state_dict)
+        _model = torch.load(checkpoint_path)
+        self.model.load_state_dict(_model.get("state_dict", _model))
         return checkpoint_path
 
 

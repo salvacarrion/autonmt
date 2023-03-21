@@ -33,11 +33,9 @@ def main():
         # Preprocessing functions
         preprocess_raw_fn=preprocess_raw_fn,
         preprocess_splits_fn=preprocess_splits_fn,
-        preprocess_predict_fn=preprocess_predict_fn,
 
         # Additional args
         merge_vocabs=False,
-        eval_mode="compatible",
     ).build(make_plots=False, force_overwrite=False)
 
     # Create preprocessing for training and testing

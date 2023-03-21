@@ -137,17 +137,15 @@ def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
         assert os.path.exists(output_file)
 
 
-def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, force_overwrite, **kwargs):
+def encode_file(input_file, output_file, model_vocab_path, subword_model, force_overwrite, **kwargs):
     # Check if file exists
     if force_overwrite or not os.path.exists(output_file):
 
-        # Apply preprocessing
-
         # Copy file
-        if ds.subword_model in {None, "none"}:
+        if subword_model in {None, "none"}:
             shutil.copyfile(input_file, output_file)
 
-        elif ds.subword_model in {"bytes"}:
+        elif subword_model in {"bytes"}:
             # Save file as UTF8 and make sure everything uses NFKC
             lines = read_file_lines(input_file, autoclean=True)
             lines = [NFKC().normalize_str(line) for line in lines]
@@ -155,18 +153,9 @@ def encode_file(ds, input_file, output_file, lang, merge_vocabs, truncate_at, fo
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
         else:
-            # Select model
-            if merge_vocabs:
-                model_path = ds.get_vocab_file() + ".model"
-            else:
-                model_path = ds.get_vocab_file(lang=lang) + ".model"
 
             # Encode files
-            tokenizers.spm_encode_file(spm_model_path=model_path, input_file=input_file, output_file=output_file)
-
-        # Truncate if needed
-        if truncate_at:
-            tokenizers.truncate_file(input_file=output_file, output_file=output_file, max_tokens=truncate_at)
+            tokenizers.spm_encode_file(spm_model_path=model_vocab_path, input_file=input_file, output_file=output_file)
 
         # Check that the output file exist
         assert os.path.exists(output_file)
@@ -191,7 +180,7 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
 
         else:
             # Decode files
-            tokenizers.spm_decode_file(model_vocab_path + ".model", input_file=input_file, output_file=output_file)
+            tokenizers.spm_decode_file(model_vocab_path, input_file=input_file, output_file=output_file)
 
             # Remove the hyphen of unknown words when needed
             if remove_unk_hyphen:

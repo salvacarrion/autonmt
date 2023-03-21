@@ -16,18 +16,16 @@ from autonmt.preprocessing.processors import pretokenize_file, encode_file
 
 class DatasetBuilder:
 
-    def __init__(self, base_path, datasets, encoding=None, merge_vocabs=False, eval_mode="same",
-                 preprocess_raw_fn=None, preprocess_splits_fn=None, preprocess_predict_fn=None):
+    def __init__(self, base_path, datasets, encoding=None, merge_vocabs=False,
+                 preprocess_raw_fn=None, preprocess_splits_fn=None):
         self.base_path = base_path
         self.datasets = datasets
         self.encoding = encoding
         self.merge_vocabs = merge_vocabs
-        self.eval_mode = eval_mode
 
         # Set processing functions
         self.preprocess_raw_fn = preprocess_raw_fn  # Process function for the raw files
         self.preprocess_splits_fn = preprocess_splits_fn  # Process function for the splits files
-        self.preprocess_predict_fn = preprocess_predict_fn  # Process function for the prediction files
 
         # Constants
         self.ref_size_name = "original"
@@ -102,10 +100,9 @@ class DatasetBuilder:
                     ds_params = dict(base_path=self.base_path,
                                      dataset_name=ds_name, dataset_lang_pair=ds_lang_pair,
                                      dataset_size_name=ds_size_name, dataset_lines=ds_lines,
-                                     merge_vocabs=self.merge_vocabs, eval_mode=self.eval_mode,
+                                     merge_vocabs=self.merge_vocabs,
                                      preprocess_raw_fn=self.preprocess_raw_fn,
-                                     preprocess_splits_fn=self.preprocess_splits_fn,
-                                     preprocess_predict_fn=self.preprocess_predict_fn)
+                                     preprocess_splits_fn=self.preprocess_splits_fn)
 
                     # Add encodings
                     ds_encs = encodings if encodings else [{"subword_model": None, "vocab_size": None}]
@@ -505,10 +502,15 @@ class DatasetBuilder:
                 input_file = file_path_fn(fname=fname)
                 output_file = ds.get_encoded_path(fname)
 
+                # Select model
+                if self.merge_vocabs:
+                    model_path = ds.get_vocab_file() + ".model"
+                else:
+                    model_path = ds.get_vocab_file(lang=lang) + ".model"
+
                 # Encode file
-                encode_file(ds=ds, input_file=input_file, output_file=output_file,
-                            lang=lang, merge_vocabs=self.merge_vocabs, truncate_at=self.truncate_at,
-                            force_overwrite=force_overwrite)
+                encode_file(input_file=input_file, output_file=output_file, model_vocab_path=model_path,
+                            subword_model=ds.subword_model, force_overwrite=force_overwrite)
 
     def _export_vocab_frequencies(self, force_overwrite, normalize_freq=False):
         """
