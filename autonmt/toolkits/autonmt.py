@@ -81,6 +81,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         loggers, callbacks = [], []
 
         # Model hyperparams
+        self.model.strategy = kwargs.get("strategy")
         self.model.optimizer = kwargs.get("optimizer")
         self.model.learning_rate = kwargs.get("learning_rate")
         self.model.weight_decay = kwargs.get("weight_decay")
@@ -127,14 +128,14 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode_str)
             callbacks += [early_stop]
 
-        # Loggers: Tensorboard
+        # Loggers: Tensorboardå
         if logs_path:
-            tb_logger = TensorBoardLogger(save_dir=logs_path, name=self.run_name)
+            tb_logger = TensorBoardLogger(save_dir=logs_path)
             loggers += [tb_logger]
 
         # Loggers: WandB
         if wandb_params:
-            wandb_logger = WandbLogger(name=self.run_name, **wandb_params)
+            wandb_logger = WandbLogger(save_dir=logs_path, name=self.run_name, **wandb_params)
             loggers += [wandb_logger]
 
         # Training

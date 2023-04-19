@@ -28,7 +28,7 @@ def main():
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["bpe+bytes"], "vocab_sizes": [8000, 4000]},
+            {"subword_models": ["word", "bpe+bytes"], "vocab_sizes": [4000]},
         ],
 
         # Preprocessing functions
@@ -37,7 +37,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(make_plots=True, force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -58,12 +58,13 @@ def main():
                                     runs_dir=runs_dir, run_name=run_name)
 
         # Train model
-        trainer.fit(train_ds, max_epochs=300, learning_rate=0.001, optimizer="adam", batch_size=32, seed=1234,
-                    patience=5, num_workers=1, strategy="ddp", save_best=True, save_last=True)
+        wandb_params = dict(project="autonmt-tests", entity="salvacarrion")
+        # trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
+        #             patience=5, num_workers=4, strategy="ddp", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
-                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
+                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
         scores.append(m_scores)
 
     # Make report and print it
@@ -75,3 +76,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # ##### Reference output #######################################
+    # Summary:
+    # lang_pair  vocab_size subword_model train_dataset eval_dataset  translations.beam1.sacrebleu_bleu_score
+    #     de-en        4000          word  no_specified     multi30k                                33.194409
+    #     de-en        4000     bpe+bytes  no_specified     multi30k                                34.062475
+    ################################################################

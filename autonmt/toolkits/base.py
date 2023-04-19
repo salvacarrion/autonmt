@@ -230,8 +230,8 @@ class BaseTranslator(ABC):
 
         # Train
         start_time = time.time()
-        # self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
-        #             force_overwrite=force_overwrite, **kwargs)
+        self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
+                    force_overwrite=force_overwrite, **kwargs)
         print(f"\t- [INFO]: Training time: {str(datetime.timedelta(seconds=time.time()-start_time))}")
 
 
@@ -307,19 +307,33 @@ class BaseTranslator(ABC):
                 # Translate
                 tok_flag = [os.path.exists(os.path.join(output_path, f)) for f in ["hyp.tok"]]
                 if force_overwrite or not all(tok_flag):
+                    # Translate
                     self._translate(data_path=model_eval_path, output_path=output_path,
                         src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
                         beam_width=beam, checkpoints_dir=checkpoints_dir,
                         model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
                         force_overwrite=force_overwrite, filter_idx=i, **kwargs)
 
-                    # Copy src/ref raw
-                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.src_vocab.lang}")
+                    # Set output files
                     src_output_file = os.path.join(output_path, f"src.txt")
-                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.trg_vocab.lang}")
                     ref_output_file = os.path.join(output_path, f"ref.txt")
+                    hyp_output_file = os.path.join(output_path, f"hyp.txt")
 
-                    # Filter src/ref if needed
+                    # [HYP] Decode hypothesis file (model dependent)
+                    for fname, lang in [("hyp", self.trg_vocab.lang)]:
+                        hyp_input_file = os.path.join(output_path, f"{fname}.tok")
+
+                        # Decode file
+                        decode_file(input_file=hyp_input_file, output_file=hyp_output_file, lang=lang,
+                                    subword_model=subword_models[lang], pretok_flag=pretok_flags[lang],
+                                    model_vocab_path=model_vocab_paths[lang], remove_unk_hyphen=True,
+                                    force_overwrite=force_overwrite)
+
+                    # [SRC/REF] Copy src/ref files (raw)
+                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.src_vocab.lang}")
+                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.trg_vocab.lang}")
+
+                    # Filter src/ref sentences if needed
                     if not filter_fn:
                         shutil.copyfile(src_input_file, src_output_file)  # Copy src raw files
                         shutil.copyfile(ref_input_file, ref_output_file)  # Copy trg raw files
@@ -331,27 +345,20 @@ class BaseTranslator(ABC):
                         write_file_lines(filename=src_output_file, lines=src_ref_lines, autoclean=True, insert_break_line=True)
                         write_file_lines(filename=ref_output_file, lines=trg_ref_lines, autoclean=True, insert_break_line=True)
 
-                    # Postprocess src/ref files (lowercase, strip,...)
-                    if preprocess_fn:
+                    # Post-process files to make them more 'equal' during evaluation
+                    if preprocess_fn:  # 'force_overwrite' must be True to overwrite the src/ref files
                         preprocess_predict_file(input_file=src_output_file, output_file=src_output_file,
                                                 preprocess_fn=preprocess_fn,
                                                 pretokenize=pretok_flags[self.src_vocab.lang], lang=self.src_vocab.lang,
-                                                force_overwrite=force_overwrite)
+                                                force_overwrite=True)
                         preprocess_predict_file(input_file=ref_output_file, output_file=ref_output_file,
                                                 preprocess_fn=preprocess_fn,
                                                 pretokenize=pretok_flags[self.trg_vocab.lang], lang=self.trg_vocab.lang,
-                                                force_overwrite=force_overwrite)
-
-                    # Postprocess tokenized files
-                    for fname, lang in [("hyp", self.trg_vocab.lang)]:
-                        input_file = os.path.join(output_path, f"{fname}.tok")
-                        output_file = os.path.join(output_path, f"{fname}.txt")
-
-                        # Post-process files
-                        decode_file(input_file=input_file, output_file=output_file, lang=lang,
-                                    subword_model=subword_models[lang], pretok_flag=pretok_flags[lang],
-                                    model_vocab_path=model_vocab_paths[lang], remove_unk_hyphen=True,
-                                    force_overwrite=force_overwrite)
+                                                force_overwrite=True)
+                        preprocess_predict_file(input_file=hyp_output_file, output_file=hyp_output_file,
+                                                preprocess_fn=preprocess_fn,
+                                                pretokenize=pretok_flags[self.trg_vocab.lang], lang=self.trg_vocab.lang,
+                                                force_overwrite=True)
 
                     # Check amount of lines
                     num_lines_ref = count_file_lines(os.path.join(output_path, "ref.txt"))
@@ -563,5 +570,6 @@ class BaseTranslator(ABC):
 
     def get_model_logs_path(self, fname=""):
         return os.path.join(self.runs_dir, self.run_name, self.model_logs_path, fname)
+
     def get_model_checkpoints_path(self, fname=""):
         return os.path.join(self.runs_dir, self.run_name, self.models_checkpoints_path, fname)

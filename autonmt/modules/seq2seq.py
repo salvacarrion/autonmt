@@ -18,6 +18,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.padding_idx = padding_idx
 
         # Hyperparams (PyTorch Lightning stuff)
+        self.strategy = None
         self.optimizer = None
         self.learning_rate = None
         self.weight_decay = None
@@ -81,18 +82,20 @@ class LitSeq2Seq(pl.LightningModule):
         return loss, outputs
 
     def on_validation_epoch_end(self):
-        # Get validation outputs
-        outputs = self.validation_step_outputs
-
-        # Print samples
+        # Print samples (if enabled)
         if self._print_samples:
-            for (i, preds), (fn_name, _) in zip(outputs.items(), self._filter_eval):  # Iterate over dataloader
-                print(f"=> Printing samples: (Filter: {fn_name}; val. dataloader_idx={i})")
+            for (dl_idx, outputs), (fn_name, _) in zip(self.validation_step_outputs.items(), self._filter_eval):  # Iterate over dataloader
+                extra_info = f" (Filter: {fn_name}; val_dataloader_idx={dl_idx})" if dl_idx else ""
+                print(f"=> Printing samples:" + extra_info)
+
+                # Unpack outputs
                 d = defaultdict(list)
-                for d_batch in preds:
+                for d_batch in outputs:
                     for key, value in d_batch.items():
                         d[key].extend(value)
                 d = dict(d)
+
+                # Print samples
                 src, hyp, ref = d["src"], d["hyp"], d["ref"]
                 for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
                     print(f"- Src. #{i}: {src_i}")
@@ -127,10 +130,11 @@ class LitSeq2Seq(pl.LightningModule):
 
         # Log params
         outputs = None
-        if log_prefix:
-            self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        if log_prefix:  # Not clear is 'sync_dist=True' should be enabled by default
+            sync_dist = (self.strategy == "ddp")
+            self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+            self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+            self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
 
             # Compute metrics for validation
             if log_prefix.startswith("val"):
@@ -145,11 +149,11 @@ class LitSeq2Seq(pl.LightningModule):
         src_lines = [self._src_vocab.decode(list(x)) for x in x.detach().cpu().numpy()]
 
         # Full decoding
-        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag,
+        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag,
                                  self._trg_vocab.spm_model, remove_unk_hyphen=True)
-        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._subword_model, self._pretok_flag,
+        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag,
                                  self._trg_vocab.spm_model, remove_unk_hyphen=True)
-        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._subword_model, self._pretok_flag,
+        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._src_vocab.subword_model, self._src_vocab.pretok_flag,
                                  self._src_vocab.spm_model, remove_unk_hyphen=True)
 
         # Compute metrics
@@ -169,7 +173,8 @@ class LitSeq2Seq(pl.LightningModule):
             self.best_scores[metric_key] = max(score['score'], self.best_scores[metric_key])
 
             # Log metrics
-            self.log(metric_key, score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
-            self.log(metric_key_best, self.best_scores[metric_key], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            sync_dist = (self.strategy == "ddp")
+            self.log(metric_key, score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+            self.log(metric_key_best, self.best_scores[metric_key], on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
 
         return {"hyp": hyp_lines, "ref": ref_lines, "src": src_lines}
