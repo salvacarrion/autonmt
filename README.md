@@ -36,7 +36,7 @@ Furthermore, we provide two features for reproducibility:
 
 ## Installation
 
-Tested on Python +3.8
+Tested on Python 3.8-3.11
 
 ```
 git clone git@github.com:salvacarrion/autonmt.git

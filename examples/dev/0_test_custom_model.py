@@ -1,4 +1,5 @@
 import datetime
+import os
 
 from autonmt.bundle.report import generate_report
 from autonmt.modules.models import Transformer
@@ -10,25 +11,29 @@ from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines,
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 # Preprocess functions
-normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip(), Lowercase()])
-preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=True)
+normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
+preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=False)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
+
 
 def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
-        # Root folder for datasets
-        base_path="/home/scarrion/datasets/translate",
+        # Root folder for datasetxss
+        base_path="/Users/salvacarrion/Documents/Programming/datasets/translate",
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
+            {"name": "multi30kv2", "languages": ["de-es"], "sizes": [
+                ("original", None),  # Original splits or custom splits+default_val_test
+            ],
+             "split_sizes": (None, 1014, 1000)},
         ],
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["word", "bpe+bytes"], "vocab_sizes": [4000]},
+            {"subword_models": ["bpe+bytes"], "vocab_sizes": [16000]},
         ],
 
         # Preprocessing functions
@@ -58,9 +63,9 @@ def main():
                                     runs_dir=runs_dir, run_name=run_name)
 
         # Train model
-        wandb_params = dict(project="autonmt-tests", entity="salvacarrion")
-        # trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
-        #             patience=5, num_workers=4, strategy="ddp", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
+        wandb_params = None  #dict(project="autonmt-tests", entity="salvacarrion")
+        trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
+                    patience=5, num_workers=os.cpu_count(), accelerator="cpu", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",

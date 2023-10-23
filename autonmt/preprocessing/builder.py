@@ -342,7 +342,7 @@ class DatasetBuilder:
                 # Read lines, clean and shuffle
                 print(f"\t=> Processing from '{ds.source_data}'...")
                 lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
-                random.shuffle(lines)  # again...
+                # Shuffle should be done before the split (raw_preprocessed)
 
                 # Parse split sizes
                 train_size, val_size, test_size = ds.splits_sizes

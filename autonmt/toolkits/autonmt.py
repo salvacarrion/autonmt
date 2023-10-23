@@ -21,6 +21,7 @@ from autonmt.toolkits.base import BaseTranslator
 from torch.utils.data.sampler import SequentialSampler
 # from torchnlp.samplers import BucketBatchSampler
 
+
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
     def __init__(self, model, **kwargs):
