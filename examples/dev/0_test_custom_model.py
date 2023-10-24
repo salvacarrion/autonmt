@@ -1,5 +1,6 @@
 import datetime
 import os
+import torch
 
 from autonmt.bundle.report import generate_report
 from autonmt.modules.models import Transformer
@@ -21,19 +22,20 @@ def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
         # Root folder for datasetxss
-        base_path="/Users/salvacarrion/Documents/Programming/datasets/translate",
+        base_path="/home/salvacarrion/Documents/datasets/translation",
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30kv2", "languages": ["de-es"], "sizes": [
-                ("original", None),  # Original splits or custom splits+default_val_test
-            ],
-             "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
         ],
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["bpe+bytes"], "vocab_sizes": [16000]},
+            {"subword_models": ["bpe+bytes"], "vocab_sizes": [8000]},
         ],
 
         # Preprocessing functions
@@ -44,9 +46,21 @@ def main():
         merge_vocabs=False,
     ).build(make_plots=True, force_overwrite=False)
 
+    builder_ts = DatasetBuilder(
+        # Root folder for datasetxss
+        base_path="/home/salvacarrion/Documents/datasets/translation",
+
+        # Set of datasets, languages, training sizes to try
+        datasets=[
+            {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+        ],
+    )
+
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
-    ts_datasets = builder.get_test_ds()
+    ts_datasets = builder_ts.get_test_ds()
 
     # Train & Score a model for each dataset
     scores = []
@@ -56,6 +70,15 @@ def main():
         trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
+        # Load checkpoint
+        path = "/home/salvacarrion/Documents/datasets/translation/multi30k/neutral/en-es/original/models/autonmt/runs/mymodel_bpe+bytes_8000/checkpoints/"
+        checkpoint_path = os.path.join(path, "epoch=009-val_loss=1.408__best.pt")
+        if checkpoint_path:
+            print(f"\t- Loading previous checkpoint: {checkpoint_path}")
+            model_state_dict = torch.load(checkpoint_path)
+            model_state_dict = model_state_dict.get("state_dict", model_state_dict)
+            model.load_state_dict(model_state_dict)
+
         # Define trainer
         runs_dir = train_ds.get_runs_path(toolkit="autonmt")
         run_name = train_ds.get_run_name(run_prefix="mymodel")
@@ -64,12 +87,14 @@ def main():
 
         # Train model
         wandb_params = None  #dict(project="autonmt-tests", entity="salvacarrion")
-        trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
-                    patience=5, num_workers=os.cpu_count(), accelerator="cpu", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
+        # trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=256, seed=1234,
+        #             patience=5, num_workers=0, accelerator="auto", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
-                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
+                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
+        for ms in m_scores:
+            ms['train_dataset'] = str(train_ds)
         scores.append(m_scores)
 
     # Make report and print it
