@@ -28,6 +28,7 @@ Cython
 
 # Loggers
 wandb
+comet_ml
 
 # Fairseq
 fairseq
