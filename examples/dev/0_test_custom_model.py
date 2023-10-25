@@ -18,8 +18,9 @@ preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_f
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
-# BASE_PATH = "/home/salvacarrion/Documents/datasets/translation"
-BASE_PATH = "/home/scarrion/datasets/translate"
+BASE_PATH = "/home/salvacarrion/Documents/datasets/translation"  # Local
+BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH = "/autonmt/examples/dev"  # Docker
 
 def main():
     # Create preprocessing for training
@@ -96,7 +97,7 @@ def main():
         print(f"\t- MODEL PREFIX: {run_prefix}")
 
         # Train model
-        wandb_params = dict(project="continual-learning", entity="salvacarrion")
+        wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
         comet_params = dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
         trainer.fit(train_ds, max_epochs=3, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
                     patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,

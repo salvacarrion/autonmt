@@ -371,3 +371,16 @@ multi30k/
         └── vocabs
 ...
 ```
+
+
+### Run from Docker
+
+```
+# Build docker image
+docker build -t autonmt:latest .
+
+# Run docker (mounting the local autonmt directory to /app/autonmt inside the container)
+docker run -it --rm -v .:/autonmt autonmt:latest
+
+# Load your data somewhere in the local autonmt directory to be accesible form the container
+```
