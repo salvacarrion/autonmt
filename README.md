@@ -38,9 +38,20 @@ Furthermore, we provide two features for reproducibility:
 
 Tested on Python 3.8-3.11
 
+**Option #1: Pip**
 ```
 git clone git@github.com:salvacarrion/autonmt.git
-pip install -e autonmt/
+cd autonmt/
+pip install -e .
+```
+
+**Option #2: Docker**
+```
+git clone git@github.com:salvacarrion/autonmt.git
+cd autonmt/
+docker build -t autonmt:latest .
+docker run --gpus all -d -v .:/autonmt --name autonmt_container autonmt:latest
+docker exec -it autonmt_container bash
 ```
 
 
@@ -379,7 +390,7 @@ multi30k/
 # Build docker image
 docker build -t autonmt:latest .
 
-# Run docker in detatch mode: Use GPUs, Detach, Interactive, Mount local directory
+# Run docker in detatch mode: Use GPUs, Detach, Interactive, Mount local directory,...
 docker run --gpus all -d -v .:/autonmt --name autonmt_container autonmt:latest
 
 # Load your data somewhere in the local autonmt directory to be accesible form the container
