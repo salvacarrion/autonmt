@@ -99,8 +99,8 @@ def main():
         # Train model
         wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
         comet_params = dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
-        trainer.fit(train_ds, max_epochs=3, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
-                    patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+        trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
+                    patience=10, num_workers=23, accelerator="gpu", strategy="auto", save_best=True, save_last=True, print_samples=1,
                     wandb_params=wandb_params, comet_params=comet_params)
 
         # Test model
