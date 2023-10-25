@@ -1,8 +1,12 @@
 import os.path
 
-import pytorch_lightning as pl
+import comet_ml  # Comet needs to be imported before Pytorch
 import torch
+import pytorch_lightning as pl
+
 import wandb
+from pytorch_lightning.loggers import CometLogger
+
 import glob
 import inspect
 
@@ -74,6 +78,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         save_last = kwargs.get("save_last")
         save_best = kwargs.get("save_best")
         wandb_params = kwargs.get("wandb_params")
+        comet_params = kwargs.get("comet_params")
         print_samples = kwargs.get("print_samples")
         skip_val_metrics = kwargs.get("skip_val_metrics")
         mode_str = "min" if "loss" in monitor.lower() else "max"
@@ -139,6 +144,12 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             wandb_logger = WandbLogger(save_dir=logs_path, name=self.run_name, **wandb_params)
             loggers += [wandb_logger]
 
+        # Loggers: Comet
+        comet_logger = None
+        if comet_params:
+            comet_logger = CometLogger(save_dir=logs_path, experiment_name=self.run_name, **comet_params)
+            loggers += [comet_logger]
+
         # Training
         pl_whitelist = set(inspect.signature(pl.Trainer.__init__).parameters)
         pl_params = {k: v for k, v in kwargs.items() if k in pl_whitelist}
@@ -146,12 +157,13 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
         # Close stuff
+        print("Finishing loggers(1/2)...")
         if wandb_params:
-            print("WandB finishing (1/2)...")
             wandb.finish()
-            print("WandB finished! (2/2)")
-        print("Training done!")
 
+        if comet_params:
+            comet_logger.experiment.end()
+        print("Loggers finished! (2/2)")
 
     def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoint, num_workers, devices, accelerator,

@@ -1,5 +1,6 @@
 import datetime
 import os
+import comet_ml
 import torch
 
 from autonmt.bundle.report import generate_report
@@ -46,7 +47,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=True, force_overwrite=False)
+    ).build(make_plots=False, force_overwrite=False)
 
     builder_ts = DatasetBuilder(
         # Root folder for datasets
@@ -96,8 +97,10 @@ def main():
 
         # Train model
         wandb_params = dict(project="continual-learning", entity="salvacarrion")
+        comet_params = dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
         trainer.fit(train_ds, max_epochs=3, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
-                    patience=10, num_workers=0, strategy="ddp", save_best=True, save_last=True, print_samples=1, wandb_params=wandb_params)
+                    patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+                    wandb_params=wandb_params, comet_params=comet_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
