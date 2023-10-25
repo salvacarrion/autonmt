@@ -391,14 +391,12 @@ multi30k/
 docker build -t autonmt:latest .
 
 # Run docker in detatch mode: Use GPUs, Detach, Interactive, Mount local directory,...
-docker run --gpus all -d -v .:/autonmt --name autonmt_container autonmt:latest
+docker run --gpus all -d -v .:/app/autonmt -v /home/scarrion/datasets/translate:/app/data --name autonmt_container autonmt:latest
 
-# Load your data somewhere in the local autonmt directory to be accesible form the container
-...
 
 # Run script inside the container
 ## Interactive ("ctrl+b d" to detach; "ctrl+c" to kill)
-docker exec -it autonmt_container tmux new-session "python /autonmt/examples/dev/0_test_custom_model.py"
+docker exec -it autonmt_container tmux new-session "python /app/autonmt/examples/dev/0_test_custom_model.py"
 
 # Reattach to the script
 docker exec -it autonmt_container tmux attach

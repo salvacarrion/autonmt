@@ -2,6 +2,7 @@ import datetime
 import os
 import comet_ml
 import torch
+torch.set_float32_matmul_precision("high")
 
 from autonmt.bundle.report import generate_report
 from autonmt.modules.models import Transformer
@@ -18,9 +19,9 @@ preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_f
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
-BASE_PATH = "/home/salvacarrion/Documents/datasets/translation"  # Local
-BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
-BASE_PATH = "/autonmt/examples/dev"  # Docker
+# BASE_PATH = "/home/salvacarrion/Documents/datasets/translation"  # Local
+# BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH = "."  # Docker
 
 def main():
     # Create preprocessing for training
@@ -73,7 +74,7 @@ def main():
         src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
         trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
-
+        # model = torch.compile(model)
         # Load checkpoint
         # path = "/home/salvacarrion/Documents/datasets/translation/multi30k/neutral/en-es/original/models/autonmt/runs/mymodel_bpe+bytes_8000/checkpoints/"
         # checkpoint_path = os.path.join(path, "epoch=009-val_loss=1.408__best.pt")
@@ -97,10 +98,10 @@ def main():
         print(f"\t- MODEL PREFIX: {run_prefix}")
 
         # Train model
-        wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
-        comet_params = dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
-        trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
-                    patience=10, num_workers=23, accelerator="gpu", strategy="auto", save_best=True, save_last=True, print_samples=1,
+        wandb_params = None  #dict(project="continual-learning", entity="salvacarrion", reinit=True)
+        comet_params = None  #dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
+        trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adam", batch_size=512, seed=1234,
+                    patience=10, num_workers=0, accelerator="gpu", strategy="auto", save_best=True, save_last=True, print_samples=1,
                     wandb_params=wandb_params, comet_params=comet_params)
 
         # Test model
