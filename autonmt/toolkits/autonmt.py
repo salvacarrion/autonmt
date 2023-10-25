@@ -129,7 +129,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             early_stop = EarlyStopping(monitor=monitor, patience=patience, mode=mode_str)
             callbacks += [early_stop]
 
-        # Loggers: Tensorboardå
+        # Loggers: Tensorboard
         if logs_path:
             tb_logger = TensorBoardLogger(save_dir=logs_path)
             loggers += [tb_logger]
@@ -146,7 +146,11 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
         # Close stuff
-        wandb.finish() if wandb_params else None
+        if wandb_params:
+            print("WandB finishing (1/2)...")
+            wandb.finish()
+            print("WandB finished! (2/2)")
+        print("Training done!")
 
 
     def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
