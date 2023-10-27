@@ -147,10 +147,11 @@ def load_json(filename):
         return json.load(f)
 
 
-def save_json(d, savepath, ignore_empty=True):
+def save_json(d, savepath, ignore_empty=True, allow_overwrite=True):
     if d or not ignore_empty:
-        with open(savepath, 'w') as f:
-            json.dump(d, f)
+        if allow_overwrite or not os.path.exists(savepath):
+            with open(savepath, 'w') as f:
+                json.dump(d, f)
     else:
         print(f"\t- [INFO]: Ignoring empty json. Not saved: {savepath}")
 

@@ -166,7 +166,7 @@ class DatasetBuilder:
             print(f"\t=> Checking dataset: '{ds.id(as_path=True)}'")
 
             # Truth table
-            raw, raw_files_path = ds.has_raw_files(verbose=True)
+            raw, raw_files_path = ds.has_raw_files(verbose=False)
             splits, split_files_path = ds.has_split_files()
             force = force_overwrite
 

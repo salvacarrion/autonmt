@@ -1,10 +1,11 @@
 FROM pytorch/pytorch:latest
 
-# Update and install required tools
+# Update and install required tools to develop inside the docker
 RUN apt-get update &&  \
     apt-get install -y python3-pip &&  \
     apt-get install -y vim && \
     apt-get install -y htop && \
+    apt-get install -y git-all && \
     apt-get install -y tmux
 
 # Set the working directory in the docker container

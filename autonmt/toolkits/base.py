@@ -125,10 +125,10 @@ class BaseTranslator(ABC):
         # Update values
         self.config[key].update({k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
-    def _save_config(self, fname="config.json"):
+    def _save_config(self, fname="config.json", force_overwrite=False):
         logs_path = self.get_model_logs_path()
         make_dir(logs_path)
-        save_json(self.config, savepath=os.path.join(logs_path, fname))
+        save_json(self.config, savepath=os.path.join(logs_path, fname), allow_overwrite=force_overwrite)
 
     def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1, patience=None,
             optimizer="adam", learning_rate=0.001, weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
@@ -140,7 +140,7 @@ class BaseTranslator(ABC):
         # Save training config
         self._add_config(key="fit", values=locals(), reset=False)
         self._add_config(key="fit", values=kwargs, reset=False)
-        self._save_config(fname="config_train.json")
+        self._save_config(fname="config_train.json", force_overwrite=force_overwrite)
 
         # Train and preprocess
         self.preprocess(train_ds, apply2train=True, apply2val=True, apply2test=False, force_overwrite=force_overwrite, **kwargs)
@@ -163,7 +163,7 @@ class BaseTranslator(ABC):
         # Store config
         self._add_config(key="predict", values=locals(), reset=False)
         self._add_config(key="predict", values=kwargs, reset=False)
-        self._save_config(fname="config_predict.json")
+        self._save_config(fname="config_predict.json", force_overwrite=force_overwrite)
 
         # Translate and score
         scores = []

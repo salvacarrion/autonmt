@@ -396,11 +396,12 @@ docker run --gpus all -d -v .:/app/autonmt -v /home/scarrion/datasets/translate:
 
 # Run script inside the container
 ## Interactive ("ctrl+b d" to detach; "ctrl+c" to kill)
-docker exec -it autonmt_container tmux new-session "python /app/autonmt/examples/dev/0_test_custom_model.py"
+docker exec -it autonmt_container tmux new-session "python /app/autonmt/examples/dev/0_test_custom_model.py > output.log"
 
 # Reattach to the script
 docker exec -it autonmt_container tmux attach
 
 # To access the container (...and kill something)
+docker exec -it autonmt_container tmux
 docker exec -it autonmt_container bash
 ```

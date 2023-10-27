@@ -16,26 +16,28 @@ from tokenizers.normalizers import NFKC, Strip, Lowercase
 # Preprocess functions
 normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
 preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=False)
-preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
+preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, shuffle_lines=True)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
-# BASE_PATH = "/home/salvacarrion/Documents/datasets/translation"  # Local
-# BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
-BASE_PATH = "."  # Docker
+# BASE_PATH1 = "/home/salvacarrion/Documents/datasets/translation"  # Local
+BASE_PATH2 = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH3 = "/app/data"  # Docker
+BASE_PATH = BASE_PATH2 if os.environ.get("DEBUG", 0) else BASE_PATH3
 
 def main():
     # Create preprocessing for training
     builder = DatasetBuilder(
-        # Root folder for datasetxss
+        # Root folder for datasets
         base_path=BASE_PATH,
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/informal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/formal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
             # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
             # {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/merged-neutral-formal-informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)]},
         ],
 
         # Set of subword models and vocab sizes to try
@@ -57,9 +59,9 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k/neutral", "languages": ["en-es", "de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/formal", "languages": ["en-es", "de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
         ],
     )
 
@@ -74,10 +76,10 @@ def main():
         src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
         trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
-        # model = torch.compile(model)
+
         # Load checkpoint
-        # path = "/home/salvacarrion/Documents/datasets/translation/multi30k/neutral/en-es/original/models/autonmt/runs/mymodel_bpe+bytes_8000/checkpoints/"
-        # checkpoint_path = os.path.join(path, "epoch=009-val_loss=1.408__best.pt")
+        # path = os.path.join(BASE_PATH, "multi30k/neutral/en-es/original/models/autonmt/runs/multi30k-neutral_en-es_bpe+bytes_8000/checkpoints")
+        # checkpoint_path = os.path.join(path, "epoch=014-val_loss=1.397__best.pt")
         # if checkpoint_path:
         #     print(f"\t- Loading previous checkpoint: {checkpoint_path}")
         #     model_state_dict = torch.load(checkpoint_path)
@@ -98,21 +100,21 @@ def main():
         print(f"\t- MODEL PREFIX: {run_prefix}")
 
         # Train model
-        wandb_params = None  #dict(project="continual-learning", entity="salvacarrion", reinit=True)
+        wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
         comet_params = None  #dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
-        trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adam", batch_size=512, seed=1234,
-                    patience=10, num_workers=0, accelerator="gpu", strategy="auto", save_best=True, save_last=True, print_samples=1,
-                    wandb_params=wandb_params, comet_params=comet_params)
+        # trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
+        #             patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+        #             wandb_params=wandb_params, comet_params=comet_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
-                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
+                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
         for ms in m_scores:
             ms['train_dataset'] = str(train_ds)
         scores.append(m_scores)
 
     # Make report and print it
-    output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
+    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/{str(datetime.datetime.now())}")
     df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="translations.beam1.sacrebleu_bleu_score")
     print("Summary:")
     print(df_summary.to_string(index=False))
