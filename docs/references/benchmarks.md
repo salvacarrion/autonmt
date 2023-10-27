@@ -113,6 +113,30 @@ train_dataset  eval_dataset subword_model vocab_size  fairseq_bleu  Training tim
 multi30k_test multi30k_test       unigram       4000     35.123375  0:02:38.338926  0:00:09.955724
 multi30k_test multi30k_test          word       4000     34.706139  0:02:31.938635  0:00:10.285918
 ```
+### Tests (27/10/2023)
+
+```text
+# v0.5: [NFKC(), Strip(), Lowercase], Overwrite=True!, no shuffle (split), 128batch, adam, 0.001lr, seed=1234¿?. iter=10
+#     de-en       4000          word      multi30k/neutral_de-en_original_word_4000 multi30k-ori                                34.179303
+#     de-en       4000     bpe+bytes multi30k/neutral_de-en_original_bpe+bytes_4000 multi30k-ori                                34.019237
+
+# v0.5: [NFKC(), Strip(), NO-Lowercase], Overwrite=True!, no shuffle (split), 128batch, adam, 0.001lr, seed=1234¿?. iter=10
+#     de-en       4000          word      multi30k/neutral_de-en_original_word_4000 multi30k-ori                                34.207387
+#     de-en       4000     bpe+bytes multi30k/neutral_de-en_original_bpe+bytes_4000 multi30k-ori                                33.085672
+
+# v0.5: [NFKC(), Strip(), NO-Lowercase!], Overwrite=True!, no shuffle (split), 1024batch, adamw, 0.001lr, seed=1234
+# lang_pair vocab_size subword_model                                   train_dataset     eval_dataset  translations.beam1.sacrebleu_bleu_score
+#     de-en       4000          word       multi30k/neutral_de-en_original_word_4000 multi30k/neutral                                32.651625
+#     de-en       8000          word       multi30k/neutral_de-en_original_word_8000 multi30k/neutral                                32.140449
+#     de-en      10000          word      multi30k/neutral_de-en_original_word_10000 multi30k/neutral                                30.840177
+#     de-en       4000     bpe+bytes  multi30k/neutral_de-en_original_bpe+bytes_4000 multi30k/neutral                                32.062014
+#     de-en       8000     bpe+bytes  multi30k/neutral_de-en_original_bpe+bytes_8000 multi30k/neutral                                32.079096
+#     de-en      10000     bpe+bytes multi30k/neutral_de-en_original_bpe+bytes_10000 multi30k/neutral                                32.649577
+#     de-en    357/357    char+bytes multi30k/neutral_de-en_original_char+bytes_1000 multi30k/neutral                                32.819399
+```
+
+------
+
 
 **Conclusions:**
 - **AutoNMT:** Bucketing is need to speed-up training

@@ -32,12 +32,7 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/informal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/formal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "multi30k/merged-neutral-formal-informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)]},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},
         ],
 
         # Set of subword models and vocab sizes to try
@@ -59,9 +54,7 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/formal", "languages": ["en-es", "de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
         ],
     )
 
