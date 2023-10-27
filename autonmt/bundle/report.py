@@ -47,6 +47,9 @@ def scores2pandas(scores):
         for eval_scores in model_scores:
             pd_rows.append(pd.json_normalize(eval_scores))
 
+    if not pd_rows:
+        raise ValueError("=> [Report]: No scores were given")
+
     # Convert to pandas
     df = pd.concat(pd_rows)
     return df

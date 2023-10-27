@@ -168,6 +168,10 @@ class BaseTranslator(ABC):
         # Translate and score
         scores = []
         eval_datasets = self.filter_eval_datasets(eval_datasets, eval_mode=eval_mode)
+        if not eval_datasets:
+            print(f"=> [Predict]: Skipped. No valid test datasets were found.")
+
+        # Translate and score
         for eval_ds in eval_datasets:
             self.translate(eval_ds, beams=beams, max_len_a=max_len_a, max_len_b=max_len_b,
                            batch_size=batch_size, max_tokens=max_tokens,
