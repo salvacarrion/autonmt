@@ -274,8 +274,10 @@ class BaseTranslator(ABC):
 
             # 1 - Get source file
             source_file = os.path.join(dst_raw_path, ts_fname)
-            shutil.copyfile(input_file, source_file)
-            input_file = source_file
+            if force_overwrite or not os.path.exists(source_file):
+                shutil.copyfile(input_file, source_file)
+                assert os.path.exists(source_file)
+                input_file = source_file
 
             # 2 - Preprocess file (+pretokenization if needed)
             preprocessed_file = os.path.join(dst_preprocessed_path, ts_fname)
@@ -459,12 +461,15 @@ class BaseTranslator(ABC):
 
         # Walk through beams
         assert self.src_vocab.subword_model == self.trg_vocab.subword_model
-        assert len(self.src_vocab) == len(self.trg_vocab)
+        if len(self.src_vocab) != len(self.trg_vocab):
+            vocab_size = f"{len(self.src_vocab)}/{len(self.src_vocab)}"
+        else:
+            vocab_size = f"{len(self.src_vocab)}"
         run_scores = {
             "engine": self.engine,
             "run_name": self.run_name,
             "lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
-            "vocab_size": len(self.src_vocab),
+            "vocab_size": vocab_size,
             "subword_model": self.src_vocab.subword_model,
             "train_dataset": "no_specified",
             "train_max_lines": "no_specified",

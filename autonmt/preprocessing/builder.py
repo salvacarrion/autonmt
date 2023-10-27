@@ -133,7 +133,7 @@ class DatasetBuilder:
 
         # Preprocess raw files, create partitions, and process splits
         self._preprocess_raw_files(force_overwrite=force_overwrite)  # preprocess_raw?
-        self._create_partitions(use_ref_partitions=True, force_overwrite=force_overwrite) # splits! (original)
+        self._create_partitions(use_ref_partitions=True)  # splits! (original)
         self._create_reduced_versions(force_overwrite=force_overwrite) # splits! (all)
         self._preprocess_split_files(force_overwrite=force_overwrite) # preprocess_splits?
 
@@ -264,12 +264,13 @@ class DatasetBuilder:
                 # Write lines (do not overwrite original files)
                 write_file_lines(src_lines, filename=f"{src_out}", insert_break_line=True)
                 write_file_lines(tgt_lines, filename=f"{trg_out}", insert_break_line=True)
+
     def _preprocess_raw_files(self, force_overwrite):
         # Note: If raw_preprocess exists, but it is not preprocessed, the flag won't be updated
         if self.preprocess_raw_fn is None:
             return
 
-        print(f"=> Preprocessing raw files...")
+        print(f"=> Checking raw files...")
         for ds_key, ds in self.ds_refs.items():  # Dataset
             # Update source data
             if self.ds_refs[ds_key].source_data == "raw":  # Do not preprocess if we are going to use splits or other
@@ -309,9 +310,9 @@ class DatasetBuilder:
             # Preprocess files
             self._preprocess_files(ds, input_sets, output_sets, self.preprocess_splits_fn, force_overwrite)
 
-
-    def _create_partitions(self, use_ref_partitions, force_overwrite):
-        print(f"=> Creating partitions...")
+    def _create_partitions(self, use_ref_partitions):
+        # NOTE: The 'force_overwrite' is implicit in the 'ds.source_data' value
+        print(f"=> Checking partitions...")
 
         # Select reference datasets
         if use_ref_partitions:
@@ -321,22 +322,24 @@ class DatasetBuilder:
 
         # Create partitions for each dataset
         for ds in datasets:
-            # Check if partitions already exist
-            if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]) and not force_overwrite:
-                print(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
-                continue
+            # 'ds.source_data' are set in a previous step, taking 'force_overwrite' into account
+            if ds.source_data == "splits":  # Use split data
+                # Check if all partitions exist
+                if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]):
+                    print(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
+                    continue
+                else:
+                    raise ValueError(f"\t=> Some partitions are missing for '{ds.id(as_path=True)}'")
 
             # Create partitions (overwrite all partitions even if only one is missing - due to the randomization)
-            # If the force_overwrite flag is set, the source_data was set to "raw" in a previous step
+            # Context: There are no partitions or 'force_overwrite==True' with raw data existing
             print(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
-            if ds.source_data in {"raw", "raw_preprocessed"}:  # Use raw data  (force_overwrite=True or False, as long as there is raw data)
+            if ds.source_data in {"raw", "raw_preprocessed"}:  # Use raw data
                 # Get raw/raw_preprocessed files
                 if ds.source_data == "raw":
                     src_path, trg_path = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
-                elif ds.source_data == "raw_preprocessed":
+                else:  # "raw_preprocessed":
                     src_path, trg_path = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_fnames()]
-                else:
-                    raise ValueError(f"Invalid value for source data: {ds.source_data}")
                 assert os.path.isfile(src_path) and os.path.isfile(trg_path)
 
                 # Read lines, clean and shuffle
@@ -349,7 +352,7 @@ class DatasetBuilder:
                 val_size = utils.parse_split_size(val_size, max_ds_size=len(lines))
                 test_size = utils.parse_split_size(test_size, max_ds_size=len(lines))
                 if (val_size + test_size) > len(lines):
-                    raise ValueError(f"The validation and test sets exceed the size of the dataset")
+                    raise ValueError(f"\t=> The validation and test sets exceed the size of the dataset")
 
                 # Create partitions
                 train_lines = lines[:-(val_size + test_size)]
@@ -368,8 +371,8 @@ class DatasetBuilder:
                         utils.write_file_lines(list(zip(*split_lines))[i], savepath)
                         print(f"\t\t- Partition saved: {split_name}.{lang}")
             else:
-                # The source data is not raw, then the partitions must be already created
-                raise ValueError(f"Invalid value for source data: {ds.source_data}")
+                raise ValueError(f"\t=> Invalid value for 'ds.source_data': {ds.source_data} ('raw', 'raw_preprocessed', or 'splits')")
+
 
     def _create_reduced_versions(self, force_overwrite):
         print("=> Creating reduced versions...")
