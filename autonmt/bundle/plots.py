@@ -43,7 +43,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
     # Adjust tick label properties without changing the labels
     for label in g.ax.get_xticklabels():
         label.set_rotation(rotate_xlabels)
-        label.set_horizontalalignment('right')
+        label.set_horizontalalignment('center' if rotate_xlabels == 0 else 'right')
 
     # Add values
     if show_values:
@@ -240,7 +240,7 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
                  bar_group_name_fn=None, legend_name_fn=None, save_figures=True, show_figures=False):
     def _bar_group_name_fn(df_row):
         # Set default values for the columns
-        return f"{df_row['subword_model']} - {df_row['vocab_size']}\nTr: {df_row['train_dataset'].replace('_', ' ')}"
+        return f"{df_row['subword_model']} - {df_row['vocab_size']}\nTr: {df_row['train_dataset'].replace('_', ' ')}".title()
 
     def _legend_name_fn(text):
         # Set default values for the columns

@@ -8,7 +8,7 @@ BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Lo
 
 def bar_group_name_fn(df_row):
     # Set default values for the columns
-    return f"{df_row['train_dataset'].replace('_', ' ')}"
+    return f"{df_row['train_dataset'].replace('_', ' ')}".title()
 
 def legend_name_fn(text):
     # Set default values for the columns
