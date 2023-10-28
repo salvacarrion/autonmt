@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 setup(name='autonmt',
       version='0.5.1',
-      description='A Framework to atreamline the research of seq2seq models',
+      description='A Framework to streamline the research of seq2seq models',
       url='https://github.com/salvacarrion/autonmt',
       author='Salva Carrión',
       license='MIT',
