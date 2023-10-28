@@ -280,12 +280,18 @@ def main():
 
     print(f"Total models trained: {counter}")
 
-    # # Make report and print it
-    # output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    # df_report, df_summary = generate_report(scores=scores, output_path=output_path,
-    #                                         plot_metric="translations.xx.beam1.sacrebleu_bleu_score")
+    # # Make report
+    # output_path = os.path.join(BASE_PATH, f".outputs/autonmt/{str(datetime.datetime.now())}")
+    # df_report, df_summary = generate_report(scores=scores, output_path=output_path)
+    #
+    # # Print summary
     # print("Summary:")
     # print(df_summary.to_string(index=False))
+    #
+    # # Plot metrics
+    # plots_path = os.path.join(output_path, "plots")
+    # plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
+    #              xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
 
 if __name__ == "__main__":
     main()
