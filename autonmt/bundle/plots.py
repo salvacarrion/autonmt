@@ -28,20 +28,22 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
         print(f"\t\t\t- Skipped catplot as it already exists ({fname})")
         return False
 
+    # Dynamically adjust width based on label length
+    max_label_length = max(data[x].astype(str).apply(len))
+    aspect_ratio = (aspect_ratio[0] + max_label_length * 0.2, aspect_ratio[1])
+
     # Create subplot
     fig = plt.figure(figsize=(aspect_ratio[0], aspect_ratio[1]))
     sns.set(font_scale=size)
 
     # Plot catplot
-    g = sns.catplot(data=data, x=x, y=y, hue=hue, kind="bar", legend=False, height=aspect_ratio[1],
-                    aspect=aspect_ratio[0] / aspect_ratio[1])
+    g = sns.catplot(data=data, x=x, y=y, hue=hue, kind="bar", height=aspect_ratio[1],
+                    aspect=aspect_ratio[0] / aspect_ratio[1], legend_out=False, legend=True)
 
-    # Tweaks
-    g.set(xlabel=xlabel, ylabel=ylabel)
-    g.ax.set_xticklabels(g.ax.get_xticklabels(), rotation=rotate_xlabels)
-    # g.ax.tick_params(axis='x', which='major', labelsize=8*size)
-    # g.ax.tick_params(axis='y', which='major', labelsize=8*size)
-    g.ax.yaxis.set_major_formatter(utils.human_format_int)  # only for catplot
+    # Adjust tick label properties without changing the labels
+    for label in g.ax.get_xticklabels():
+        label.set_rotation(rotate_xlabels)
+        label.set_horizontalalignment('right')
 
     # Add values
     if show_values:
@@ -199,7 +201,6 @@ def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_tit
 
     # Show/Save/Close figure
     _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig)
-    asd = 33
 
 
 def _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig=None):
@@ -231,48 +232,69 @@ def do_all_figs_exists(output_dir, fname, formats):
         save_dir = os.path.join(output_dir, ext)
         if os.path.exists(os.path.join(save_dir, f"{fname}.{ext}")):
             return True
+
     return False
 
 
-def plot_metrics(output_path, df_report, plot_metric, xlabel=None, ylabel=None, save_figures=True, show_figures=False):
+def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel="BLEU Score", title="Model comparison",
+                 bar_group_name_fn=None, legend_name_fn=None, save_figures=True, show_figures=False):
+    def _bar_group_name_fn(df_row):
+        # Set default values for the columns
+        return f"{df_row['subword_model']} - {df_row['vocab_size']}\nTr: {df_row['train_dataset'].replace('_', ' ')}"
+
+    def _legend_name_fn(text):
+        # Set default values for the columns
+        return text.title().replace('_', ' ')
+
+    print(f"=> Plotting metrics...")
+    print(f"\t- [WARNING]: Matplotlib might miss some images if the loop is too fast")
+
+    # Copy dataframe to avoid modifying the original one
+    df = df_report.copy()
+
+    # Check that these columns are in the dataframe
+    for col in ["train_dataset", "eval_dataset", plot_metric]:
+        if col not in df.columns:
+            raise ValueError(f"\t- '{col}' was not found in the given dataframe")
+
     # Check if the metric id is in the dataframe
-    if plot_metric not in df_report.columns:
-        raise ValueError(f"Metric '{plot_metric}' was not found in the given dataframe")
+    if plot_metric not in df.columns:
+        raise ValueError(f"\t- Metric '{plot_metric}' was not found in the given dataframe")
 
     # Set backend
     if save_figures:
         set_non_gui_backend()
         if show_figures:
-            raise ValueError("'save_fig' is incompatible with 'show_fig'")
+            raise ValueError("\t- 'save_fig' is incompatible with 'show_fig'")
 
-    print(f"=> Plotting metrics...")
-    print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
+    # Preprocess bar group names
+    bar_group_name_fn = bar_group_name_fn if bar_group_name_fn else _bar_group_name_fn
+    df["bar_group_name"] = df.apply(bar_group_name_fn, axis=1)
 
-    # Parse metric name
-
-    # Set other values
-    xlabel = f"Models" if not xlabel else xlabel
-    ylabel = f"{plot_metric}" if not ylabel else ylabel
-    fname = f"report__{plot_metric}"
-
-    # Make run name smaller with break lines
-    df_report["alias"] = [f"{row['subword_model']} - {row['vocab_size']}\nTr: {row['train_dataset'].replace('_', ' ')}" for i, row in df_report.iterrows()]
-
-    # Evals per model
-    num_same_tr_ts = int((df_report['train_dataset'] == df_report['eval_dataset']).values.sum())
-    total_tr = len(df_report['train_dataset'])
-    hue = None if num_same_tr_ts == total_tr else "eval_dataset"
+    # Preprocess legend
+    num_same_tr_ts = int((df['train_dataset'] == df['eval_dataset']).values.sum())
+    total_tr = len(df['train_dataset'])
+    legend_column = None if num_same_tr_ts == total_tr else "eval_dataset"
+    if legend_column:
+        legend_name_fn = legend_name_fn if legend_name_fn else _legend_name_fn
+        df[legend_column] = df[legend_column].map(legend_name_fn)
 
     # Plot data
     width = 16  #min(max(total_tr, 8), 24)
     height = 8
-    catplot(data=df_report, x="alias", y=plot_metric, hue=hue,
-            title=f"Model comparison", xlabel=xlabel, ylabel=ylabel, leyend_title=None,
-            output_dir=output_path, fname=fname, aspect_ratio=(width, height), size=1.5, rotate_xlabels=90,
+    fname = f"plot__{plot_metric}"
+    catplot(data=df, x="bar_group_name", y=plot_metric, hue=legend_column,
+            title=title, xlabel=xlabel, ylabel=ylabel, leyend_title=None,
+            output_dir=output_path, fname=fname, aspect_ratio=(width, height), size=1.5, rotate_xlabels=0,
             save_fig=save_figures, show_fig=show_figures, overwrite=True, data_format="{:.2f}", loc="lower right")
 
 
-def plot_vocabs_report(output_path, data, x, y_left, y_right=None, loc_legend="upper left", prefix="", save_figures=True, show_figures=False):
+def plot_vocabs_report(output_path, data, x, y_left, y_right=None,
+                       xlabel="Vocab sizes", ylabel_left=None, ylabel_right=None, title="Vocabularies report",
+                       loc_legend="upper left", prefix="", save_figures=True, show_figures=False):
+    print(f"=> Plotting vocabs report...")
+    print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
+
     # Check if the metrics are in the dataframe
     y_left, y_left_hue = y_left if isinstance(y_left, tuple) else (y_left, None)
     if y_left not in data.columns:
@@ -289,17 +311,12 @@ def plot_vocabs_report(output_path, data, x, y_left, y_right=None, loc_legend="u
         if show_figures:
             raise ValueError("'save_fig' is incompatible with 'show_fig'")
 
-    print(f"=> Plotting vocabs report...")
-    print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
-
     # Set other values
-    title = f"{y_left.title()} {'and ' + y_right.title() if y_right else ''} depending on the {x.title()}".replace('_', ' ').replace('  ', ' ')
-    xlabel = "Vocab sizes"
-    ylabel_left = f"{y_left}".title().replace('_', ' ')
-    ylabel_right = f"{y_right}".title().replace('_', ' ') if y_right else None
-    fname = f"{prefix}vocabs_report__{y_left}{'_' + y_right if y_right else ''}".lower()
+    ylabel_left = ylabel_left if ylabel_left else y_left
+    ylabel_right = ylabel_right if ylabel_right else y_right
 
     # Plot data
+    fname = f"{prefix}vocabs_report__{y_left}{'_' + y_right if y_right else ''}".lower()
     lineplot(data=data, x=x,
              y_left=y_left, y_left_hue=y_left_hue,
              y_right=y_right, y_right_hue=y_right_hue,

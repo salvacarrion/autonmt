@@ -5,7 +5,7 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
 setup(name='autonmt',
-      version='0.5',
+      version='0.5.1',
       description='A Framework to atreamline the research of seq2seq models',
       url='https://github.com/salvacarrion/autonmt',
       author='Salva Carrión',

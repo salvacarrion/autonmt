@@ -35,7 +35,7 @@ def generate_report(scores, output_path, plot_metric=None, **kwargs):
 
     # Plot metrics
     if plot_metric:
-        plots.plot_metrics(output_path=plots_path, df_report=df_report.copy(), plot_metric=plot_metric, **kwargs)
+        plots.plot_metrics(output_path=plots_path, df_report=df_report, plot_metric=plot_metric, **kwargs)
 
     return df_report, df_summary
 
@@ -65,7 +65,7 @@ def summarize_scores(df_report, default_cols=None, ref_metric="bleu"):
     return df
 
 
-def generate_multivariable_report(data, output_path, y_left, y_right=None, x="vocab_size", loc_legend="upper left",
+def generate_multivariable_report(data, output_path, x, y_left, y_right=None, loc_legend="upper left",
                                   prefix="", save_csv=False, **kwargs):
     # Create logs path
     reports_path = os.path.join(output_path, "reports")

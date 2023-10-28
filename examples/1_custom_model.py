@@ -1,10 +1,13 @@
+import os
 import datetime
 
-from autonmt.bundle.report import generate_report
 from autonmt.modules.models import Transformer
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
+
+from autonmt.bundle.report import generate_report
+from autonmt.bundle.plots import plot_metrics
 
 from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
 from tokenizers.normalizers import NFKC, Strip
@@ -14,6 +17,7 @@ normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
 preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=True)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
+
 
 def main():
     # Create preprocessing for training
@@ -71,9 +75,16 @@ def main():
 
     # Make report and print it
     output_path = f".outputs/autonmt/{str(datetime.datetime.now())}"
-    df_report, df_summary = generate_report(scores=scores, output_path=output_path, plot_metric="translations.beam1.sacrebleu_bleu_score")
+    df_report, df_summary = generate_report(scores=scores, output_path=output_path)
+
+    # Print summary
     print("Summary:")
     print(df_summary.to_string(index=False))
+
+    # Plot metrics
+    plots_path = os.path.join(output_path, "plots")
+    plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
+                 xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
 
 
 if __name__ == "__main__":
