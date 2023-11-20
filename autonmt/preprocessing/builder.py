@@ -17,11 +17,13 @@ from autonmt.preprocessing.processors import pretokenize_file, encode_file
 class DatasetBuilder:
 
     def __init__(self, base_path, datasets, encoding=None, merge_vocabs=False,
-                 preprocess_raw_fn=None, preprocess_splits_fn=None):
+                 preprocess_raw_fn=None, preprocess_splits_fn=None, randomize_training=False, random_seed=42):
         self.base_path = base_path
         self.datasets = datasets
         self.encoding = encoding
         self.merge_vocabs = merge_vocabs
+        self.randomize_training = randomize_training
+        self.random_seed = random_seed
 
         # Set processing functions
         self.preprocess_raw_fn = preprocess_raw_fn  # Process function for the raw files
@@ -133,9 +135,9 @@ class DatasetBuilder:
 
         # Preprocess raw files, create partitions, and process splits
         self._preprocess_raw_files(force_overwrite=force_overwrite)  # preprocess_raw?
-        self._create_partitions(use_ref_partitions=True)  # splits! (original)
-        self._create_reduced_versions(force_overwrite=force_overwrite) # splits! (all)
-        self._preprocess_split_files(force_overwrite=force_overwrite) # preprocess_splits?
+        self._create_splits(use_ref_partitions=True)  # splits! (original)
+        self._create_reduced_versions(force_overwrite=force_overwrite)  # splits! (all). CAREFUL! NOT SHUFFLED!!!
+        self._preprocess_split_files(force_overwrite=force_overwrite)  # preprocess_splits?. Shuffling is done here
 
         # Ignore further preprocessing if there is not encoding
         if not self.encoding:
@@ -310,7 +312,7 @@ class DatasetBuilder:
             # Preprocess files
             self._preprocess_files(ds, input_sets, output_sets, self.preprocess_splits_fn, force_overwrite)
 
-    def _create_partitions(self, use_ref_partitions):
+    def _create_splits(self, use_ref_partitions):
         # NOTE: The 'force_overwrite' is implicit in the 'ds.source_data' value
         print(f"=> Checking partitions...")
 
@@ -345,7 +347,6 @@ class DatasetBuilder:
                 # Read lines, clean and shuffle
                 print(f"\t=> Processing from '{ds.source_data}'...")
                 lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
-                # Shuffle should be done before the split (raw_preprocessed)
 
                 # Parse split sizes
                 train_size, val_size, test_size = ds.splits_sizes

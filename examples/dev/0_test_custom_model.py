@@ -16,15 +16,15 @@ from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines,
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 # Preprocess functions
-normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
+normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip(), Lowercase()])
 preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=False)
 preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, shuffle_lines=True)
 preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
 
-BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Local
-# BASE_PATH2 = "/home/scarrion/datasets/translate"  # Remote
-# BASE_PATH3 = "/app/data"  # Docker
-# BASE_PATH = BASE_PATH2 if os.environ.get("DEBUG", 0) else BASE_PATH3
+# BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Local
+BASE_PATH2 = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH3 = "/app/data"  # Docker
+BASE_PATH = BASE_PATH2 if os.environ.get("DEBUG", 0) else BASE_PATH3
 
 def main():
     # Create preprocessing for training
@@ -34,21 +34,19 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
-            {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
-            {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None), ("100k", 100000), ("50k", 50000)]},
-
-            # {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/informal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/formal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
+            # Multi30k
+            # {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)]},
             # {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "multi30k/merged-neutral-formal-informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
+
+            # Scielo
+            {"name": "scielo/health", "languages": ["en-es"], "sizes": [("100k", 100000)]},
+            {"name": "scielo/biological", "languages": ["en-es"], "sizes": [("100k", 100000)]},
         ],
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["bpe+bytes"], "vocab_sizes": [8000, 16000]},
+            {"subword_models": ["bpe+bytes"], "vocab_sizes": [8000]},
         ],
 
         # Preprocessing functions
@@ -57,23 +55,27 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=True, force_overwrite=False)
+    ).build(make_plots=False, force_overwrite=False)
 
+    # Create preprocessing for training and testing
+    tr_datasets = builder.get_train_ds()
+    ts_datasets = builder.get_test_ds()
+
+    # return
     # builder_ts = DatasetBuilder(
     #     # Root folder for datasets
     #     base_path=BASE_PATH,
     #
     #     # Set of datasets, languages, training sizes to try
     #     datasets=[
-    #         {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
-    #         {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
-    #         {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None)]},
+    #         {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)]},
+    #         {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)]},
+    #         {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)]},
     #     ],
     # )
-
-    # Create preprocessing for training and testing
-    tr_datasets = builder.get_train_ds()
-    ts_datasets = builder.get_test_ds()
+    # # Create preprocessing for training and testing
+    # tr_datasets = builder.get_train_ds()
+    # ts_datasets = builder_ts.get_test_ds()
 
     # Train & Score a model for each dataset
     scores = []
@@ -83,9 +85,9 @@ def main():
         trg_vocab = Vocabulary(max_tokens=250).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
         model = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
-        # Load checkpoint
+        # # Load checkpoint
         # path = os.path.join(BASE_PATH, "multi30k/neutral/en-es/original/models/autonmt/runs/multi30k-neutral_en-es_bpe+bytes_8000/checkpoints")
-        # checkpoint_path = os.path.join(path, "epoch=014-val_loss=1.397__best.pt")
+        # checkpoint_path = os.path.join(path, "epoch=013-val_loss=1.429__best.pt")  # Balanced
         # if checkpoint_path:
         #     print(f"\t- Loading previous checkpoint: {checkpoint_path}")
         #     model_state_dict = torch.load(checkpoint_path)
@@ -95,7 +97,7 @@ def main():
         # Define trainer
         runs_dir = train_ds.get_runs_path(toolkit="autonmt")
         run_prefix = '_'.join(train_ds.id()[:2]).replace('/', '-')
-        run_name = train_ds.get_run_name(run_prefix=run_prefix) #+ f"__{int(time.time())}"
+        run_name = train_ds.get_run_name(run_prefix=run_prefix)  #+ f"__{int(time.time())}"
         trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                     runs_dir=runs_dir, run_name=run_name)
 
@@ -106,14 +108,13 @@ def main():
         print(f"\t- MODEL PREFIX: {run_prefix}")
 
         # Train model
-        wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
-        comet_params = None  #dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
-        # trainer.fit(train_ds, max_epochs=300, learning_rate=0.001, optimizer="adamw", batch_size=256, seed=1234,
-        #             patience=15, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-        #             wandb_params=wandb_params, comet_params=comet_params)
+        wandb_params = dict(project="continual-learning-new", entity="salvacarrion", reinit=True)
+        trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adam", batch_size=256, seed=1234,
+                    patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+                    wandb_params=wandb_params)
 
         # Test model
-        m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
+        m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1], load_checkpoint="best",
                                    preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
         for ms in m_scores:
             ms['train_dataset'] = str(train_ds)
@@ -131,6 +132,7 @@ def main():
     plots_path = os.path.join(output_path, "plots")
     plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
                  xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
+
 
 if __name__ == "__main__":
     main()

@@ -5,8 +5,8 @@ RUN apt-get update &&  \
     apt-get install -y python3-pip &&  \
     apt-get install -y vim && \
     apt-get install -y htop && \
-    apt-get install -y git-all && \
     apt-get install -y tmux
+# RUN apt-get install -y git-all  # Disabled due to interactive shell problems (geographic area/timezone)
 
 # Set the working directory in the docker container
 WORKDIR /app

@@ -208,7 +208,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         checkpoint_paths = sorted([os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.endswith(f'__{mode}.pt')], key=os.path.getctime, reverse=True)
         if not checkpoint_paths:
             raise ValueError(f"No ({mode}) checkpoints were found in {checkpoints_dir}")
-        elif len(checkpoint_paths) > 1:  # Choose latests
+        elif len(checkpoint_paths) > 1:  # Choose latest
             checkpoint_path = checkpoint_paths[0]
             print(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {checkpoint_path}")
         else:
@@ -218,8 +218,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
     def load_checkpoint(self, checkpoint):
         # Get checkpoint path
-        if os.path.isfile(checkpoint): # Path
+        if os.path.isfile(checkpoint):  # Path
             checkpoint_path = checkpoint
+        elif checkpoint.endswith((".pt", ".pth")):  # Filename
+            checkpoint_path = os.path.join(self.get_model_checkpoints_path(), checkpoint)
         elif checkpoint in {"best", "last"}:  # Checkpoint name
             checkpoint_path = self._get_checkpoints(self.get_model_checkpoints_path(), mode=checkpoint)
         else:

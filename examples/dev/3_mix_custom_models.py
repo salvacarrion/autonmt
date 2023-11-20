@@ -27,10 +27,9 @@ BASE_PATH3 = "/app/data"  # Docker
 BASE_PATH = BASE_PATH2 if os.environ.get("DEBUG", 0) else BASE_PATH3
 
 
-def merge_pytorch_models(ratio_a, model_a, ratio_b, model_b, model_c):
+def merge_pytorch_models(ratio_a, model_a, ratio_b, model_b, ratio_c, model_c):
     for name, param in model_c.named_parameters():
-        if name.startswith("decoder"):
-            param.data = ratio_a * param.data + ratio_b * model_b.state_dict()[name]
+        param.data = ratio_a * model_a.state_dict()[name] + ratio_b * model_b.state_dict()[name]
     return model_c
 
 
@@ -42,11 +41,25 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None)]},
+            #
+            # {"name": "scielo100k/health-vocm100k", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/biological-vocm100k", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/health-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/biological-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
+            #
+            # {"name": "scielo100k/health-biological-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/merged50k-health-vocm50k", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "scielo100k/merged50k-biological-vocm50k", "languages": ["en-es"], "sizes": [("original", None)]},
+
+            # {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/informal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            # {"name": "multi30k/formal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
             # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
             # {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/merged-neutral-formal-informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)]},
         ],
 
         # Set of subword models and vocab sizes to try
@@ -60,7 +73,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=True, force_overwrite=False)
+    ).build(make_plots=False, force_overwrite=False)
 
     builder_ts = DatasetBuilder(
         # Root folder for datasets
@@ -68,9 +81,9 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
+            {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None)]},
         ],
     )
 
@@ -79,9 +92,11 @@ def main():
     ts_datasets = builder_ts.get_test_ds()
 
     train_ds = tr_datasets[0]
-    for ratio in [1.0, 0.75, 0.5, 0.25, 0.0]:
+    scores = []
+    for ratio in [0.5]:
         ratio_a = ratio
         ratio_b = 1.0 - ratio
+        ratio_c = 0.0
 
         # Instantiate vocabs and model
         src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
@@ -90,30 +105,40 @@ def main():
         model_b = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
         model_c = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
-        # Load checkpoint A: Formal
-        path_a = os.path.join(BASE_PATH, "multi30k/neutral-formal/en-es/original/models/autonmt/runs/ft__multi30k-neutral-formal_en-es_bpe+bytes_8000/checkpoints")
-        checkpoint_path_a = os.path.join(path_a, "epoch=001-val_loss=1.324__best.pt")
+        # Load checkpoint A
+        path_a = os.path.join(BASE_PATH, "scielo100k/merged100k-health-vocm200k/en-es/original/models/autonmt/runs/5ep__scielo100k-merged100k-health-vocm200k_en-es_bpe+bytes_8000/checkpoints")
+        checkpoint_path_a = os.path.join(path_a, "epoch=003-val_loss=1.782__best.pt")
         if checkpoint_path_a:
-            print(f"\t- Loading previous checkpoint Formal: {checkpoint_path_a}")
+            print(f"\t- Loading previous checkpoint A: {checkpoint_path_a}")
             model_state_dict = torch.load(checkpoint_path_a)
             model_state_dict = model_state_dict.get("state_dict", model_state_dict)
             model_a.load_state_dict(model_state_dict)
 
-        # Load checkpoint B: Informal
-        path_b = os.path.join(BASE_PATH, "multi30k/neutral-informal/en-es/original/models/autonmt/runs/ft__multi30k-neutral-informal_en-es_bpe+bytes_8000/checkpoints")
-        checkpoint_path_b = os.path.join(path_b, "epoch=001-val_loss=1.331__best.pt")
+        # Load checkpoint B
+        path_b = os.path.join(BASE_PATH, "scielo100k/merged100k-biological-vocm200k/en-es/original/models/autonmt/runs/5ep__scielo100k-merged100k-biological-vocm200k_en-es_bpe+bytes_8000/checkpoints")
+        checkpoint_path_b = os.path.join(path_b, "epoch=004-val_loss=1.699__best.pt")
         if checkpoint_path_b:
-            print(f"\t- Loading previous checkpoint Formal: {checkpoint_path_b}")
+            print(f"\t- Loading previous checkpoint B: {checkpoint_path_b}")
             model_state_dict = torch.load(checkpoint_path_b)
             model_state_dict = model_state_dict.get("state_dict", model_state_dict)
             model_b.load_state_dict(model_state_dict)
 
-        model_mixed = merge_pytorch_models(ratio_a, model_a, ratio_b, model_b, model_c)
+        # # Load checkpoint C
+        # path_c = os.path.join(BASE_PATH, "scielo100k/merged/en-es/50k/models/autonmt/runs/scielo100k-merged_en-es_bpe+bytes_8000/checkpoints")
+        # checkpoint_path_c = os.path.join(path_c, "epoch=021-val_loss=2.578__best.pt")
+        # if checkpoint_path_b:
+        #     print(f"\t- Loading previous checkpoint C: {checkpoint_path_c}")
+        #     model_state_dict = torch.load(checkpoint_path_c)
+        #     model_state_dict = model_state_dict.get("state_dict", model_state_dict)
+        #     model_c.load_state_dict(model_state_dict)
+
+        # Merge models
+        model_mixed = merge_pytorch_models(ratio_a, model_a, ratio_b, model_b, ratio_c, model_c)
 
         # Define trainer
         runs_dir = train_ds.get_runs_path(toolkit="autonmt")
         run_prefix = '_'.join(train_ds.id()[:2]).replace('/', '-')
-        run_name = f"{ratio_a:.2f}xformal+{ratio_b:.2f}informal__" + train_ds.get_run_name(run_prefix=run_prefix)
+        run_name = f"{ratio_c:.2f}xM+{ratio_a:.2f}xH+{ratio_b:.2f}xB__" + train_ds.get_run_name(run_prefix=run_prefix)
         trainer = AutonmtTranslator(model=model_mixed, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                     runs_dir=runs_dir, run_name=run_name)
 
@@ -132,7 +157,9 @@ def main():
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint=None,
                                    preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
-        scores = [m_scores]
+        for ms in m_scores:
+            ms['train_dataset'] = str(run_name)
+        scores.append(m_scores)
 
     # Make report
     output_path = os.path.join(BASE_PATH, f".outputs/autonmt/{str(datetime.datetime.now())}")
