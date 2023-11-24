@@ -240,7 +240,7 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
                  bar_group_name_fn=None, legend_name_fn=None, save_figures=True, show_figures=False):
     def _bar_group_name_fn(df_row):
         # Set default values for the columns
-        return f"{df_row['subword_model']} - {df_row['vocab_size']}\nTr: {df_row['train_dataset'].replace('_', ' ')}".title()
+        return f"{df_row['vocab__subword_model']} - {df_row['vocab__size']}\nTr: {df_row['train_dataset'].replace('_', ' ')}".title()
 
     def _legend_name_fn(text):
         # Set default values for the columns
@@ -253,7 +253,7 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
     df = df_report.copy()
 
     # Check that these columns are in the dataframe
-    for col in ["train_dataset", "eval_dataset", plot_metric]:
+    for col in ["train_dataset", "test_dataset", plot_metric]:
         if col not in df.columns:
             raise ValueError(f"\t- '{col}' was not found in the given dataframe")
 
@@ -272,9 +272,9 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
     df["bar_group_name"] = df.apply(bar_group_name_fn, axis=1)
 
     # Preprocess legend
-    num_same_tr_ts = int((df['train_dataset'] == df['eval_dataset']).values.sum())
+    num_same_tr_ts = int((df['train_dataset'] == df['test_dataset']).values.sum())
     total_tr = len(df['train_dataset'])
-    legend_column = None if num_same_tr_ts == total_tr else "eval_dataset"
+    legend_column = None if num_same_tr_ts == total_tr else "test_dataset"
     if legend_column:
         legend_name_fn = legend_name_fn if legend_name_fn else _legend_name_fn
         df[legend_column] = df[legend_column].map(legend_name_fn)

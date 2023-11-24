@@ -141,6 +141,7 @@ class BaseTranslator(ABC):
         self._add_config(key="fit", values=locals(), reset=False)
         self._add_config(key="fit", values=kwargs, reset=False)
         self._save_config(fname="config_train.json", force_overwrite=force_overwrite)
+        # TODO: Add more info (train_dataset, vocabs, languages,...)
 
         # Train and preprocess
         self.preprocess(train_ds, apply2train=True, apply2val=True, apply2test=False, force_overwrite=force_overwrite, **kwargs)
@@ -153,7 +154,8 @@ class BaseTranslator(ABC):
     def predict(self, eval_datasets, metrics=None, beams=None, max_len_a=1.2, max_len_b=50,
                 max_tokens=None, batch_size=64,
                 devices="auto", accelerator="auto", num_workers=0,
-                load_checkpoint=None, preprocess_fn=None, eval_mode="same", force_overwrite=False, **kwargs):
+                load_checkpoint=None, preprocess_fn=None, eval_mode="same",
+                force_overwrite=False, **kwargs):
         print("=> [Predict]: Started.")
 
         # Set default values
@@ -265,12 +267,17 @@ class BaseTranslator(ABC):
         make_dir([dst_raw_path, dst_preprocessed_path, dst_encoded_path])  # Create dirs
 
         # [Encode extern data]: Encode test data using the subword model of the trained model
+        model_vocab_langs = [self.src_vocab.lang, self.trg_vocab.lang]  # This has been done to translate test in different languages from the model
         pretok_flags = {self.src_vocab.lang: self.src_vocab.pretok_flag, self.trg_vocab.lang: self.trg_vocab.pretok_flag}
         model_vocab_paths = {self.src_vocab.lang: self.src_vocab.model_path, self.trg_vocab.lang: self.trg_vocab.model_path}
         subword_models = {self.src_vocab.lang: self.src_vocab.subword_model, self.trg_vocab.lang: self.trg_vocab.subword_model}
-        for ts_fname in [fname for fname in eval_ds.split_names_lang if eval_ds.test_name in fname]:
-            lang = ts_fname.split('.')[-1]
-            input_file = eval_ds.get_split_path(ts_fname)  # As "raw" as possible. The split preprocessing will depend on the model
+        test_fnames = [f"{eval_ds.test_name}.{eval_ds.src_lang}", f"{eval_ds.test_name}.{eval_ds.trg_lang}"]  #  IMP! => (0: src, 1: trg)
+        for i, ts_fname in enumerate(test_fnames):
+            input_file = eval_ds.get_split_path(ts_fname)   # As "raw" as possible. The split preprocessing will depend on the model
+
+            # Use encode this file using the language of the model (0: src, 1: trg)
+            # This is only needed for edge cases such as translating in "all" mode
+            vocab_lang = model_vocab_langs[i]
 
             # 1 - Get source file
             source_file = os.path.join(dst_raw_path, ts_fname)
@@ -282,19 +289,19 @@ class BaseTranslator(ABC):
             # 2 - Preprocess file (+pretokenization if needed)
             preprocessed_file = os.path.join(dst_preprocessed_path, ts_fname)
             preprocess_predict_file(input_file=input_file, output_file=preprocessed_file,
-                           preprocess_fn=preprocess_fn, pretokenize=pretok_flags[lang], lang=lang,
+                           preprocess_fn=preprocess_fn, pretokenize=pretok_flags[vocab_lang], lang=vocab_lang,
                            force_overwrite=force_overwrite)
             input_file = preprocessed_file
 
             # Encode file
             enc_file = os.path.join(dst_encoded_path, ts_fname)
-            encode_file(input_file=input_file, output_file=enc_file, model_vocab_path=model_vocab_paths[lang],
-                        subword_model=subword_models[lang], force_overwrite=force_overwrite)
+            encode_file(input_file=input_file, output_file=enc_file, model_vocab_path=model_vocab_paths[vocab_lang],
+                        subword_model=subword_models[vocab_lang], force_overwrite=force_overwrite)
 
         # Preprocess external data
         test_path = os.path.join(dst_encoded_path, eval_ds.test_name)  # without lang extension
         self._preprocess(train_path=None, val_path=None, test_path=test_path,
-                         src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
+                         src_lang=eval_ds.src_lang, trg_lang=eval_ds.trg_lang,
                          src_vocab_path=model_src_vocab_path, trg_vocab_path=model_trg_vocab_path,
                          apply2train=False, apply2val=False, apply2test=True,
                          output_path=model_eval_path, force_overwrite=force_overwrite, **kwargs)
@@ -315,7 +322,7 @@ class BaseTranslator(ABC):
                 if force_overwrite or not all(tok_flag):
                     # Translate
                     self._translate(data_path=model_eval_path, output_path=output_path,
-                        src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
+                        src_lang=eval_ds.src_lang, trg_lang=eval_ds.trg_lang,
                         beam_width=beam, checkpoints_dir=checkpoints_dir,
                         model_src_vocab_path=model_src_vocab_path, model_trg_vocab_path=model_trg_vocab_path,
                         force_overwrite=force_overwrite, filter_idx=i, **kwargs)
@@ -326,18 +333,18 @@ class BaseTranslator(ABC):
                     hyp_output_file = os.path.join(output_path, f"hyp.txt")
 
                     # [HYP] Decode hypothesis file (model dependent)
-                    for fname, lang in [("hyp", self.trg_vocab.lang)]:
+                    for fname, model_lang in [("hyp", self.trg_vocab.lang)]:
                         hyp_input_file = os.path.join(output_path, f"{fname}.tok")
 
                         # Decode file
-                        decode_file(input_file=hyp_input_file, output_file=hyp_output_file, lang=lang,
-                                    subword_model=subword_models[lang], pretok_flag=pretok_flags[lang],
-                                    model_vocab_path=model_vocab_paths[lang], remove_unk_hyphen=True,
+                        decode_file(input_file=hyp_input_file, output_file=hyp_output_file, lang=model_lang,
+                                    subword_model=subword_models[model_lang], pretok_flag=pretok_flags[model_lang],
+                                    model_vocab_path=model_vocab_paths[model_lang], remove_unk_hyphen=True,
                                     force_overwrite=force_overwrite)
 
                     # [SRC/REF] Copy src/ref files (raw)
-                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.src_vocab.lang}")
-                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{self.trg_vocab.lang}")
+                    src_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{eval_ds.src_lang}")
+                    ref_input_file = os.path.join(dst_raw_path, f"{eval_ds.test_name}.{eval_ds.trg_lang}")
 
                     # Filter src/ref sentences if needed
                     if not filter_fn:
@@ -465,16 +472,44 @@ class BaseTranslator(ABC):
             vocab_size = f"{len(self.src_vocab)}/{len(self.src_vocab)}"
         else:
             vocab_size = f"{len(self.src_vocab)}"
-        run_scores = {
+
+        # Get model params
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        no_trainable_params = sum(p.numel() for p in self.model.parameters() if not p.requires_grad)
+
+        # Report
+        report_dict = {
+            # Engine
             "engine": self.engine,
             "run_name": self.run_name,
-            "lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
-            "vocab_size": vocab_size,
-            "subword_model": self.src_vocab.subword_model,
-            "train_dataset": "no_specified",
-            "train_max_lines": "no_specified",
-            "eval_dataset": eval_ds.dataset_name,
+            "eval_datetime": str(datetime.datetime.now()),
+
+            # Model
+            "model__architecture": self.model.__class__.__name__,
+            "model__trainable_params": trainable_params,
+            "model__no_trainable_params": no_trainable_params,
+            "model__total_params": trainable_params + no_trainable_params,
+            "model__dtype": str(self.model.dtype),
+
+            # Vocab
+            "vocab__subword_model": self.src_vocab.subword_model,
+            "vocab__size": vocab_size,
+            "vocab__merged": "no-specified",
+            "vocab__lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
+
+            # Language pairs
+            "train__lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
+            "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",
+
+            # Datasets
+            "train_dataset": "no-specified",
+            "test_dataset": eval_ds.dataset_name,
+            "test_dataset_full": eval_ds.dataset_name + f"__{eval_ds.src_lang}-{eval_ds.trg_lang}",
+
+            # Scores
             "translations": {},
+
+            # Extra
             "config": self.config,
         }
 
@@ -514,10 +549,10 @@ class BaseTranslator(ABC):
                 # Add beam scores
                 d = {f"beam{str(beam)}": beam_scores}
                 d = {fn_name: d} if fn_name else d  # Pretty
-                run_scores["translations"].update(d)
+                report_dict["translations"].update(d)
 
                 print(f"\t- [INFO]: Parsed time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
-        return run_scores
+        return report_dict
 
     @staticmethod
     def manual_seed(seed, use_deterministic_algorithms=False):

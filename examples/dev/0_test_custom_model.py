@@ -74,7 +74,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=True, force_overwrite=False)
+    ).build(make_plots=False, force_overwrite=False)
 
     # # Merge datasets
     # builder.merge_datasets(name="europarl", language_pair="en-xx", dataset_size_name="original",
@@ -107,7 +107,8 @@ def main():
             # {"name": "europarl", "languages": ["en-es"], "sizes": [("original", None)]},
 
             # Multilingual: Spanish-French-German-Czech
-            {"name": "europarl", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "europarl", "languages": ["en-es", "en-fr", "en-de", "en-cs"], "sizes": [("original", None)]},
+            # {"name": "europarl", "languages": ["en-es"], "sizes": [("original", None)]},
             {"name": "europarl", "languages": ["en-xx"], "sizes": [("original", None)]},
         ],
     )
@@ -135,7 +136,7 @@ def main():
 
             # Define trainer
             runs_dir = train_ds.get_runs_path(toolkit="autonmt")
-            run_prefix = '_'.join(train_ds.id()[:2]).replace('/', '-')
+            run_prefix = "mnmt__" + '_'.join(train_ds.id()[:2]).replace('/', '-')
             run_name = train_ds.get_run_name(run_prefix=run_prefix)  #+ f"__{int(time.time())}"
             trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                         runs_dir=runs_dir, run_name=run_name)
@@ -148,20 +149,24 @@ def main():
 
             # Train model
             wandb_params = dict(project="continual-learning-new", entity="salvacarrion", reinit=True)
-            trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=256, seed=None,
-                        patience=15, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-                        wandb_params=wandb_params)
+            # trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=256, seed=None,
+            #             patience=15, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+            #             wandb_params=wandb_params)
 
             # Test model
             m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1], load_checkpoint="best",
-                                       preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
+                                       preprocess_fn=preprocess_predict_fn, eval_mode="all", force_overwrite=False)
+
+            # Add extra metrics
             for ms in m_scores:
+                ms['train_dataset'] = train_ds.dataset_name
+                ms['vocab__merged'] = train_ds.merge_vocabs
                 ms['max_iters'] = str(iters)
                 ms['train_dataset'] = str(train_ds)
             scores.append(m_scores)
 
     # Make report
-    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/multilingual")
+    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/multilingual__BASE-ALL")
     df_report, df_summary = generate_report(scores=scores, output_path=output_path)
 
     # Print summary

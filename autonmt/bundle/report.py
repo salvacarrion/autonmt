@@ -57,7 +57,7 @@ def scores2pandas(scores):
 
 def summarize_scores(df_report, default_cols=None, ref_metric="bleu"):
     if default_cols is None:
-        default_cols = ["train_dataset", "eval_dataset", "lang_pair", "subword_model", "vocab_size"]
+        default_cols = ["train_dataset", "train__lang_pair", "test_dataset", "test__lang_pair", "vocab__subword_model", "vocab__size"]
 
     # Select columns
     selected_cols = [c for c in df_report.columns.values if c in default_cols or ref_metric in c]
