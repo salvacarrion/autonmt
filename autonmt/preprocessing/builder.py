@@ -724,3 +724,73 @@ class DatasetBuilder:
                                       title=title, xlabel="Token frequency", ylabel="Frequency",
                                       aspect_ratio=(6, 4), size=1.25, save_fig=save_figures, show_fig=show_figures,
                                       overwrite=force_overwrite)
+
+    def merge_datasets(self, name="europarl", language_pair="xx-yy", dataset_size_name="original",
+                       shuffle_lines=False, use_preprocessed_splits=False, preprocess_fn=None, force_overwrite=False):
+        print(f"=> Merging datasets... (base_path={self.base_path})")
+
+        # Buckets
+        src_train, trg_train = [], []
+        src_val, trg_val = [], []
+        src_test, trg_test = [], []
+
+        # Create dataset
+        ds = Dataset(base_path=self.base_path, parent_ds=None,
+                     dataset_name=name, dataset_lang_pair=language_pair,
+                     dataset_size_name=dataset_size_name, dataset_lines=None,
+                     splits_sizes=self.default_split_sizes, subword_model=None, vocab_size=None, merge_vocabs=None)
+
+        # Check if the merged dataset exists
+        if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]) and not force_overwrite:
+            print(f"\t=> Merged dataset already exist for '{ds.id(as_path=True)}'")
+            return
+        else:
+            # Select split files
+            # Walk through all the datasets
+            for ds_i in self.get_train_ds():
+                print(f"\t- Reading dataset: {ds_i.id2(as_path=True)}")
+                fn_split_path = ds_i.get_splits_preprocessed_path if use_preprocessed_splits else ds_i.get_split_path
+
+                # Read lines
+                src_train_lines = read_file_lines(fn_split_path(fname=f"{ds_i.train_name}.{ds_i.src_lang}"), autoclean=False)
+                src_val_lines = read_file_lines(fn_split_path(fname=f"{ds_i.val_name}.{ds_i.src_lang}"), autoclean=False)
+                src_test_lines = read_file_lines(fn_split_path(fname=f"{ds_i.test_name}.{ds_i.src_lang}"), autoclean=False)
+                trg_train_lines = read_file_lines(fn_split_path(fname=f"{ds_i.train_name}.{ds_i.trg_lang}"), autoclean=False)
+                trg_val_lines = read_file_lines(fn_split_path(fname=f"{ds_i.val_name}.{ds_i.trg_lang}"), autoclean=False)
+                trg_test_lines = read_file_lines(fn_split_path(fname=f"{ds_i.test_name}.{ds_i.trg_lang}"), autoclean=False)
+                assert len(src_train_lines) == len(trg_train_lines)
+                assert len(src_val_lines) == len(trg_val_lines)
+                assert len(src_test_lines) == len(trg_test_lines)
+
+                # Preprocess lines
+                if preprocess_fn:
+                    src_train_lines, trg_train_lines = preprocess_fn(x=src_train_lines, y=trg_train_lines, ds=ds_i)
+                    src_val_lines, trg_val_lines = preprocess_fn(x=src_val_lines, y=trg_val_lines, ds=ds_i)
+                    src_test_lines, trg_test_lines = preprocess_fn(x=src_test_lines, y=trg_test_lines, ds=ds_i)
+
+                # Accumulate lines
+                src_train += src_train_lines
+                src_val += src_val_lines
+                src_test += src_test_lines
+                trg_train += trg_train_lines
+                trg_val += trg_val_lines
+                trg_test += trg_test_lines
+
+            # Shuffle lines pairs
+            if shuffle_lines:
+                print(f"\t- Shuffling lines...")
+                src_train, trg_train = utils.shuffle_in_order(src_train, trg_train)
+                src_val, trg_val = utils.shuffle_in_order(src_val, trg_val)
+                src_test, trg_test = utils.shuffle_in_order(src_test, trg_test)
+
+            # Create split folder
+            utils.make_dir(ds.get_split_path())
+
+            # Save partitions
+            _splits = [(src_train, trg_train, ds.train_name),
+                       (src_val, trg_val, ds.val_name),
+                       (src_test, trg_test, ds.test_name)]
+            for src_lines, trg_lines, fname in _splits:
+                utils.write_file_lines(src_lines, ds.get_split_path(f"{fname}.{ds.src_lang}"))
+                utils.write_file_lines(trg_lines, ds.get_split_path(f"{fname}.{ds.trg_lang}"))
+                print(f"\t\t- Partitions saved: {fname}.{ds.src_lang} and {fname}.{ds.trg_lang}")

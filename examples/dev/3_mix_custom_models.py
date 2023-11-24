@@ -41,25 +41,15 @@ def main():
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            # {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
-            {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None)]},
-            #
-            # {"name": "scielo100k/health-vocm100k", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/biological-vocm100k", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/health-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/biological-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
-            #
-            # {"name": "scielo100k/health-biological-vocm200k", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/merged50k-health-vocm50k", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "scielo100k/merged50k-biological-vocm50k", "languages": ["en-es"], "sizes": [("original", None)]},
-
-            # {"name": "multi30k/neutral", "languages": ["de-en"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/informal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/formal", "languages": ["de-es"], "sizes": [("original", None)], "split_sizes": (None, 1014, 1000)},
-            # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
+            # Multi30k
+            # {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)]},
             # {"name": "multi30k/neutral-informal", "languages": ["en-es"], "sizes": [("original", None)]},
-            # {"name": "multi30k/merged-neutral-formal-informal", "languages": ["en-es", "de-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/neutral-formal", "languages": ["en-es"], "sizes": [("original", None)]},
+
+            # Scielo
+            # {"name": "scielo/health", "languages": ["en-es"], "sizes": [("100k", 100000), ("50k", 50000)]},
+            # {"name": "scielo/biological", "languages": ["en-es"], "sizes": [("100k", 100000), ("50k", 50000)]},
+            {"name": "scielo/merged100k", "languages": ["en-es"], "sizes": [("100k", 100000)]},  # Dummy
         ],
 
         # Set of subword models and vocab sizes to try
@@ -75,18 +65,26 @@ def main():
         merge_vocabs=False,
     ).build(make_plots=False, force_overwrite=False)
 
+    # # Create preprocessing for training and testing
+    # tr_datasets = builder.get_train_ds()
+    # ts_datasets = builder.get_test_ds()
+
     builder_ts = DatasetBuilder(
         # Root folder for datasets
         base_path=BASE_PATH,
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "scielo100k/health", "languages": ["en-es"], "sizes": [("original", None)]},
-            {"name": "scielo100k/biological", "languages": ["en-es"], "sizes": [("original", None)]},
-            {"name": "scielo100k/merged", "languages": ["en-es"], "sizes": [("original", None)]},
+            # Multi30k
+            # {"name": "multi30k/neutral", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/informal", "languages": ["en-es"], "sizes": [("original", None)]},
+            # {"name": "multi30k/formal", "languages": ["en-es"], "sizes": [("original", None)]},
+
+            # Scielo
+            {"name": "scielo/health", "languages": ["en-es"], "sizes": [("original", None)]},
+            {"name": "scielo/biological", "languages": ["en-es"], "sizes": [("original", None)]},
         ],
     )
-
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
     ts_datasets = builder_ts.get_test_ds()
@@ -106,8 +104,9 @@ def main():
         model_c = Transformer(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
         # Load checkpoint A
-        path_a = os.path.join(BASE_PATH, "scielo100k/merged100k-health-vocm200k/en-es/original/models/autonmt/runs/5ep__scielo100k-merged100k-health-vocm200k_en-es_bpe+bytes_8000/checkpoints")
-        checkpoint_path_a = os.path.join(path_a, "epoch=003-val_loss=1.782__best.pt")
+        size = "50k"
+        path_a = os.path.join(BASE_PATH, f"scielo/health/en-es/{size}/models/autonmt/runs/scielo-health_en-es_bpe+bytes_8000/checkpoints")
+        checkpoint_path_a = os.path.join(path_a, "epoch=017-val_loss=2.469__best.pt")
         if checkpoint_path_a:
             print(f"\t- Loading previous checkpoint A: {checkpoint_path_a}")
             model_state_dict = torch.load(checkpoint_path_a)
@@ -115,8 +114,8 @@ def main():
             model_a.load_state_dict(model_state_dict)
 
         # Load checkpoint B
-        path_b = os.path.join(BASE_PATH, "scielo100k/merged100k-biological-vocm200k/en-es/original/models/autonmt/runs/5ep__scielo100k-merged100k-biological-vocm200k_en-es_bpe+bytes_8000/checkpoints")
-        checkpoint_path_b = os.path.join(path_b, "epoch=004-val_loss=1.699__best.pt")
+        path_b = os.path.join(BASE_PATH, f"scielo/biological/en-es/{size}/models/autonmt/runs/scielo-biological_en-es_bpe+bytes_8000/checkpoints")
+        checkpoint_path_b = os.path.join(path_b, "epoch=024-val_loss=2.412__best.pt")
         if checkpoint_path_b:
             print(f"\t- Loading previous checkpoint B: {checkpoint_path_b}")
             model_state_dict = torch.load(checkpoint_path_b)
@@ -138,7 +137,7 @@ def main():
         # Define trainer
         runs_dir = train_ds.get_runs_path(toolkit="autonmt")
         run_prefix = '_'.join(train_ds.id()[:2]).replace('/', '-')
-        run_name = f"{ratio_c:.2f}xM+{ratio_a:.2f}xH+{ratio_b:.2f}xB__" + train_ds.get_run_name(run_prefix=run_prefix)
+        run_name = f"{ratio_a:.2f}xH+{ratio_b:.2f}xB__" + train_ds.get_run_name(run_prefix=run_prefix)
         trainer = AutonmtTranslator(model=model_mixed, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                     runs_dir=runs_dir, run_name=run_name)
 
@@ -147,22 +146,15 @@ def main():
         print(f"\t- TESTING ({len(ts_datasets)}): {', '.join([str(x) for x in ts_datasets])}")
         print(f"\t- MODEL PREFIX: {run_prefix}")
 
-        # # Train model
-        # wandb_params = dict(project="continual-learning", entity="salvacarrion", reinit=True)
-        # comet_params = None  #dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
-        # trainer.fit(train_ds, max_epochs=100, learning_rate=0.001, optimizer="adamw", batch_size=512, seed=1234,
-        #             patience=10, num_workers=4, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-        #             wandb_params=wandb_params, comet_params=comet_params)
-
         # Test model
-        m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint=None,
+        m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1], load_checkpoint=None,
                                    preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=True)
         for ms in m_scores:
             ms['train_dataset'] = str(run_name)
         scores.append(m_scores)
 
     # Make report
-    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/{str(datetime.datetime.now())}")
+    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/Scielo_Base_Mixed")
     df_report, df_summary = generate_report(scores=scores, output_path=output_path)
 
     # Print summary
