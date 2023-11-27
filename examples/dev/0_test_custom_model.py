@@ -1,6 +1,7 @@
 import datetime
 import time
 import os
+import re
 import torch
 torch.set_float32_matmul_precision("high")
 
@@ -16,20 +17,32 @@ from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines,
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 
+def add_prefix(data, ds):
+    prefix = f"<{ds.src_lang}>-<{ds.trg_lang}>|"
+
+    # Check if the data starts with the prefix
+    if not bool(re.match(r"^<..>-<..>\|", data["lines"][0])):
+        return [f"{prefix}{l}" for l in data["lines"]]
+    else:
+        return data["lines"]
+
+
+def preprocess_predict(data, ds):
+    if data["lang"] == ds.src_lang:  # Source
+        return add_prefix(data, ds)
+    else:  # Target
+        return data["lines"]
+
 # Preprocess functions
 normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip(), Lowercase()])
-preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=False)
-preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, shuffle_lines=False)
-preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
+preprocess_raw_fn = lambda data, ds: preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=False, shuffle_lines=False)
+preprocess_splits_fn = lambda data, ds: preprocess_pairs(add_prefix(data["src"], ds), data["trg"]["lines"], normalize_fn=normalize_fn, shuffle_lines=False)
+preprocess_predict_fn = lambda data, ds: preprocess_lines(preprocess_predict(data, ds), normalize_fn=normalize_fn)
 
 # BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Local
 BASE_PATH2 = "/home/scarrion/datasets/translate"  # Remote
 BASE_PATH3 = "/app/data"  # Docker
 BASE_PATH = BASE_PATH2 if os.environ.get("DEBUG", 0) else BASE_PATH3
-
-def add_language_prefix(x, y, ds):
-    x = [f"<{ds.src_lang}>-<{ds.trg_lang}>|{l}" for l in x]
-    return x, y
 
 
 def main():
@@ -58,8 +71,8 @@ def main():
             # {"name": "europarl", "languages": ["en-es"], "sizes": [("100k-gen", 100000)]},
 
             # Multilingual: Spanish-French-German-Czech
-            {"name": "europarl", "languages": ["en-es"], "sizes": [("100k-multi-lc", 100000)]},
-            {"name": "europarl", "languages": ["en-xx"], "sizes": [("original", None), ("100k-multi-lc", 100000)]},
+            # {"name": "europarl", "languages": ["en-es"], "sizes": [("100k-multi-lc", 100000)]},
+            {"name": "europarl", "languages": ["en-xx"], "sizes": [("100k-multi-lc", 100000)]},
         ],
 
         # Set of subword models and vocab sizes to try
@@ -107,8 +120,6 @@ def main():
             # {"name": "europarl", "languages": ["en-es"], "sizes": [("original", None)]},
 
             # Multilingual: Spanish-French-German-Czech
-            {"name": "europarl", "languages": ["en-es", "en-fr", "en-de", "en-cs"], "sizes": [("original", None)]},
-            # {"name": "europarl", "languages": ["en-es"], "sizes": [("original", None)]},
             {"name": "europarl", "languages": ["en-xx"], "sizes": [("original", None)]},
         ],
     )
@@ -154,8 +165,8 @@ def main():
             #             wandb_params=wandb_params)
 
             # Test model
-            m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "ter"}, beams=[1], load_checkpoint="best",
-                                       preprocess_fn=preprocess_predict_fn, eval_mode="all", force_overwrite=False)
+            m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
+                                       preprocess_fn=preprocess_predict_fn, eval_mode="all", force_overwrite=True)
 
             # Add extra metrics
             for ms in m_scores:
@@ -166,7 +177,7 @@ def main():
             scores.append(m_scores)
 
     # Make report
-    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/multilingual__BASE-ALL")
+    output_path = os.path.join(BASE_PATH, f".outputs/autonmt/multilingual__BASE-ALL2")
     df_report, df_summary = generate_report(scores=scores, output_path=output_path)
 
     # Print summary

@@ -274,6 +274,7 @@ class BaseTranslator(ABC):
         test_fnames = [f"{eval_ds.test_name}.{eval_ds.src_lang}", f"{eval_ds.test_name}.{eval_ds.trg_lang}"]  #  IMP! => (0: src, 1: trg)
         for i, ts_fname in enumerate(test_fnames):
             input_file = eval_ds.get_split_path(ts_fname)   # As "raw" as possible. The split preprocessing will depend on the model
+            input_lang = ts_fname.split(".")[-1]
 
             # Use encode this file using the language of the model (0: src, 1: trg)
             # This is only needed for edge cases such as translating in "all" mode
@@ -288,9 +289,9 @@ class BaseTranslator(ABC):
 
             # 2 - Preprocess file (+pretokenization if needed)
             preprocessed_file = os.path.join(dst_preprocessed_path, ts_fname)
-            preprocess_predict_file(input_file=input_file, output_file=preprocessed_file,
-                           preprocess_fn=preprocess_fn, pretokenize=pretok_flags[vocab_lang], lang=vocab_lang,
-                           force_overwrite=force_overwrite)
+            preprocess_predict_file(input_file=input_file, output_file=preprocessed_file, preprocess_fn=preprocess_fn,
+                                    pretokenize=pretok_flags[vocab_lang], input_lang=input_lang, vocab_lang=vocab_lang,
+                                    ds=eval_ds, force_overwrite=force_overwrite)
             input_file = preprocessed_file
 
             # Encode file
@@ -362,16 +363,16 @@ class BaseTranslator(ABC):
                     if preprocess_fn:  # 'force_overwrite' must be True to overwrite the src/ref files
                         preprocess_predict_file(input_file=src_output_file, output_file=src_output_file,
                                                 preprocess_fn=preprocess_fn,
-                                                pretokenize=pretok_flags[self.src_vocab.lang], lang=self.src_vocab.lang,
-                                                force_overwrite=True)
+                                                pretokenize=pretok_flags[self.src_vocab.lang],
+                                                input_lang=eval_ds.src_lang, vocab_lang=self.src_vocab.lang, ds=eval_ds, force_overwrite=True)
                         preprocess_predict_file(input_file=ref_output_file, output_file=ref_output_file,
                                                 preprocess_fn=preprocess_fn,
-                                                pretokenize=pretok_flags[self.trg_vocab.lang], lang=self.trg_vocab.lang,
-                                                force_overwrite=True)
+                                                pretokenize=pretok_flags[self.trg_vocab.lang],
+                                                input_lang=eval_ds.trg_lang, vocab_lang=self.trg_vocab.lang, ds=eval_ds, force_overwrite=True)
                         preprocess_predict_file(input_file=hyp_output_file, output_file=hyp_output_file,
                                                 preprocess_fn=preprocess_fn,
-                                                pretokenize=pretok_flags[self.trg_vocab.lang], lang=self.trg_vocab.lang,
-                                                force_overwrite=True)
+                                                pretokenize=pretok_flags[self.trg_vocab.lang],
+                                                input_lang=eval_ds.trg_lang, vocab_lang=self.trg_vocab.lang, ds=eval_ds, force_overwrite=True)
 
                     # Check amount of lines
                     num_lines_ref = count_file_lines(os.path.join(output_path, "ref.txt"))

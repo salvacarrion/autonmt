@@ -109,23 +109,27 @@ def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remov
     return lines
 
 def normalize_lines(lines, seq=None):
-    if seq is None:  # Default sequence
+    # Default sequence
+    if seq is None:
         seq = [NFKC(), Strip()]
+
+    # Normalize lines
     normalizer = normalizers.Sequence(seq)
     lines = [normalizer.normalize_str(line) for line in lines]
     return lines
 
-def preprocess_predict_file(input_file, output_file, preprocess_fn, pretokenize, lang, force_overwrite):
+def preprocess_predict_file(input_file, output_file, preprocess_fn, pretokenize, input_lang, vocab_lang, ds, force_overwrite):
     if force_overwrite or not os.path.exists(output_file):
         lines = read_file_lines(input_file, autoclean=True)
 
         # preprocess_fn
         if preprocess_fn:
-            lines = preprocess_fn(lines)
+            data = {"lang": input_lang, "lines": lines}
+            lines = preprocess_fn(data, ds)
 
         # Pretokenize
         if pretokenize:
-            lines = tokenizers._moses_tokenizer(lines, lang=lang)
+            lines = tokenizers._moses_tokenizer(lines, lang=vocab_lang)
 
         write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding="utf-8")
         assert os.path.exists(output_file)

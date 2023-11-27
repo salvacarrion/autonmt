@@ -1,4 +1,4 @@
-# conda create --name autonmt python=3.8
+# conda create --name autonmt python=3.11
 
 # Deep learning
 torch

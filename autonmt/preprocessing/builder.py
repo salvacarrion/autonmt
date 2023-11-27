@@ -261,7 +261,9 @@ class DatasetBuilder:
                     print(f"\t- Target file: {src_out}")
 
                 # Preprocess lines
-                src_lines, tgt_lines = preprocess_fn(src_lines, tgt_lines)
+                data = {"src": {"lang": ds.src_lang, "lines": src_lines},
+                        "trg": {"lang": ds.trg_lang, "lines": tgt_lines}}
+                src_lines, tgt_lines = preprocess_fn(data, ds)
 
                 # Write lines (do not overwrite original files)
                 write_file_lines(src_lines, filename=f"{src_out}", insert_break_line=True)
