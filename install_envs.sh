@@ -1,7 +1,9 @@
-# Create conda env
-conda create --name autonmt python=3.8
-conda activate autonmt
-#conda remove --name mltests --all
+# Remove environment
+conda remove --name autonmt --all
 
-# Install autonmt
+# Create conda env
+conda create --name autonmt python=3.11
+conda activate autonmt
+
+# Install AutoNMT
 pip install -e .
