@@ -295,3 +295,47 @@ class Dataset:
             split_files = [self.get_split_path(f) for f in self.get_split_fnames()]
             return all([os.path.exists(p) for p in split_files]), split_files
         return False, []
+
+    def check_vocab_folder_consistency(self, check_extra=False, custom_vocabs=False):
+        default_vocab_extensions = ["model", "vocab"]
+
+        if check_extra:
+            default_vocab_extensions.append("vocabf")
+
+        # Ignore datasets with no vocabs
+        if self.subword_model in {None, "none", "bytes"}:
+            return True
+
+        # Check if it has a vocab folder
+        vocab_path = self.get_vocab_path()
+        if not os.path.exists(vocab_path):
+            raise ValueError(f"=> [ERROR CAPTURED]: Vocab path does not exist: {vocab_path}")
+
+        # Custom vocabs only need to check if all files exists
+        if custom_vocabs:  # Any language
+            num_expected_files = len(default_vocab_extensions) if self.merge_vocabs else 2*len(default_vocab_extensions)
+        else:
+            # Get expected vocab files
+            lang_files = [f"{self.src_lang}-{self.trg_lang}"] if self.merge_vocabs else [self.src_lang, self.trg_lang]
+            expected_files = [f"{self.get_vocab_file(lang=lang)}.{ext}" for lang in lang_files for ext in
+                              default_vocab_extensions]
+
+            # Check if all files exist
+            missing_files = [os.path.split(f)[1] for f in expected_files if not os.path.exists(f)]
+            if missing_files:
+                raise ValueError(f"=> [ERROR CAPTURED]: Missing vocab files for dataset '{self.id(as_path=True)}': {missing_files}\n\t- Vocab path: {vocab_path}")
+
+            # Get number of expected files
+            num_expected_files = len(expected_files)
+
+        # Check if there are extra files
+        existing_files = [os.path.join(vocab_path, f) for f in os.listdir(vocab_path) if f.endswith(tuple(default_vocab_extensions))]
+        if len(existing_files) != num_expected_files:
+            msg = (f"Incorrect number of vocab files for dataset '{self.id(as_path=True)}'. Expected {num_expected_files}, found {len(existing_files)}."
+                   f"\n\t- Reason: This can lead to potential vocabulary mismatches during training."
+                   f"\n\t- Vocab path: {vocab_path}")
+            if custom_vocabs:
+                print(f"=> [WARNING]: {msg}")
+            else:
+                raise ValueError(f"=> [PROCESS ABORTED]: {msg}")
+        return True

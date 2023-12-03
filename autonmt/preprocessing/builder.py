@@ -403,7 +403,7 @@ class DatasetBuilder:
                     if fname.split('.')[0] == ds.train_name:  # train.xx
                         with open(ref_filename, 'rb') as fin:
                             lines = list(islice(fin, ds.dataset_lines))  # Copy n lines efficiently
-                            if len(lines) == ds.dataset_lines:
+                            if len(lines) == ds.dataset_lines or ds.dataset_lines is None:  # None == All lines
                                 with open(new_filename, 'wb') as fout:
                                     fout.writelines(lines)
                             else:
@@ -489,6 +489,10 @@ class DatasetBuilder:
                                               character_coverage=self.character_coverage, split_digits=self.split_digits)
                     assert os.path.exists(f"{output_file}.model")
 
+            # Check vocabs
+            print(f"=> Checking existing vocabularies...")
+            ds.check_vocab_folder_consistency()
+            
     def _encode_datasets(self, force_overwrite):
         print(f"=> Building datasets...")
         for ds in self:  # Dataset
