@@ -499,8 +499,8 @@ class BaseTranslator(ABC):
             "vocab__lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
 
             # Language pairs
-            "train__lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",
-            "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",
+            "train__lang_pair": f"{self.src_vocab.lang}-{self.trg_vocab.lang}",  # Careful with "filter_tr_data_fn"
+            "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",  # Careful with "filter_ts_data_fn"
 
             # Datasets
             "train_dataset": "no-specified",
@@ -548,10 +548,10 @@ class BaseTranslator(ABC):
                         print(f"\t- [WARNING]: There are no metrics from '{m_tool}'")
 
                 # Add beam scores
+                # d = {f"beam{str(beam)}": beam_scores, "ts_filter_fn": fn_name}
                 d = {f"beam{str(beam)}": beam_scores}
                 d = {fn_name: d} if fn_name else d  # Pretty
                 report_dict["translations"].update(d)
-
                 print(f"\t- [INFO]: Parsed time (beam={str(beam)}{extra_str}): {str(datetime.timedelta(seconds=time.time() - start_time))}")
         return report_dict
 

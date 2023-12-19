@@ -132,8 +132,17 @@ class LitSeq2Seq(pl.LightningModule):
         outputs = None
         if log_prefix:  # Not clear is 'sync_dist=True' should be enabled by default
             sync_dist = (self.strategy == "ddp")
+
+            # Control for overflow (Should it simply fail?)
+            try:
+                ppl = math.exp(loss)
+            except OverflowError as e:
+                ppl = float("inf")
+                print("=> [WARNING] Overflow detected when computing perplexity. Set to 'inf'")
+
+            # Log metrics
             self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
-            self.log(f"{log_prefix}_ppl", math.exp(loss), on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+            self.log(f"{log_prefix}_ppl", ppl, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
             self.log(f"{log_prefix}_acc", accuracy, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
 
             # Compute metrics for validation

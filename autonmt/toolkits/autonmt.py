@@ -115,7 +115,6 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
                                           collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
                                           batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
 
-
         # Callbacks: Checkpoint
         ckpt_p = {}
         if save_best:
@@ -204,10 +203,14 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
     @staticmethod
     def _get_checkpoints(checkpoints_dir, mode):
+        # Check if dir exists
+        if not os.path.isdir(checkpoints_dir):
+            raise ValueError(f"[WARNING] Checkpoint directory does not exist: {checkpoints_dir}")
+
         # Find checkpoint (sorted by creation time)
         checkpoint_paths = sorted([os.path.join(checkpoints_dir, f) for f in os.listdir(checkpoints_dir) if f.endswith(f'__{mode}.pt')], key=os.path.getctime, reverse=True)
         if not checkpoint_paths:
-            raise ValueError(f"No ({mode}) checkpoints were found in {checkpoints_dir}")
+            raise ValueError(f"[WARNING] No ({mode}) checkpoints were found in {checkpoints_dir}")
         elif len(checkpoint_paths) > 1:  # Choose latest
             checkpoint_path = checkpoint_paths[0]
             print(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {checkpoint_path}")
@@ -232,4 +235,6 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model.load_state_dict(_model.get("state_dict", _model))
         return checkpoint_path
 
+    def get_checkpoint_path(self, mode="best"):
+        return self._get_checkpoints(self.get_model_checkpoints_path(), mode=mode)
 
