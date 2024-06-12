@@ -40,7 +40,7 @@ class Dataset:
         # Dataset versions
         self.subword_model = str(subword_model).lower() if subword_model else subword_model
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
-        self.pretok_flag = (self.subword_model == "word")
+        self.pretok_flag = self.subword_model in {"word", "words"}
         self.merge_vocabs = merge_vocabs
 
         # Preprocessing
@@ -205,19 +205,6 @@ class Dataset:
         return f"{run_prefix}_{self.subword_model}_{self.vocab_size}".lower()
 
     def get_stats(self, splits=None, count_unknowns=False):
-        def basic_stats(tokens, prefix=""):
-            d = {
-                f"{prefix}total_sentences": len(tokens),
-                f"{prefix}total_tokens": int(tokens.sum()),
-                f"{prefix}max_tokens": int(np.max(tokens)),
-                f"{prefix}min_tokens": int(np.min(tokens)),
-                f"{prefix}avg_tokens": float(np.average(tokens)),
-                f"{prefix}std_tokens": float(np.std(tokens)),
-                f"{prefix}percentile5_tokens": int(np.percentile(tokens, 5)),
-                f"{prefix}percentile50_tokens": int(np.percentile(tokens, 50)),
-                f"{prefix}percentile95_tokens": int(np.percentile(tokens, 95)),
-            }
-            return d
 
         if not splits:
             splits = self.get_split_fnames() # Split names
@@ -236,7 +223,7 @@ class Dataset:
                 "subword_model": self.subword_model,
                 "vocab_size": self.vocab_size,
             }
-            row.update(basic_stats(tokens_per_sentence, prefix=""))
+            row.update(utils.basic_stats(tokens_per_sentence, prefix=""))
 
             # Count unknowns
             if count_unknowns and self.subword_model not in {None, "none", "bytes"}:
@@ -247,7 +234,7 @@ class Dataset:
                 lines = utils.read_file_lines(self.get_encoded_path(fname), autoclean=True)
                 unknowns = [len(set(line.split(' ')).difference(vocab_keys)) for line in lines]
                 unknowns = np.array(unknowns)
-                row.update(basic_stats(unknowns, prefix="unknown_"))
+                row.update(utils.basic_stats(unknowns, prefix="unknown_"))
 
             # Add stats
             split_stats[fname] = row

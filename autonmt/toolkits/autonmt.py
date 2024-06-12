@@ -168,7 +168,7 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
                    checkpoint, num_workers, devices, accelerator,
                    force_overwrite, checkpoints_dir=None, filter_idx=0, **kwargs):
         # Checkpoint
-        if checkpoint:
+        if checkpoint:  # "best", "last", "filename", "path"
             self.from_checkpoint = self.load_checkpoint(checkpoint)
 
         # Set evaluation model

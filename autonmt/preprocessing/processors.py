@@ -175,12 +175,8 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
             shutil.copyfile(input_file, output_file)
 
         elif subword_model in {"bytes"}:
-            # Decode files
-            lines = read_file_lines(input_file, autoclean=True)
-            lines = [clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
-
-            # Write files
-            write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
+            # Rename or copy files (tok==txt)
+            shutil.copyfile(input_file, output_file)
 
         else:
             # Decode files
@@ -205,8 +201,9 @@ def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None, remove
         lines = lines
 
     elif subword_model in {"bytes"}:
+        lines = lines
         # Decode files
-        lines = [utils.clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
+        # lines = [utils.clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
     else:
         # Decode files
         lines = tokenizers._spm_decode(lines, spm_model)

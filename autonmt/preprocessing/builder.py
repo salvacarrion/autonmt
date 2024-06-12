@@ -126,7 +126,7 @@ class DatasetBuilder:
     def get_test_ds(self):
         return self.get_ds(ignore_variants=True)
 
-    def build(self, make_plots=False, force_overwrite=False):
+    def build(self, make_plots=False, force_overwrite=False, verbose=False):
         print(f"=> Building datasets...")
         print(f"\t- base_path={self.base_path}")
 
@@ -151,7 +151,7 @@ class DatasetBuilder:
             self._export_vocab_frequencies(force_overwrite=force_overwrite)
 
             # Compute stats
-            self._compute_stats(force_overwrite=force_overwrite)
+            self._compute_stats(force_overwrite=force_overwrite, print_stats=verbose)
 
             # Make plot
             if make_plots:
@@ -591,7 +591,7 @@ class DatasetBuilder:
                         lines = [f"{pair[0]}\t{pair[1]}" for pair in vocab_frequencies]
                         write_file_lines(lines=lines, filename=vocab_path, insert_break_line=True)
 
-    def _compute_stats(self, force_overwrite):
+    def _compute_stats(self, force_overwrite, print_stats=True):
         print(f"=> Computing stats... (base_path={self.base_path})")
 
         # Walk through preprocessing
@@ -604,9 +604,16 @@ class DatasetBuilder:
             # Save file
             savepath = ds.get_stats_path("stats.json")
             if force_overwrite or not os.path.exists(savepath):
-                # Compute and save stats
+                # Compute stats
                 stats = ds.get_stats(count_unknowns=True)
+
+                # Save stats
                 save_json(stats, savepath=savepath)
+
+                # Print dictionary of stats (pretty)
+                if print_stats:
+                    print(json.dumps(stats, indent=4))
+
 
     def _plot_datasets(self, force_overwrite, save_figures=True, show_figures=False, add_dataset_title=True, vocab_top_k=None):
         print(f"=> Plotting started... (base_path={self.base_path})")
@@ -648,21 +655,13 @@ class DatasetBuilder:
                 tokens_per_sentence = utils.count_tokens_per_sentence(filename=ds.get_encoded_path(fname))
                 tokens_per_sentence = np.array(tokens_per_sentence)
 
-                # Compute data
-                row = {
-                    "total_sentences": len(tokens_per_sentence),
-                    "total_tokens": int(tokens_per_sentence.sum()),
-                    "max_tokens": int(np.max(tokens_per_sentence)),
-                    "min_tokens": int(np.min(tokens_per_sentence)),
-                    "avg_tokens": float(np.average(tokens_per_sentence)),
-                    "std_tokens": float(np.std(tokens_per_sentence)),
-                    "percentile5_tokens": int(np.percentile(tokens_per_sentence, 5)),
-                    "percentile50_tokens": int(np.percentile(tokens_per_sentence, 50)),
-                    "percentile95_tokens": int(np.percentile(tokens_per_sentence, 95)),
+                # Compute data stats
+                stats_row = utils.basic_stats(tokens_per_sentence, prefix="")
+                stats_row.update({
                     "split": split_name,
                     "lang": split_lang,
-                }
-                split_stats[fname] = row
+                })
+                split_stats[fname] = stats_row
 
                 # Plot sentence length distribution (by tokens' length)
                 df = pd.DataFrame(tokens_per_sentence, columns=["frequency"])

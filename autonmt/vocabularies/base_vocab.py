@@ -13,13 +13,12 @@ class BaseVocabulary(ABC):
         self.eos_piece = eos_piece
         self.pad_piece = pad_piece
 
-        # Set special tokens
-        self.special_tokens = [(self.sos_piece, self.sos_id), (self.eos_piece, self.eos_id),
-                               (self.pad_piece, self.pad_id)]
-
         # Other
         self.lang = lang
         self.max_tokens = max_tokens
+
+    def special_tokens(self):
+        return [(self.sos_piece, self.sos_id), (self.eos_piece, self.eos_id), (self.pad_piece, self.pad_id)]
 
     @abstractmethod
     def encode(self, *args, **kwargs):

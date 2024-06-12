@@ -38,7 +38,7 @@ class Transformer(LitSeq2Seq):
                                           dim_feedforward=encoder_ffn_embed_dim,
                                           dropout=dropout,
                                           activation=activation_fn)
-        self.output_layer = nn.Linear(encoder_embed_dim, src_vocab_size)
+        self.output_layer = nn.Linear(encoder_embed_dim, trg_vocab_size)
         self.input_dropout = nn.Dropout(dropout)
 
         # Checks

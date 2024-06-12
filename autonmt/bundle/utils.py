@@ -12,6 +12,7 @@ from collections import Counter
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 from tqdm import tqdm
 
 
@@ -381,3 +382,25 @@ def shuffle_in_order(list1, list2):
 def count_file_lines(file_path):
     num_lines = sum(1 for i in open(file_path, 'rb'))
     return num_lines
+
+
+def basic_stats(tokens, prefix=""):
+    # tokens is array of integers (number of tokens per sentence)
+    assert isinstance(tokens, np.ndarray)
+    d = {
+        f"{prefix}total_sentences": len(tokens),
+        f"{prefix}total_tokens": int(tokens.sum()),
+        f"{prefix}max_tokens": int(np.max(tokens)),
+        f"{prefix}min_tokens": int(np.min(tokens)),
+        f"{prefix}avg_tokens": float(np.average(tokens)),
+        f"{prefix}std_tokens": float(np.std(tokens)),
+        f"{prefix}percentile5_tokens": int(np.percentile(tokens, 5)),
+        f"{prefix}percentile50_tokens": int(np.percentile(tokens, 50)),
+        f"{prefix}percentile95_tokens": int(np.percentile(tokens, 95)),
+        f"{prefix}percentile99_tokens": int(np.percentile(tokens, 99)),
+        f"{prefix}percentile99.671_tokens": int(np.percentile(tokens, 99.671)),  # TIER I
+        f"{prefix}percentile99.749_tokens": int(np.percentile(tokens, 99.749)),  # TIER II
+        f"{prefix}percentile99.982_tokens": int(np.percentile(tokens, 99.982)),  # TIER III
+        f"{prefix}percentile99.995_tokens": int(np.percentile(tokens, 99.995)),  # TIER IV
+    }
+    return d

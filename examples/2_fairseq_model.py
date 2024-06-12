@@ -28,14 +28,14 @@ def main(fairseq_args):
 
         # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "europarl", "languages": ["es-en", "fr-en", "de-en"], "sizes": [("original", None), ("100k", 100000)]},
-            {"name": "scielo/health", "languages": ["es-en"], "sizes": [("100k", 100000)], "split_sizes": (None, 1000, 1000)},
+            {"name": "europarl", "languages": ["es-en"], "sizes": [("50k", 50000)]},
         ],
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["bpe", "unigram+bytes"], "vocab_sizes": [8000, 16000, 32000]},
-            {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
+            {"subword_models": ["words"], "vocab_sizes": [32000]},
+            {"subword_models": ["bpe"], "vocab_sizes": [8000, 16000, 32000]},
+            {"subword_models": ["bytes", "char"], "vocab_sizes": [1000]},
         ],
 
         # Preprocessing functions
@@ -60,10 +60,10 @@ def main(fairseq_args):
 
         # Train model
         trainer.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
-                    patience=10, num_workers=10, strategy="ddp", fairseq_args=fairseq_args)
+                    patience=10, num_workers=0, strategy="ddp", fairseq_args=fairseq_args)
 
         # Test model
-        m_scores = trainer.predict(ts_datasets, metrics={"bleu", "chrf", "bertscore"}, beams=[1, 5], load_checkpoint="best",
+        m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
                                    preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
         scores.append(m_scores)
 

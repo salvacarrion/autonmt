@@ -7,14 +7,11 @@ class BytesVocabulary(BaseVocabulary):
         super().__init__(sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
                          sos_piece=sos_piece, eos_piece=eos_piece, pad_piece=pad_piece,
                          lang=lang, max_tokens=max_tokens)
-        # Set special tokens
-        self._offset = len(self.special_tokens)
-
         # Other
         self.hex_input = hex_input
 
     def __len__(self):
-        return 256 + len(self.special_tokens)
+        return 256 + len(self.special_tokens())
 
     def encode(self, text, add_special_tokens=True):
         if self.hex_input:

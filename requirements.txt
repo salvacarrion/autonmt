@@ -28,8 +28,8 @@ Cython
 
 # Loggers
 wandb
-comet_ml
 tensorboardX
+#comet_ml
 
 # Fairseq
 # fairseq
