@@ -40,7 +40,7 @@ class Dataset:
         # Dataset versions
         self.subword_model = str(subword_model).lower() if subword_model else subword_model
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
-        self.pretok_flag = self.subword_model in {"word", "words"}
+        self.pretok_flag = self.subword_model in {"word"}
         self.merge_vocabs = merge_vocabs
 
         # Preprocessing

@@ -33,7 +33,7 @@ def main(fairseq_args):
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["words"], "vocab_sizes": [32000]},
+            {"subword_models": ["word"], "vocab_sizes": [32000]},
             {"subword_models": ["bpe"], "vocab_sizes": [8000, 16000, 32000]},
             {"subword_models": ["bytes", "char"], "vocab_sizes": [1000]},
         ],

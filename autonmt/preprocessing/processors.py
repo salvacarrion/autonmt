@@ -149,15 +149,14 @@ def encode_file(input_file, output_file, model_vocab_path, subword_model, force_
         if subword_model in {None, "none"}:
             shutil.copyfile(input_file, output_file)
 
-        elif subword_model in {"bytes"}:
+        elif subword_model in {"bytes"}:  # No vocab is needed (just bytes)
             # Save file as UTF8 and make sure everything uses NFKC
             lines = read_file_lines(input_file, autoclean=True)
             lines = [NFKC().normalize_str(line) for line in lines]
-            lines = [" ".join([hex(x) for x in line.encode()]) for line in lines]
+            lines = [utils.text2hex(line, return_str=True) for line in lines]
             write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
         else:
-
             # Encode files
             tokenizers.spm_encode_file(spm_model_path=model_vocab_path, input_file=input_file, output_file=output_file)
 
@@ -170,21 +169,14 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
     if force_overwrite or not os.path.exists(output_file):
 
         # Detokenize
-        if subword_model in {None, "none"}:
-            # Rename or copy files (tok==txt)
-            shutil.copyfile(input_file, output_file)
-
-        elif subword_model in {"bytes"}:
+        if subword_model in {None, "none", "bytes"}:
             # Rename or copy files (tok==txt)
             shutil.copyfile(input_file, output_file)
 
         else:
-            # Decode files
+            # Decode files (Note: SPM leaves a '▁' at the beginning of the line; we'll remove it later)
             tokenizers.spm_decode_file(model_vocab_path, input_file=input_file, output_file=output_file)
-
-            # Remove the hyphen of unknown words when needed
-            if remove_unk_hyphen:
-                replace_in_file('▁', ' ', output_file)
+            replace_in_file('▁', ' ', output_file)
 
         # Detokenize with moses
         if pretok_flag:
@@ -194,23 +186,14 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
         assert os.path.exists(output_file)
 
 
-def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None, remove_unk_hyphen=False):
+def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None):
     # Detokenize
-    if subword_model in {None, "none"}:
-        # Rename or copy files (tok==txt)
-        lines = lines
-
-    elif subword_model in {"bytes"}:
-        lines = lines
-        # Decode files
-        # lines = [utils.clean_file_line(bytes([int(x, base=16) for x in line.split(' ')])) for line in lines]
+    if subword_model in {None, "none", "bytes"}:
+        pass
     else:
-        # Decode files
+        # Decode files (Note: Lines stripped because SPM leaves a '▁' at the beginning of the line)
         lines = tokenizers._spm_decode(lines, spm_model)
-
-        # Remove the hyphen of unknown words when needed
-        if remove_unk_hyphen:
-            lines = [line.replace('▁', ' ') for line in lines]
+        lines = [line.replace('▁', ' ').strip() for line in lines]
 
     # Detokenize with moses
     if pretok_flag:

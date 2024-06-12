@@ -148,9 +148,9 @@ class DatasetBuilder:
 
             # Encode preprocessing
             self._encode_datasets(force_overwrite=force_overwrite)
-            self._export_vocab_frequencies(force_overwrite=force_overwrite)
 
             # Compute stats
+            self._export_vocab_frequencies(force_overwrite=force_overwrite)
             self._compute_stats(force_overwrite=force_overwrite, print_stats=verbose)
 
             # Make plot
@@ -450,48 +450,62 @@ class DatasetBuilder:
             print(f"\t- Building vocabulary: {ds.id2(as_path=True)}")
 
             # Ignore dataset but create directories (just in case... for plots or stats)
-            if ds.subword_model in {None, "none", "bytes"}:
+            if ds.subword_model in {None, "none"}:
                 continue
 
-            # Pretokenize (if needed - words)
-            self._pretokenize(ds, force_overwrite)
+            elif ds.subword_model in {"bytes"}:  # Trick: bytes is a special case
+                # Generate vocab
+                tokens = [f'0x{byte:02x}' for byte in range(256)]
+                special_tokens = ["<unk>", "<s>", "</s>", "<pad>"]  # "unk" is not needed. Added for consistency
+                tokens_str = [f"{tok}\t{0}" for tok in (special_tokens + tokens)]  # Must be a tuple (tok, log_prob)
 
-            # Get train files
-            file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_auto_path
-            src_train_path = file_path_fn(fname=f"{ds.train_name}.{src_lang}")
-            trg_train_path = file_path_fn(fname=f"{ds.train_name}.{trg_lang}")
+                # Save vocab (if needed)
+                langs_ext = [f"{src_lang}-{trg_lang}"] if self.merge_vocabs else [src_lang, trg_lang]
+                for ext in langs_ext:
+                    output_file = ds.get_vocab_file(lang=ext)  # without extension
+                    if force_overwrite or not os.path.exists(f"{output_file}.vocab"):
+                        write_file_lines(tokens_str, filename=f"{output_file}.vocab", insert_break_line=True)
 
-            # One or two models
-            if self.merge_vocabs:  # One model
-                concat_train_path = os.path.join(tmp_path, f"{ds.train_name}.{src_lang}-{trg_lang}")
+            else:  # words, bpe, unigram and chars
+                # Pretokenize (if needed - words)
+                self._pretokenize(ds, force_overwrite)
 
-                # Concat files
-                if force_overwrite or not os.path.exists(concat_train_path):
-                    # Read files
-                    lines = read_file_lines(src_train_path, autoclean=True)
-                    lines += read_file_lines(trg_train_path, autoclean=True)
+                # Get train files
+                file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_auto_path
+                src_train_path = file_path_fn(fname=f"{ds.train_name}.{src_lang}")
+                trg_train_path = file_path_fn(fname=f"{ds.train_name}.{trg_lang}")
 
-                    # Shuffle lines: Just in case because can spm_train load the first X lines of corpus by default
-                    random.shuffle(lines)
+                # One or two models
+                if self.merge_vocabs:  # One model
+                    concat_train_path = os.path.join(tmp_path, f"{ds.train_name}.{src_lang}-{trg_lang}")
 
-                    # Save file
-                    write_file_lines(lines=lines, filename=concat_train_path, insert_break_line=True)
-                files = [(concat_train_path, f"{src_lang}-{trg_lang}")]
-            else:  # Two models
-                files = [(src_train_path, f"{src_lang}"), (trg_train_path, f"{trg_lang}")]
+                    # Concat files
+                    if force_overwrite or not os.path.exists(concat_train_path):
+                        # Read files
+                        lines = read_file_lines(src_train_path, autoclean=True)
+                        lines += read_file_lines(trg_train_path, autoclean=True)
 
-            # Train models
-            for input_file, ext in files:
-                output_file = ds.get_vocab_file(lang=ext)  # without extension
-                if force_overwrite or not os.path.exists(f"{output_file}.model"):
-                    tokenizers.spm_train_file(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
-                                              vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
-                                              character_coverage=self.character_coverage, split_digits=self.split_digits)
-                    assert os.path.exists(f"{output_file}.model")
+                        # Shuffle lines: Just in case because can spm_train load the first X lines of corpus by default
+                        random.shuffle(lines)
 
-            # Check vocabs
-            print(f"=> Checking existing vocabularies...")
-            ds.check_vocab_folder_consistency()
+                        # Save file
+                        write_file_lines(lines=lines, filename=concat_train_path, insert_break_line=True)
+                    files = [(concat_train_path, f"{src_lang}-{trg_lang}")]
+                else:  # Two models
+                    files = [(src_train_path, f"{src_lang}"), (trg_train_path, f"{trg_lang}")]
+
+                # Train models
+                for input_file, ext in files:
+                    output_file = ds.get_vocab_file(lang=ext)  # without extension
+                    if force_overwrite or not os.path.exists(f"{output_file}.model"):
+                        tokenizers.spm_train_file(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
+                                                  vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
+                                                  character_coverage=self.character_coverage, split_digits=self.split_digits)
+                        assert os.path.exists(f"{output_file}.model")
+
+                # Check vocabs
+                print(f"=> Checking existing vocabularies...")
+                ds.check_vocab_folder_consistency()
             
     def _encode_datasets(self, force_overwrite):
         print(f"=> Building datasets...")
@@ -512,11 +526,9 @@ class DatasetBuilder:
                 input_file = file_path_fn(fname=fname)
                 output_file = ds.get_encoded_path(fname)
 
-                # Select model
-                if self.merge_vocabs:
-                    model_path = ds.get_vocab_file() + ".model"
-                else:
-                    model_path = ds.get_vocab_file(lang=lang) + ".model"
+                # Select model (not used for bytes)
+                model_path = ds.get_vocab_file() if self.merge_vocabs else ds.get_vocab_file(lang=lang)
+                model_path += ".model"  # Add extension
 
                 # Encode file
                 encode_file(input_file=input_file, output_file=output_file, model_vocab_path=model_path,

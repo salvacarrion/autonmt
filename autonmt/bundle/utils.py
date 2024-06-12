@@ -404,3 +404,25 @@ def basic_stats(tokens, prefix=""):
         f"{prefix}percentile99.995_tokens": int(np.percentile(tokens, 99.995)),  # TIER IV
     }
     return d
+
+
+def text2hex(text, return_str=False):
+    # There are multiple ways to do this: hex(ord(c)) vs. c.encode('utf-8').hex()
+    # Here, I chose "Hexadecimal Representation of Unicode Code Points" because we deal with the Unicode
+    # values directly. In contrast, Hexadecimal Representation of Encoded Bytes may have undesired results.
+    hex_values = [hex(ord(c)) for c in text]
+    res = ' '.join(hex_values) if return_str else hex_values
+    return res
+
+
+def hex2text(hex_values, return_str=False):
+    # Converts each hexadecimal code point to its Unicode character.
+    if isinstance(hex_values, str):
+        hex_values = hex_values.split(' ')
+    elif isinstance(hex_values, list):
+        pass
+    else:
+        raise ValueError("hex_values must be a list of strings or a string")
+    text_values = [chr(int(c, 16)) for c in hex_values]  # Value error may occur if the hex is not valid
+    res = ' '.join(text_values) if return_str else text_values
+    return res

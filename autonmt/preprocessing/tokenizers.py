@@ -37,10 +37,6 @@ def moses_detokenizer_file(input_file, output_file, lang):
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
 def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, split_digits):
-    # Normalize
-    if subword_model in {"word", "words"}:
-        subword_model = "word"
-
     # Enable
     byte_fallback = False
     if "+bytes" in subword_model:

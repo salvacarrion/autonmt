@@ -151,19 +151,16 @@ class LitSeq2Seq(pl.LightningModule):
         return loss, outputs
 
     def _compute_metrics(self, y_hat, y, x, metrics, log_prefix):
-        # Decode lines
+        # Decode lines (only during training)
         # Since ref lines are encoded, unknowns can appear. Therefore, for small vocabularies the scores could be strongly biased
         hyp_lines = [self._trg_vocab.decode(list(x)) for x in y_hat.detach().cpu().numpy()]
         ref_lines = [self._trg_vocab.decode(list(x)) for x in y.detach().cpu().numpy()]
         src_lines = [self._src_vocab.decode(list(x)) for x in x.detach().cpu().numpy()]
 
-        # Full decoding
-        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag,
-                                 self._trg_vocab.spm_model, remove_unk_hyphen=True)
-        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag,
-                                 self._trg_vocab.spm_model, remove_unk_hyphen=True)
-        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._src_vocab.subword_model, self._src_vocab.pretok_flag,
-                                 self._src_vocab.spm_model, remove_unk_hyphen=True)
+        # Full decoding (lines are stripped)
+        hyp_lines = decode_lines(hyp_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag, self._trg_vocab.spm_model)
+        ref_lines = decode_lines(ref_lines, self._trg_vocab.lang, self._trg_vocab.subword_model, self._trg_vocab.pretok_flag, self._trg_vocab.spm_model)
+        src_lines = decode_lines(src_lines, self._src_vocab.lang, self._src_vocab.subword_model, self._src_vocab.pretok_flag, self._src_vocab.spm_model)
 
         # Compute metrics
         scores = []
