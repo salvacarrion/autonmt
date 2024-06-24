@@ -114,8 +114,6 @@ class FairseqTranslator(BaseTranslator):
 
         # Vars
         self.wandb_params = wandb_params
-        if self.wandb_params:
-            raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
 
         # Custom
         self.data_bin_name = "data-bin"
@@ -176,12 +174,18 @@ class FairseqTranslator(BaseTranslator):
         # Parse args and execute command
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/preprocess.py
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
+
+        # Command
+        print("COMMAND:")
+        print("fairseq-preprocess " + ' '.join(input_args))
+
+        # Run command
         parser = options.get_preprocessing_parser(default_task="translation")
         args = parser.parse_args(args=input_args)
         preprocess.main(args)
 
-    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, run_name,
-               resume_training, force_overwrite, **kwargs):
+    def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size, force_overwrite, **kwargs):
+        wandb_params = kwargs.get("wandb_params")
 
         # Get data-bin path
         data_bin_path = train_ds.get_bin_data(self.engine, self.data_bin_name)
@@ -196,13 +200,20 @@ class FairseqTranslator(BaseTranslator):
                 print("\t- [Train]: Skipped. The checkpoint directory is not empty")
                 return
 
-        if self.wandb_params:
-            print("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
+        # if self.wandb_params:
+        #     print("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
 
         # Write command
         input_args = [data_bin_path]
         input_args += ["--save-dir", checkpoints_dir] if checkpoints_dir else []
         input_args += ["--tensorboard-logdir", logs_path] if logs_path else []
+        if wandb_params:
+            # raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
+            print("\t\t- [WARNING]: 'wandb_params' will produce to some known bugs")
+
+            # Set vars
+            input_args += ["--wandb-project", wandb_params["project"]]
+            os.environ["WANDB_NAME"] = self.run_name
 
         # Parse fairseq args
         input_args += _parse_args(max_tokens=max_tokens, batch_size=batch_size, **kwargs)
@@ -214,6 +225,11 @@ class FairseqTranslator(BaseTranslator):
         if num_gpus and isinstance(num_gpus, int):
             os.environ["CUDA_VISIBLE_DEVICES"] = ','.join([str(i) for i in range(num_gpus)])
 
+        # Command
+        print("COMMAND:")
+        print("fairseq-train " + ' '.join(input_args))
+
+        # Run command
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
         parser = options.get_training_parser()
         args = options.parse_args_and_arch(parser, input_args=input_args)
@@ -252,6 +268,13 @@ class FairseqTranslator(BaseTranslator):
         # Parse args and execute command
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/generate.py
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
+
+        # Command
+        print("COMMAND:")
+        print("fairseq-generate " + ' '.join(input_args))
+
+        # Run command
+        # From: https://github.com/facebookresearch/fairseq/blob/main/fairseq_cli/generate.py
         parser = options.get_generation_parser(default_task="translation")
         args = options.parse_args_and_arch(parser, input_args=input_args)
         generate.main(args)

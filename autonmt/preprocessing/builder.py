@@ -633,7 +633,7 @@ class DatasetBuilder:
 
         # Set default vars
         if vocab_top_k is None:
-            vocab_top_k = [50]
+            vocab_top_k = [256]
 
         # Set backend
         if save_figures:
@@ -733,13 +733,26 @@ class DatasetBuilder:
                         df = df.sort_values(by='frequency', ascending=False, na_position='last')
 
                     for top_k in vocab_top_k:
-                        title = f"Vocabulary distribution (top {str(top_k)} {ds.subword_model.title()}; {lang_file})"
-                        title = title if not add_dataset_title else f"{ds_title}:\n{title}"
-                        p_fname = f"vocab_distr_{lang_file}_top{str(top_k)}__{suffix_fname}".lower()
-                        plots.barplot(data=df.head(top_k), x="token", y="frequency",
+                        # Sample a subset of words for visualization
+                        len_vocab = len(df)
+                        df2 = df.sample(n=top_k, random_state=1).sort_values(by='frequency', ascending=False)
+
+                        # Sampled
+                        d = {"word": "Words", "bpe": "BPE", "char": "Chars", "bytes": "Bytes"}
+                        title = f"Vocabulary distribution ({d[ds.subword_model]} - {len(df):,})"
+                        p_fname = f"vocab_distr_{lang_file}_sampled{str(top_k)}__{suffix_fname}".lower()
+
+                        # Top
+                        # title = f"Vocabulary distribution ({d[ds.subword_model]} - Top {top_k})"
+                        # p_fname = f"vocab_distr_{lang_file}_top{str(top_k)}__{suffix_fname}".lower()
+
+                        # title = f"Vocabulary distribution ({d[ds.subword_model]} - {len_vocab:,})"
+                        # title = f"Vocabulary distribution (top {str(top_k)} {ds.subword_model.title()}; {lang_file})"
+                        # title = title if not add_dataset_title else f"{ds_title}:\n{title}"
+                        plots.barplot(data=df2, x="token", y="frequency",
                                       output_dir=plots_encoded_path, fname=p_fname,
-                                      title=title, xlabel="Token frequency", ylabel="Frequency",
-                                      aspect_ratio=(6, 4), size=1.25, save_fig=save_figures, show_fig=show_figures,
+                                      title=title, xlabel="Tokens", ylabel="Frequency",
+                                      aspect_ratio=(12, 8), size=2.5, save_fig=save_figures, show_fig=show_figures,
                                       overwrite=force_overwrite)
 
     def merge_datasets(self, name="europarl", language_pair="xx-yy", dataset_size_name="original",

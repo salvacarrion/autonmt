@@ -140,7 +140,7 @@ def human_format(num, decimals=2):
 
 
 def human_format_int(x, *args, **kwargs):
-    return human_format(int(x), decimals=0)
+    return human_format(int(x), decimals=1)
 
 
 def load_json(filename):

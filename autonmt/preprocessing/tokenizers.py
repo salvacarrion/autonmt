@@ -48,7 +48,7 @@ def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_se
                                    model_type=subword_model, vocab_size=vocab_size,
                                    input_sentence_size=input_sentence_size, byte_fallback=byte_fallback,
                                    character_coverage=character_coverage, split_digits=split_digits,
-                                   pad_id=3)
+                                   pad_id=3)  # max_sentencepiece_length=2,
 
 
 def spm_encode_file(spm_model_path, input_file, output_file):

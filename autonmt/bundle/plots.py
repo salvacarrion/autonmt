@@ -73,17 +73,18 @@ def barplot(data, x, y, output_dir, fname, title="", xlabel="x", ylabel="y", asp
         return False
 
     # Create subplot
-    fig = plt.figure(figsize=(aspect_ratio[0] * size, aspect_ratio[1] * size))
+    fig = plt.figure(figsize=(aspect_ratio[0], aspect_ratio[1]))
     sns.set(font_scale=size)
 
     # Plot barplot
-    g = sns.barplot(data=data, x=x, y=y)
+    g = sns.barplot(data=data, x=x, y=y, edgecolor="none")
 
     # Tweaks
     g.set(xlabel=xlabel, ylabel=ylabel)
     g.set_xticklabels(g.get_xticklabels(), rotation=90)
-    g.tick_params(axis='x', which='major', labelsize=8)  # *size  => because of the vocabulary distribution
-    g.tick_params(axis='y', which='major', labelsize=8)  # *size  => because of the vocabulary distribution
+    plt.xticks(ticks=[])  # Completely remove x-ticks
+    g.tick_params(axis='x', which='major', labelsize=12)  # *size  => because of the vocabulary distribution
+    g.tick_params(axis='y', which='major', labelsize=12)  # *size  => because of the vocabulary distribution
     g.yaxis.set_major_formatter(utils.human_format_int)
 
     # properties
