@@ -12,11 +12,12 @@ from autonmt.preprocessing.processors import decode_lines
 
 class LitSeq2Seq(pl.LightningModule):
 
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, **kwargs):
+    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, architecture="base", **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
         self.padding_idx = padding_idx
+        self.architecture = architecture
 
         # Hyperparams (PyTorch Lightning stuff)
         self.strategy = None

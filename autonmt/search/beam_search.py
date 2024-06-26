@@ -7,11 +7,14 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
     raise NotImplemented("Beam search with a width larger than '1' is currently disabled.")
     model.eval()
     device = next(model.parameters()).device
+    pin_memory = False if device.type == "cpu" else True
 
     # Create dataloader
-    collate_fn = lambda x: dataset.collate_fn(x, max_tokens=max_tokens)
-    eval_dataloader = tud.DataLoader(dataset, shuffle=False, collate_fn=collate_fn, batch_size=batch_size,
-                                     num_workers=num_workers)
+    eval_dataloader = tud.DataLoader(dataset,
+                                     collate_fn=dataset.get_collate_fn(max_tokens),
+                                     num_workers=num_workers, persistent_workers=bool(num_workers),
+                                     pin_memory=pin_memory,
+                                     batch_size=batch_size, shuffle=False)
 
     idxs = []
     probabilities = []

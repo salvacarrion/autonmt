@@ -21,7 +21,7 @@ class LSTM(LitSeq2Seq):
                  teacher_force_ratio=0.5,
                  padding_idx=None,
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, **kwargs)
+        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="lstm", **kwargs)
         self.teacher_forcing_ratio = teacher_force_ratio
 
         # Model
@@ -54,9 +54,11 @@ class LSTM(LitSeq2Seq):
         return output, (hidden, cell)
 
     def forward_decoder(self, y, hidden, cell, **kwargs):
-        # Fix y dimensions
-        if len(y.shape) == 1:
+        # Fix "y" dimensions
+        if len(y.shape) == 1:  # (batch) => (batch, 1)
             y = y.unsqueeze(1)
+        if len(y.shape) == 2 and y.shape[1] > 1:
+            y = y[:, -1].unsqueeze(1)  # Get last value
 
         # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
         y_emb = self.trg_embeddings(y)

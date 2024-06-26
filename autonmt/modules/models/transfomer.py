@@ -22,7 +22,7 @@ class Transformer(LitSeq2Seq):
                  padding_idx=None,
                  learned=False,
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, **kwargs)
+        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="transformer", **kwargs)
         self.max_src_positions = max_src_positions
         self.max_trg_positions = max_trg_positions
 
@@ -54,10 +54,10 @@ class Transformer(LitSeq2Seq):
         x_emb = self.src_embeddings(x)
         x_emb = (x_emb + x_pos).transpose(0, 1)
 
-        memory = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
-        return memory
+        state = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
+        return None, (state,)
 
-    def forward_decoder(self, y, memory):
+    def forward_decoder(self, y, state):
         assert y.shape[1] <= self.max_trg_positions
 
         # Encode trg
@@ -68,15 +68,15 @@ class Transformer(LitSeq2Seq):
         # Make trg mask
         tgt_mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
 
-        output = self.transformer.decoder(tgt=y_emb, memory=memory, tgt_mask=tgt_mask, memory_mask=None,
+        output = self.transformer.decoder(tgt=y_emb, memory=state, tgt_mask=tgt_mask, memory_mask=None,
                                           tgt_key_padding_mask=None, memory_key_padding_mask=None)
 
         # Get output
         output = output.transpose(0, 1)
         output = self.output_layer(output)
-        return output
+        return output, (state,)  # Return state for compatibility
 
     def forward_enc_dec(self, x, y):
-        memory = self.forward_encoder(x)
-        output = self.forward_decoder(y, memory)
+        _, states = self.forward_encoder(x)
+        output, _ = self.forward_decoder(y, *states)
         return output

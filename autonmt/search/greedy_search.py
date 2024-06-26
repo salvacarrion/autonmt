@@ -3,53 +3,49 @@ import torch.utils.data as tud
 import tqdm
 
 
-def greedy_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
+def greedy_search(model, dataset, sos_id, eos_id, pad_id, batch_size, max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
     model.eval()
     device = next(model.parameters()).device
     pin_memory = False if device.type == "cpu" else True
 
     # Create dataloader
-    collate_fn = lambda x: dataset.collate_fn(x, max_tokens=max_tokens)
-    eval_dataloader = tud.DataLoader(dataset, shuffle=False, collate_fn=collate_fn, batch_size=batch_size,
-                                     num_workers=num_workers, pin_memory=pin_memory)
+    eval_dataloader = tud.DataLoader(dataset,
+                                     collate_fn=dataset.get_collate_fn(max_tokens),
+                                     num_workers=num_workers, persistent_workers=bool(num_workers),
+                                     pin_memory=pin_memory,
+                                     batch_size=batch_size, shuffle=False)
 
-    idxs = []
-    probabilities = []
     with torch.no_grad():
+        outputs = []
         for x, _ in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
-            # Move to device
-            x = x.to(device)
-
-            # Set start token <s> and initial probabilities
-            # Sentence generated
-            dec_idxs = torch.full((x.shape[0], 1), sos_id, dtype=torch.long).to(device)  # Sentence tokens
-            dec_probs = torch.zeros(x.shape[0]).to(device)  # Sentence probability
+            max_gen_length = int(max_len_a*x.shape[1] + max_len_b)
 
             # Run encoder
-            memory = model.forward_encoder(x)
+            _, states = model.forward_encoder(x.to(device))
 
-            # Iterative decoder
-            all_eos = False
-            max_gen_length = int(max_len_a*x.shape[1] + max_len_b)
-            while not all_eos and dec_idxs.shape[1] <= max_gen_length:
-                # Get next token (probs + idx)
-                next_probabilities = model.forward_decoder(dec_idxs, memory)[:, -1].log_softmax(-1)
-                next_max_probabilities, next_max_idxs = next_probabilities.max(-1)
+            # Set start token <sos> and initial probabilities
+            y_pred = torch.full((x.shape[0], max_gen_length), pad_id, dtype=torch.long).to(device)  # (B, L)
+            y_pred[:, 0] = sos_id
 
-                # Concat new tokens with previous tokens
-                next_max_idxs = next_max_idxs.unsqueeze(-1)
-                dec_idxs = torch.cat((dec_idxs, next_max_idxs), axis=1)
-                dec_probs += next_max_probabilities  # Sentence probability
+            # Iterate over trg tokens
+            eos_mask = torch.zeros(x.shape[0], dtype=torch.bool).to(device)
+            max_iter = 0
+            for i in range(1, max_gen_length):
+                max_iter = i
+                outputs_t, states = model.forward_decoder(y_pred[:, :i], *states)
+                top1 = outputs_t[:, -1, :].argmax(1)  # Get most probable next-word (logits)
 
-                # Check if all sentences have an <eos>
-                if bool((dec_idxs == eos_id).sum(axis=1).bool().all()):
+                # Update y_pred for next iteration
+                y_pred[:, i] = top1
+
+                # Check for EOS tokens
+                eos_mask |= (top1 == eos_id)  # in-place OR
+
+                # Break if all sentences have an EOS token
+                if eos_mask.all():
                     break
 
-            # Store batch results
-            idxs.append(dec_idxs)
-            probabilities.append(dec_probs)
+            # Add outputs
+            outputs.extend(y_pred[:, :max_iter].tolist())
 
-    # Prettify output
-    idxs = [item for batch_idxs in idxs for item in batch_idxs.tolist()]
-    probabilities = torch.concat(probabilities)
-    return idxs, probabilities
+    return outputs, None

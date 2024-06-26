@@ -130,6 +130,7 @@ class BaseTranslator(ABC):
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, fname), allow_overwrite=force_overwrite)
 
+
     def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1, patience=None,
             optimizer="adam", learning_rate=0.001, weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", monitor="val_loss",

@@ -26,6 +26,33 @@ from torch.utils.data.sampler import SequentialSampler
 # from torchnlp.samplers import BucketBatchSampler
 
 
+def set_model_device(model, accelerator="auto"):
+    # Check available hardware
+    if torch.cuda.is_available():
+        default_device = "cuda"
+    elif torch.backends.mps.is_available():
+        default_device = "mps"
+    else:
+        default_device = "cpu"
+
+    # Choose target device
+    if accelerator == "auto":
+        device = default_device
+    elif accelerator in {"cuda", "gpu"}:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    elif accelerator == "mps":
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+    else:
+        device = "cpu"
+
+    # Set device
+    if model.device.type != device:
+        print(f"\t-[INFO]: Setting '{device}' as the model's device")
+        model = model.to(device)
+    else:
+        print(f"\t-[INFO]: Model is already on '{device}' device")
+    return model
+
 
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
@@ -37,7 +64,6 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.train_tds = None
         self.val_tds = None
         self.test_tds = None
-
 
     def _preprocess(self, train_path, val_path, test_path,
                     apply2train, apply2val, apply2test,
@@ -174,15 +200,14 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             self.from_checkpoint = self.load_checkpoint(checkpoint)
 
         # Set evaluation model
-        if accelerator in {"auto", "cuda", "gpu"} and self.model.device.type != "cuda":
-            print(f"\t-[INFO]: Setting 'cuda' as the model's device")
-            self.model = self.model.cuda()
+        self.model = set_model_device(self.model, accelerator=accelerator)
 
         # Iterative decoding
         search_algorithm = beam_search if beam_width > 1 else greedy_search
         predictions, log_probabilities = search_algorithm(model=self.model, dataset=self.test_tds[filter_idx],
                                                           sos_id=self.trg_vocab.sos_id,
                                                           eos_id=self.trg_vocab.eos_id,
+                                                          pad_id=self.trg_vocab.pad_id,
                                                           batch_size=batch_size, max_tokens=max_tokens,
                                                           beam_width=beam_width, max_len_a=max_len_a, max_len_b=max_len_b,
                                                           num_workers=num_workers)

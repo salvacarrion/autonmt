@@ -21,7 +21,7 @@ preprocess_raw_fn = lambda data, ds: preprocess_pairs(data["src"]["lines"], data
 preprocess_splits_fn = lambda data, ds: preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize_fn, shuffle_lines=False)
 preprocess_predict_fn = lambda data, ds: preprocess_lines(data["lines"], normalize_fn=normalize_fn)
 
-BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Remote
 
 def main():
     # Create preprocessing for training
@@ -70,7 +70,7 @@ def main():
         else:
             raise ValueError(f"Unknown subword model: {train_ds.subword_model}")
 
-        for iters in [10]:
+        for iters in [3]:
             # Instantiate vocabs and model
             src_vocab = Vocabulary(max_tokens=max_tokens_src).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
             trg_vocab = Vocabulary(max_tokens=max_tokens_tgt).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
@@ -78,7 +78,7 @@ def main():
 
             # Define trainer
             runs_dir = train_ds.get_runs_path(toolkit="autonmt")
-            run_prefix = f"{iters}ep__" + '_'.join(train_ds.id()[:2]).replace('/', '-')
+            run_prefix = f"{model.architecture}-{iters}ep__" + '_'.join(train_ds.id()[:2]).replace('/', '-')
             run_name = train_ds.get_run_name(run_prefix=run_prefix)  #+ f"__{int(time.time())}"
             trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                         runs_dir=runs_dir, run_name=run_name)
@@ -91,9 +91,9 @@ def main():
 
             # Train model
             wandb_params = None #dict(project="vocab-comparison", entity="salvacarrion", reinit=True)
-            trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=128, seed=None,
-                        patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-                        wandb_params=wandb_params)
+            # trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=128, seed=None,
+            #             patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
+            #             wandb_params=wandb_params)
 
             # Test model
             m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
