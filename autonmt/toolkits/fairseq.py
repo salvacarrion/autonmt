@@ -6,12 +6,18 @@ import time
 from autonmt.bundle import utils
 from autonmt.toolkits.base import BaseTranslator
 
-import torch
-import fairseq_cli
-from fairseq import options
-from fairseq_cli import preprocess, train, generate
-from fairseq.distributed import utils as distributed_utils
-from fairseq.dataclass.utils import convert_namespace_to_omegaconf
+try:
+    import fairseq_cli
+    from fairseq import options
+    from fairseq_cli import preprocess, train, generate
+    from fairseq.distributed import utils as distributed_utils
+    from fairseq.dataclass.utils import convert_namespace_to_omegaconf
+except ImportError as e:
+    print("WARNING: Fairseq toolkit could not be loaded. FairseqTranslator will not be available.")
+except Exception as e:
+    print("WARNING: Fairseq toolkit could not be loaded. FairseqTranslator will not be available.")
+    print(e)
+
 
 
 def _parse_args(**kwargs):

@@ -26,6 +26,7 @@ from torch.utils.data.sampler import SequentialSampler
 # from torchnlp.samplers import BucketBatchSampler
 
 
+
 class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
     def __init__(self, model, **kwargs):
@@ -103,17 +104,18 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Dataloader: Training
         train_loader = DataLoader(self.train_tds,
-                                  collate_fn=lambda x: self.train_tds.collate_fn(x, max_tokens=max_tokens),
-                                  num_workers=num_workers, pin_memory=pin_memory,
+                                  collate_fn=self.train_tds.get_collate_fn(max_tokens),
+                                  num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
                                   batch_size=batch_size, shuffle=True,
                                   )
 
         # Dataloader: Validation
         val_loaders = []
         for val_tds_i in self.val_tds:
-            val_loaders.append(DataLoader(val_tds_i, shuffle=False,
-                                          collate_fn=lambda x: val_tds_i.collate_fn(x, max_tokens=max_tokens),
-                                          batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
+            val_loaders.append(DataLoader(val_tds_i,
+                                          collate_fn=val_tds_i.get_collate_fn(max_tokens),
+                                          num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
+                                          batch_size=batch_size, shuffle=False))
 
         # Callbacks: Checkpoint
         ckpt_p = {}

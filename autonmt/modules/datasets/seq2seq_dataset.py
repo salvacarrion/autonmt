@@ -1,4 +1,5 @@
 import numpy as np
+import functools
 import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
@@ -65,3 +66,6 @@ class Seq2SeqDataset(Dataset):
         assert x_padded.shape[0] == y_padded.shape[0] == len(x_encoded)  # Control samples
         assert max_tokens is None or (x_padded.numel() + y_padded.numel()) <= max_tokens  # Control max tokens
         return x_padded, y_padded
+
+    def get_collate_fn(self, max_tokens):
+        return functools.partial(self.collate_fn, max_tokens=max_tokens)

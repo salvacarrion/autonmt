@@ -3,7 +3,7 @@ import datetime
 
 from autonmt.modules.models import Transformer
 from autonmt.preprocessing import DatasetBuilder
-from autonmt.toolkits import FairseqTranslator
+from autonmt.toolkits.fairseq import FairseqTranslator
 from autonmt.vocabularies import Vocabulary
 
 from autonmt.bundle.report import generate_report
