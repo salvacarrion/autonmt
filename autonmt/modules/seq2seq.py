@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import math
 from collections import defaultdict
 
@@ -29,6 +30,14 @@ class LitSeq2Seq(pl.LightningModule):
         self.save_hyperparameters()
         self.best_scores = defaultdict(float)
         self.validation_step_outputs = defaultdict(list)
+
+    @abstractmethod
+    def forward_encoder(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def forward_decoder(self, *args, **kwargs):
+        pass
 
     def configure_optimizers(self):
         optim_fn = {
@@ -107,17 +116,26 @@ class LitSeq2Seq(pl.LightningModule):
         # Free memory
         self.validation_step_outputs.clear()
 
+    def forward_enc_dec(self, x, y):
+        values = self.forward_encoder(x)
+        values = self.forward_decoder(y, **values)  # (B, L, E)
+        output = values["output"]
+        return output
+
     def _step(self, batch, batch_idx, log_prefix):
         x, y = batch
 
-        # Forward
-        output = self.forward_encoder(x)
-        output = self.forward_decoder(y, output)  # (B, L, E)
+        # Forward => (Batch, Length) => (Batch, Length, Vocab)
+        # The input of the decoder needs the <sos>, but its output is shifted as it starts with the first word, not
+        # with the <sos>. Therefore, we need to remove the last token from 'y'
+        output = self.forward_enc_dec(x, y[:, :-1])
+
+        # Remove the <sos> token from the target
+        y = y[:, 1:]
 
         # Compute loss
-        output = output.transpose(1, 2)[:, :, :-1]  # Remove last index to match shape with 'y[1:]'
-        y = y[:, 1:]  # Remove <sos>
-        loss = self.criterion_fn(output, y)
+        output = output.transpose(1, 2)  # (B, L, V) => (B, V, L)
+        loss = self.criterion_fn(output, y)  # (B, V, L) vs (B, L)
 
         # Apply regularization
         if self.regularization_fn:

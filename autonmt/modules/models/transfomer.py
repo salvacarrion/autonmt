@@ -75,3 +75,8 @@ class Transformer(LitSeq2Seq):
         output = output.transpose(0, 1)
         output = self.output_layer(output)
         return output
+
+    def forward_enc_dec(self, x, y):
+        memory = self.forward_encoder(x)
+        output = self.forward_decoder(y, memory)
+        return output
