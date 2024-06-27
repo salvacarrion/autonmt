@@ -118,7 +118,7 @@ class Vocabulary(BaseVocabulary):
             s = ''.join(tokens)
         else:
             tokens = [self.idx2voc.get(idx, self.unk_piece) for idx in idxs]
-            s = ''.join(tokens)
+            s = ' '.join(tokens)
         return s
 
     def save(self, filename, include_special_tokens=True):

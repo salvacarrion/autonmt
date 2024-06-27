@@ -174,9 +174,8 @@ def decode_file(input_file, output_file, lang, subword_model, pretok_flag, model
             shutil.copyfile(input_file, output_file)
 
         else:
-            # Decode files (Note: SPM leaves a '▁' at the beginning of the line; we'll remove it later)
+            # Decode files
             tokenizers.spm_decode_file(model_vocab_path, input_file=input_file, output_file=output_file)
-            replace_in_file('▁', ' ', output_file)
 
         # Detokenize with moses
         if pretok_flag:
@@ -191,9 +190,7 @@ def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None):
     if subword_model in {None, "none", "bytes"}:
         pass
     else:
-        # Decode files (Note: Lines stripped because SPM leaves a '▁' at the beginning of the line)
         lines = tokenizers._spm_decode(lines, spm_model)
-        lines = [line.replace('▁', ' ').strip() for line in lines]
 
     # Detokenize with moses
     if pretok_flag:

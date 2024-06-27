@@ -134,7 +134,25 @@ multi30k_test multi30k_test          word       4000     34.706139  0:02:31.9386
 #     de-en      10000     bpe+bytes multi30k/neutral_de-en_original_bpe+bytes_10000 multi30k/neutral                                32.649577
 #     de-en    357/357    char+bytes multi30k/neutral_de-en_original_char+bytes_1000 multi30k/neutral                                32.819399
 ```
+### Tests (27/10/2023)
 
+```text
+# v0.6: [NFKC(), Strip(), NO-Lowercase], Overwrite=True!, no shuffle (split), 128batch, adam, 0.001lr, seed=1234. iter=10
+# Transformer
+vocab__subword_model vocab__size train__lang_pair test__lang_pair                      train_dataset test_dataset  translations.beam1.sacrebleu_bleu_score
+               bytes         260            de-en           de-en multi30k_de-en_original_bytes_1000     multi30k                                 7.583900
+                char     101/101            de-en           de-en  multi30k_de-en_original_char_1000     multi30k                                20.450112
+                 bpe        4000            de-en           de-en   multi30k_de-en_original_bpe_4000     multi30k                                32.808826
+                word        4000            de-en           de-en  multi30k_de-en_original_word_4000     multi30k                                32.626757
+
+
+# Simple LSTM (2 layers, 512 hidden units => 7.4M params)
+vocab__subword_model vocab__size train__lang_pair test__lang_pair                      train_dataset test_dataset  translations.beam1.sacrebleu_bleu_score
+               bytes         260            de-en           de-en multi30k_de-en_original_bytes_1000     multi30k                                 4.688523
+                char     101/101            de-en           de-en  multi30k_de-en_original_char_1000     multi30k                                 4.404792
+                 bpe        4000            de-en           de-en   multi30k_de-en_original_bpe_4000     multi30k                                 9.013423
+                word        4000            de-en           de-en  multi30k_de-en_original_word_4000     multi30k                                10.356350
+```
 ------
 
 
