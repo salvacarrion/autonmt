@@ -55,7 +55,7 @@ class Transformer(LitSeq2Seq):
         x_emb = (x_emb + x_pos).transpose(0, 1)
 
         state = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
-        return None, (state,)
+        return None, state
 
     def forward_decoder(self, y, state):
         assert y.shape[1] <= self.max_trg_positions
@@ -74,9 +74,9 @@ class Transformer(LitSeq2Seq):
         # Get output
         output = output.transpose(0, 1)
         output = self.output_layer(output)
-        return output, (state,)  # Return state for compatibility
+        return output, state  # Return state for compatibility
 
     def forward_enc_dec(self, x, y):
         _, states = self.forward_encoder(x)
-        output, _ = self.forward_decoder(y, *states)
+        output, _ = self.forward_decoder(y, states)
         return output

@@ -4,7 +4,7 @@ import os
 import torch
 torch.set_float32_matmul_precision("high")
 
-from autonmt.modules.models import Transformer, LSTM
+from autonmt.modules.models import Transformer, LSTM, GRU
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
@@ -37,9 +37,9 @@ def main():
 
         # Set of subword models and vocab sizes to try
         encoding=[
-            {"subword_models": ["bytes"], "vocab_sizes": [1000]},
-            {"subword_models": ["char"], "vocab_sizes": [1000]},
-            {"subword_models": ["bpe"], "vocab_sizes": [4000]},
+            # {"subword_models": ["bytes"], "vocab_sizes": [1000]},
+            # {"subword_models": ["char"], "vocab_sizes": [1000]},
+            # {"subword_models": ["bpe"], "vocab_sizes": [4000]},
             {"subword_models": ["word"], "vocab_sizes": [4000]},
         ],
 
@@ -70,11 +70,11 @@ def main():
         else:
             raise ValueError(f"Unknown subword model: {train_ds.subword_model}")
 
-        for iters in [10]:
+        for iters in [5]:
             # Instantiate vocabs and model
             src_vocab = Vocabulary(max_tokens=max_tokens_src).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
             trg_vocab = Vocabulary(max_tokens=max_tokens_tgt).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-            model = LSTM(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+            model = GRU(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
             # Define trainer
             runs_dir = train_ds.get_runs_path(toolkit="autonmt")
@@ -90,7 +90,7 @@ def main():
             print(f"\t- MODEL PREFIX: {run_prefix}")
 
             # Train model
-            wandb_params = dict(project="architecture", entity="salvacarrion", reinit=True)
+            wandb_params = None  #dict(project="architecture", entity="salvacarrion", reinit=True)
             trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
                         patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
                         wandb_params=wandb_params)
