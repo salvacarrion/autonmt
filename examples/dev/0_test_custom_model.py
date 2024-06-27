@@ -4,7 +4,7 @@ import os
 import torch
 torch.set_float32_matmul_precision("high")
 
-from autonmt.modules.models import Transformer, GenericRNN, GRU
+from autonmt.modules.models import Transformer, GenericRNN, GRU, GRUAttention
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
@@ -74,7 +74,7 @@ def main():
             # Instantiate vocabs and model
             src_vocab = Vocabulary(max_tokens=max_tokens_src).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
             trg_vocab = Vocabulary(max_tokens=max_tokens_tgt).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-            model = GRU(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+            model = GRUAttention(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
             # Define trainer
             runs_dir = train_ds.get_runs_path(toolkit="autonmt")

@@ -1,3 +1,3 @@
 from autonmt.modules.models.transfomer import Transformer
-from autonmt.modules.models.rnn import GenericRNN, GRU
+from autonmt.modules.models.rnn import GenericRNN, GRU, GRUAttention
 
