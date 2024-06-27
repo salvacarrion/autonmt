@@ -146,12 +146,24 @@ vocab__subword_model vocab__size train__lang_pair test__lang_pair               
                 word        4000            de-en           de-en  multi30k_de-en_original_word_4000     multi30k                                32.626757
 
 
-# Simple LSTM (2 layers, 512 hidden units => 7.4M params)
+# Simple LSTM (2 layers, 512 hidden units => ?-7.4M params)
 vocab__subword_model vocab__size train__lang_pair test__lang_pair                      train_dataset test_dataset  translations.beam1.sacrebleu_bleu_score
                bytes         260            de-en           de-en multi30k_de-en_original_bytes_1000     multi30k                                 4.688523
                 char     101/101            de-en           de-en  multi30k_de-en_original_char_1000     multi30k                                 4.404792
                  bpe        4000            de-en           de-en   multi30k_de-en_original_bpe_4000     multi30k                                 9.013423
                 word        4000            de-en           de-en  multi30k_de-en_original_word_4000     multi30k                                10.356350
+
+
+# z+GRU (1 layer, 512 hidden units => 3-10.3 M params)
+vocab__subword_model vocab__size train__lang_pair test__lang_pair                      train_dataset test_dataset  translations.beam1.sacrebleu_bleu_score
+               bytes         260            de-en           de-en multi30k_de-en_original_bytes_1000     multi30k                                 4.221123
+                char     101/101            de-en           de-en  multi30k_de-en_original_char_1000     multi30k                                 4.441055
+                 bpe        4000            de-en           de-en   multi30k_de-en_original_bpe_4000     multi30k                                13.061608
+                word        4000            de-en           de-en  multi30k_de-en_original_word_4000     multi30k                                13.239970
+
+# z+GRU (2 layers, 512 hidden units => 3-10.3 M params)
+vocab__subword_model vocab__size train__lang_pair test__lang_pair                     train_dataset test_dataset  translations.beam1.sacrebleu_bleu_score
+                word        4000            de-en           de-en multi30k_de-en_original_word_4000     multi30k                                13.032078
 ```
 ------
 

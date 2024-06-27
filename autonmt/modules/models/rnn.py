@@ -71,10 +71,10 @@ class BaseRNN(LitSeq2Seq):
         y_emb = self.trg_embeddings(y)
         y_emb = self.dec_dropout(y_emb)
 
-        # (1-length, batch, emb_dim) =>
+        # intput: (batch, 1-length, emb_dim), (n_layers * n_directions, batch, hidden_dim) =>
         # output: (batch, length, hidden_dim * n_directions)
         # hidden: (n_layers * n_directions, batch, hidden_dim)
-        # cell: (n_layers * n_directions, batch, hidden_dim)
+        # cell*: (n_layers * n_directions, batch, hidden_dim)
         output, states = self.decoder_rnn(y_emb, states)
 
         # Get output: (length, batch, hidden_dim * n_directions) => (length, batch, trg_vocab_size)
@@ -104,31 +104,80 @@ class BaseRNN(LitSeq2Seq):
         return outputs
 
 
-class LSTM(BaseRNN):
+class GenericRNN(BaseRNN):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, architecture="lstm", **kwargs)
-        self.encoder_rnn = nn.LSTM(input_size=self.encoder_embed_dim,
-                                   hidden_size=self.encoder_hidden_dim,
-                                   num_layers=self.encoder_n_layers,
-                                   dropout=self.encoder_dropout,
-                                   bidirectional=self.bidirectional, batch_first=True)
-        self.decoder_rnn = nn.LSTM(input_size=self.decoder_embed_dim,
-                                   hidden_size=self.decoder_hidden_dim,
-                                   num_layers=self.decoder_n_layers,
-                                   dropout=self.decoder_dropout,
-                                   bidirectional=self.bidirectional, batch_first=True)
+    def __init__(self, architecture, **kwargs):
+        super().__init__(architecture="lstm", **kwargs)
+
+        # Choose architecture
+        architecture = architecture.lower().strip()
+        if architecture == "rnn":
+            base_rnn = nn.RNN
+        elif architecture == "lstm":
+            base_rnn = nn.LSTM
+        elif architecture == "gru":
+            base_rnn = nn.GRU
+        else:
+            raise ValueError(f"Invalid architecture: {architecture}. Choose: 'rnn', 'lstm' or 'gru'")
+
+        self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
+                                    hidden_size=self.encoder_hidden_dim,
+                                    num_layers=self.encoder_n_layers,
+                                    dropout=self.encoder_dropout,
+                                    bidirectional=self.bidirectional, batch_first=True)
+        self.decoder_rnn = base_rnn(input_size=self.decoder_embed_dim,
+                                    hidden_size=self.decoder_hidden_dim,
+                                    num_layers=self.decoder_n_layers,
+                                    dropout=self.decoder_dropout,
+                                    bidirectional=self.bidirectional, batch_first=True)
+
 
 class GRU(BaseRNN):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, architecture="gru", **kwargs)
         self.encoder_rnn = nn.GRU(input_size=self.encoder_embed_dim,
-                                   hidden_size=self.encoder_hidden_dim,
-                                   num_layers=self.encoder_n_layers,
-                                   dropout=self.encoder_dropout,
-                                   bidirectional=self.bidirectional, batch_first=True)
-        self.decoder_rnn = nn.GRU(input_size=self.decoder_embed_dim,
-                                   hidden_size=self.decoder_hidden_dim,
-                                   num_layers=self.decoder_n_layers,
-                                   dropout=self.decoder_dropout,
-                                   bidirectional=self.bidirectional, batch_first=True)
+                                  hidden_size=self.encoder_hidden_dim,
+                                  num_layers=self.encoder_n_layers,
+                                  dropout=self.encoder_dropout,
+                                  bidirectional=self.bidirectional, batch_first=True)
+        self.decoder_rnn = nn.GRU(input_size=self.decoder_embed_dim + self.encoder_hidden_dim,
+                                  hidden_size=self.decoder_hidden_dim,
+                                  num_layers=self.decoder_n_layers,
+                                  dropout=self.decoder_dropout,
+                                  bidirectional=self.bidirectional, batch_first=True)
+        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim*2, self.trg_vocab_size)
+
+    def forward_encoder(self, x):
+        output, states = super().forward_encoder(x)
+        context = states.clone()
+        return output, (states, context)  # (hidden, context)
+
+    def forward_decoder(self, y, states):
+        hidden, context = states
+
+        # Fix "y" dimensions
+        if len(y.shape) == 1:  # (batch) => (batch, 1)
+            y = y.unsqueeze(1)
+        if len(y.shape) == 2 and y.shape[1] > 1:
+            y = y[:, -1].unsqueeze(1)  # Get last value
+
+        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
+        y_emb = self.trg_embeddings(y)
+        y_emb = self.dec_dropout(y_emb)
+
+        # Add context
+        tmp_context = context.transpose(1, 0).sum(axis=1, keepdims=True)  # The paper has just 1 layer
+        y_context = torch.cat((y_emb, tmp_context), dim=2)
+
+        # intput: (batch, 1-length, emb_dim), (n_layers * n_directions, batch, hidden_dim)
+        # output: (batch, length, hidden_dim * n_directions)
+        # hidden: (n_layers * n_directions, batch, hidden_dim)
+        output, hidden = self.decoder_rnn(y_context, hidden)
+
+        # Add context
+        tmp_hidden = hidden.transpose(1, 0).sum(axis=1, keepdims=True)   # The paper has just 1 layer
+        output = torch.cat((y_emb, tmp_hidden, tmp_context), dim=2)
+
+        # Get output: (batch, length, hidden_dim * n_directions) => (batch, length, trg_vocab_size)
+        output = self.output_layer(output)
+        return output, (hidden, context)
