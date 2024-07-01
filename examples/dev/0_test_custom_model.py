@@ -4,7 +4,7 @@ import os
 import torch
 torch.set_float32_matmul_precision("high")
 
-from autonmt.modules.models import Transformer, GenericRNN, GRU, GRUAttention
+from autonmt.modules.models import *
 from autonmt.preprocessing import DatasetBuilder
 from autonmt.toolkits import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
@@ -22,6 +22,7 @@ preprocess_splits_fn = lambda data, ds: preprocess_pairs(data["src"]["lines"], d
 preprocess_predict_fn = lambda data, ds: preprocess_lines(data["lines"], normalize_fn=normalize_fn)
 
 BASE_PATH = "/home/scarrion/datasets/translate"  # Remote
+BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Remote
 
 def main():
     # Create preprocessing for training
@@ -74,11 +75,11 @@ def main():
             # Instantiate vocabs and model
             src_vocab = Vocabulary(max_tokens=max_tokens_src).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
             trg_vocab = Vocabulary(max_tokens=max_tokens_tgt).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-            model = GRUAttention(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
+            model = AttentionRNN(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab), padding_idx=src_vocab.pad_id)
 
             # Define trainer
             runs_dir = train_ds.get_runs_path(toolkit="autonmt")
-            run_prefix = f"{model.architecture}-2L-{iters}ep__" + '_'.join(train_ds.id()[:2]).replace('/', '-')
+            run_prefix = f"{model.architecture}-{iters}ep__" + '_'.join(train_ds.id()[:2]).replace('/', '-')
             run_name = train_ds.get_run_name(run_prefix=run_prefix)  #+ f"__{int(time.time())}"
             trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                         runs_dir=runs_dir, run_name=run_name)
