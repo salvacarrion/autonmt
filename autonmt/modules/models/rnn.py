@@ -22,7 +22,7 @@ class SimpleRNN(LitSeq2Seq):
                  decoder_bidirectional=False,
                  teacher_force_ratio=0.5,
                  padding_idx=None,
-                 architecture="gru",
+                 architecture="rnn",
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture=architecture, **kwargs)
         self.encoder_embed_dim = encoder_embed_dim
@@ -137,8 +137,8 @@ class SimpleRNN(LitSeq2Seq):
 
 
 class ContextRNN(SimpleRNN):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, architecture="gru", **kwargs)
+    def __init__(self, *args, architecture="gru", **kwargs):
+        super().__init__(*args, architecture=architecture, **kwargs)
         base_rnn = self.get_base_rnn(self.architecture)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
                                   hidden_size=self.encoder_hidden_dim,
@@ -195,9 +195,10 @@ class ContextRNN(SimpleRNN):
         output = self.output_layer(output)
         return output, (states, context)
 
+
 class AttentionRNN(SimpleRNN):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, architecture="gru", **kwargs)
+    def __init__(self, *args, architecture="gru", **kwargs):
+        super().__init__(*args, architecture=architecture, **kwargs)
         base_rnn = self.get_base_rnn(self.architecture)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
                                   hidden_size=self.encoder_hidden_dim,
@@ -217,7 +218,61 @@ class AttentionRNN(SimpleRNN):
         self.enc_ffn = nn.Linear(self.encoder_hidden_dim * self.encoder_n_layers * 2, self.decoder_hidden_dim * self.decoder_n_layers)
         self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim + self.encoder_hidden_dim*2, self.trg_vocab_size)
 
-    def attention(self, hidden, encoder_outputs):
+    def forward_encoder(self, x):
+        # input: (B, L) =>
+        # output: (B, L, hidden_dim * n_directions)
+        # hidden: (n_layers * n_directions, batch, hidden_dim)
+        output, states = super().forward_encoder(x)
+
+        # Reshape hidden to (batch, n_layers * n_directions * hidden_dim)
+        states = states if isinstance(states, tuple) else (states,)  # Get hidden state
+        states = list(states)
+        for i in range(len(states)):
+            states[i] = states[i].transpose(0, 1).contiguous().view(states[i].size(1), -1)
+
+            # Apply the linear transformation
+            states[i] = torch.tanh(self.enc_ffn(states[i]))
+
+            # Reshape back to (n_layers, batch, decoder_hidden_dim)
+            states[i] = states[i].view(self.encoder_n_layers, -1, self.decoder_hidden_dim)
+
+        # Fix states shape
+        states = tuple(states) if len(states) > 1 else states[0]
+        return output, (states, output)
+
+
+    def forward_decoder(self, y, states):
+        states, enc_outputs = states
+
+        # Fix "y" dimensions
+        if len(y.shape) == 1:  # (batch) => (batch, 1)
+            y = y.unsqueeze(1)
+        if len(y.shape) == 2 and y.shape[1] > 1:
+            y = y[:, -1].unsqueeze(1)  # Get last value
+
+        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
+        y_emb = self.trg_embeddings(y)
+        y_emb = self.dec_dropout(y_emb)
+
+        # Attention (using only the top layer of hidden state)
+        attn = self.attention(states, enc_outputs)
+        attn = attn.unsqueeze(1)  # (B, L) => (B, 1, L)
+        weighted = torch.bmm(attn, enc_outputs)  # (B, 1, L) x (B, L, H) => (B, 1, H)
+
+        # intput: (batch, 1-length, emb_dim+w_emb_dim), (1, batch, hidden_dim)
+        # output: (batch, length, hidden_dim * n_directions)
+        # hidden: (n_layers * n_directions, batch, hidden_dim)
+        rnn_input = torch.cat((y_emb, weighted), dim=2)
+        output, states = self.decoder_rnn(rnn_input, states)
+
+        # Get output: => (B, 1-length, H+H+H)
+        output = torch.cat((output, weighted, y_emb), dim=2)
+        output = self.output_layer(output)  # (B, 1, H+H+H) => (B, 1, V)
+
+        return output, (states, enc_outputs)  # pass enc_outputs (trick)
+
+    def attention(self, states, encoder_outputs):
+        hidden = states[0][-1] if isinstance(states, tuple) else states[-1]  # Get hidden state
         src_len = encoder_outputs.shape[1]
 
         # Repeat decoder hidden state "src_len" times: (B, emb) => (B, src_len, hid_dim)
@@ -231,49 +286,3 @@ class AttentionRNN(SimpleRNN):
         # Compute attention
         attention = self.v(energy).squeeze(2)  # (B, L, H) => (B, L)  # "weight logits"
         return F.softmax(attention, dim=1)  # (B, L): normalized between 0..1 (attention)
-
-    def forward_encoder(self, x):
-        # input: (B, L) =>
-        # output: (B, L, hidden_dim * n_directions)
-        # hidden: (n_layers * n_directions, batch, hidden_dim)
-        output, hidden = super().forward_encoder(x)
-
-        # Reshape hidden to (batch, n_layers * n_directions * hidden_dim)
-        hidden = hidden.transpose(0, 1).contiguous().view(hidden.size(1), -1)
-
-        # Apply the linear transformation
-        hidden = torch.tanh(self.enc_ffn(hidden))
-
-        # Reshape back to (n_layers, batch, decoder_hidden_dim)
-        hidden = hidden.view(self.encoder_n_layers, -1, self.decoder_hidden_dim)
-
-        return output, (hidden, output)
-
-    def forward_decoder(self, y, states):
-        hidden, enc_outputs = states
-
-        # Fix "y" dimensions
-        if len(y.shape) == 1:  # (batch) => (batch, 1)
-            y = y.unsqueeze(1)
-        if len(y.shape) == 2 and y.shape[1] > 1:
-            y = y[:, -1].unsqueeze(1)  # Get last value
-
-        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
-        y_emb = self.trg_embeddings(y)
-        y_emb = self.dec_dropout(y_emb)
-
-        # Attention (using only the top layer of hidden state)
-        attn = self.attention(hidden[-1], enc_outputs)
-        attn = attn.unsqueeze(1)  # (B, L) => (B, 1, L)
-        weighted = torch.bmm(attn, enc_outputs)  # (B, 1, L) x (B, L, H) => (B, 1, H)
-
-        # intput: (batch, 1-length, emb_dim+w_emb_dim), (1, batch, hidden_dim)
-        # output: (batch, length, hidden_dim * n_directions)
-        # hidden: (n_layers * n_directions, batch, hidden_dim)
-        rnn_input = torch.cat((y_emb, weighted), dim=2)
-        output, hidden = self.decoder_rnn(rnn_input, hidden)
-
-        # Get output: => (B, 1-length, H+H+H)
-        output = torch.cat((output, weighted, y_emb), dim=2)
-        output = self.output_layer(output)  # (B, 1, H+H+H) => (B, 1, V)
-        return output, (hidden, enc_outputs)  # pass enc_outputs (trick)
