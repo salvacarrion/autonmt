@@ -130,9 +130,11 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._skip_val_metrics = skip_val_metrics
 
         # Dataloader: Training
-        sampler = BucketIterator(self.train_tds, batch_size=batch_size, sort_key=lambda x, y: len(x.split(' ')) + len(y.split(' ')), shuffle=True)
+        sampler = BucketIterator(self.train_tds, batch_size=batch_size,
+                                 sort_key=lambda x, y: len(x.split(' ')) + len(y.split(' ')),
+                                 sort_within_batch=self.model.packed_sequence, shuffle=True)
         train_loader = DataLoader(self.train_tds,
-                                  collate_fn=self.train_tds.get_collate_fn(max_tokens), sampler=sampler,
+                                  collate_fn=self.train_tds.get_collate_fn(max_tokens, sort_within_batch=self.model.packed_sequence), sampler=sampler,
                                   num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
                                   batch_size=batch_size, shuffle=False,
                                   )  # 'sampler' option is mutually exclusive with shuffle
@@ -140,8 +142,11 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Dataloader: Validation
         val_loaders = []
         for val_tds_i in self.val_tds:
+            sampler_i = BucketIterator(val_tds_i, batch_size=batch_size,
+                                     sort_key=lambda x, y: len(x.split(' ')) + len(y.split(' ')),
+                                     sort_within_batch=self.model.packed_sequence, shuffle=True)
             val_loaders.append(DataLoader(val_tds_i,
-                                          collate_fn=val_tds_i.get_collate_fn(max_tokens), sampler=None,
+                                          collate_fn=val_tds_i.get_collate_fn(max_tokens, sort_within_batch=self.model.packed_sequence), sampler=sampler_i,
                                           num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
                                           batch_size=batch_size, shuffle=False))
 

@@ -17,7 +17,7 @@ class LitSeq2Seq(pl.LightningModule):
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
         self.padding_idx = padding_idx
-        self.packed_sequence = packed_sequence
+        self.packed_sequence = packed_sequence  # Use for RNNs and to "sort within batches"
         self.architecture = architecture
 
         # Hyperparams (PyTorch Lightning stuff)

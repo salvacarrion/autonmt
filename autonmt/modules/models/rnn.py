@@ -1,4 +1,6 @@
 import random
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -89,7 +91,7 @@ class SimpleRNN(LitSeq2Seq):
 
         # Pack sequence
         if self.packed_sequence:
-            x_emb = nn.utils.rnn.pack_padded_sequence(x_emb, x_len.to('cpu'), batch_first=True, enforce_sorted=False)
+            x_emb = nn.utils.rnn.pack_padded_sequence(x_emb, x_len.to('cpu'), batch_first=True, enforce_sorted=True)
 
         # input: (length, batch, emb_dim)
         # output: (length, batch, hidden_dim * n_directions)

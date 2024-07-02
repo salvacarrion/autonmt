@@ -34,7 +34,7 @@ class Seq2SeqDataset(Dataset):
         src_line, trg_line = self.src_lines[idx], self.trg_lines[idx]
         return src_line, trg_line
 
-    def collate_fn(self, batch, max_tokens=None, **kwargs):
+    def collate_fn(self, batch, max_tokens=None, sort_within_batch=False, **kwargs):
         x_encoded, y_encoded = [], []
         x_max_len = y_max_len = 0
 
@@ -66,11 +66,18 @@ class Seq2SeqDataset(Dataset):
         x_padded = pad_sequence(x_encoded, batch_first=False, padding_value=self.src_vocab.pad_id).T
         y_padded = pad_sequence(y_encoded, batch_first=False, padding_value=self.trg_vocab.pad_id).T
 
+        # Sort these tensors pairs by the length of x_len
+        if sort_within_batch:
+            x_len, x_idx = x_len.sort(0, descending=True)
+            y_len = y_len[x_idx]
+            x_padded = x_padded[x_idx]
+            y_padded = y_padded[x_idx]
+
         # Check stuff
         assert x_padded.shape[0] == y_padded.shape[0] == len(x_encoded)  # Control samples
         assert max_tokens is None or (x_padded.numel() + y_padded.numel()) <= max_tokens  # Control max tokens
         return (x_padded, y_padded), (x_len, y_len)
 
-    def get_collate_fn(self, max_tokens):
-        return functools.partial(self.collate_fn, max_tokens=max_tokens)
+    def get_collate_fn(self, max_tokens, sort_within_batch):
+        return functools.partial(self.collate_fn, max_tokens=max_tokens, sort_within_batch=sort_within_batch)
 
