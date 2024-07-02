@@ -5,10 +5,11 @@ import numpy as np
 
 class BucketIterator(Sampler):
     def __init__(self, data_source, batch_size, sort_key, shuffle=True, sort_within_batch=False):
-        super().__init__(data_source)
+        super().__init__()
         self.data_source = data_source
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.sort_key = sort_key
         self.sort_within_batch = sort_within_batch
 
         # Sort indices by the specified key (e.g., sequence length)
@@ -27,9 +28,9 @@ class BucketIterator(Sampler):
             shuffled_indices = torch.randperm(len(self.buckets), generator=g).tolist()
             self.buckets = [self.buckets[i] for i in shuffled_indices]
 
-            # Sort within each bucket if required
-        # if self.sort_within_batch:
-        #     self.buckets = [sorted(bucket, key=lambda idx: len(self.data_source[idx][0].split(' ')), reverse=True) for bucket in self.buckets]
+        # Sort within each bucket if required
+        if self.sort_within_batch:
+            self.buckets = [sorted(bucket, key=lambda idx: self.sort_key(*self.data_source[idx]), reverse=True) for bucket in self.buckets]
 
         # Flatten the list of buckets into a list of indices
         indices = [idx for bucket in self.buckets for idx in bucket]

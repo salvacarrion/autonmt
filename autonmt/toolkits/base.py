@@ -130,12 +130,11 @@ class BaseTranslator(ABC):
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, fname), allow_overwrite=force_overwrite)
 
-
     def fit(self, train_ds, max_tokens=None, batch_size=128, max_epochs=1, patience=None,
             optimizer="adam", learning_rate=0.001, weight_decay=0, gradient_clip_val=0.0, accumulate_grad_batches=1,
             criterion="cross_entropy", monitor="val_loss",
             devices="auto", accelerator="auto", num_workers=0,
-            seed=None, force_overwrite=False, **kwargs):
+            seed=None, force_overwrite=False, use_bucketing=False, **kwargs):
         print("=> [Fit]: Started.")
 
         # Save training config
@@ -150,7 +149,7 @@ class BaseTranslator(ABC):
                    optimizer=optimizer, learning_rate=learning_rate, weight_decay=weight_decay, gradient_clip_val=gradient_clip_val, accumulate_grad_batches=accumulate_grad_batches,
                    criterion=criterion, monitor=monitor,
                    devices=devices, accelerator=accelerator, num_workers=num_workers,
-                   seed=seed, force_overwrite=force_overwrite, **kwargs)
+                   seed=seed, force_overwrite=force_overwrite, use_bucketing=use_bucketing, **kwargs)
 
     def predict(self, eval_datasets, metrics=None, beams=None, max_len_a=1.2, max_len_b=50,
                 max_tokens=None, batch_size=64,

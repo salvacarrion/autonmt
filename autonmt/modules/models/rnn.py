@@ -24,7 +24,7 @@ class SimpleRNN(LitSeq2Seq):
                  decoder_bidirectional=False,
                  teacher_force_ratio=0.5,
                  padding_idx=None,
-                 packed_sequence=True,
+                 packed_sequence=False,
                  architecture="rnn",
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=packed_sequence,
@@ -90,7 +90,7 @@ class SimpleRNN(LitSeq2Seq):
         x_emb = self.enc_dropout(x_emb)
 
         # Pack sequence
-        if self.packed_sequence:
+        if self.packed_sequence:  # Requires bucketing
             x_emb = nn.utils.rnn.pack_padded_sequence(x_emb, x_len.to('cpu'), batch_first=True, enforce_sorted=True)
 
         # input: (length, batch, emb_dim)

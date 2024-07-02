@@ -94,7 +94,7 @@ def main():
             wandb_params = None  #dict(project="architecture", entity="salvacarrion", reinit=True)
             trainer.fit(train_ds, max_epochs=iters, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
                         patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-                        wandb_params=wandb_params)
+                        wandb_params=wandb_params, use_bucketing=False)
 
             # Test model
             m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
