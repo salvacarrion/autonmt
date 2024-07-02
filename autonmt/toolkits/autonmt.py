@@ -21,6 +21,7 @@ from autonmt.modules.datasets.seq2seq_dataset import Seq2SeqDataset
 from autonmt.search.beam_search import beam_search
 from autonmt.search.greedy_search import greedy_search
 from autonmt.toolkits.base import BaseTranslator
+from autonmt.modules.samplers import *
 
 from torch.utils.data.sampler import SequentialSampler
 # from torchnlp.samplers import BucketBatchSampler
@@ -129,17 +130,18 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         self.model._skip_val_metrics = skip_val_metrics
 
         # Dataloader: Training
+        sampler = BucketIterator(self.train_tds, batch_size=batch_size, sort_key=lambda x, y: len(x.split(' ')) + len(y.split(' ')), shuffle=True)
         train_loader = DataLoader(self.train_tds,
-                                  collate_fn=self.train_tds.get_collate_fn(max_tokens),
+                                  collate_fn=self.train_tds.get_collate_fn(max_tokens), sampler=sampler,
                                   num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
-                                  batch_size=batch_size, shuffle=True,
-                                  )
+                                  batch_size=batch_size, shuffle=False,
+                                  )  # 'sampler' option is mutually exclusive with shuffle
 
         # Dataloader: Validation
         val_loaders = []
         for val_tds_i in self.val_tds:
             val_loaders.append(DataLoader(val_tds_i,
-                                          collate_fn=val_tds_i.get_collate_fn(max_tokens),
+                                          collate_fn=val_tds_i.get_collate_fn(max_tokens), sampler=None,
                                           num_workers=num_workers, persistent_workers=bool(num_workers), pin_memory=pin_memory,
                                           batch_size=batch_size, shuffle=False))
 

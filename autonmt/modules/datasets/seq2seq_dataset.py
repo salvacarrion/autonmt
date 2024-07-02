@@ -73,3 +73,4 @@ class Seq2SeqDataset(Dataset):
 
     def get_collate_fn(self, max_tokens):
         return functools.partial(self.collate_fn, max_tokens=max_tokens)
+
