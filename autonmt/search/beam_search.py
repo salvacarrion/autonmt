@@ -20,7 +20,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
     probabilities = []
     vocab_size = len(dataset.trg_vocab)
     with torch.no_grad():
-        for x, _ in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
+        for (x, _), (x_len, _) in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
             # Move to device
             x = x.to(device)
 
@@ -30,7 +30,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
             # dec_probs = torch.zeros(x.shape[0]).to(device)  # Sentence probability
 
             # Run encoder
-            memory = model.forward_encoder(x)
+            memory = model.forward_encoder(x, x_len)
 
             # Get top k word predictions
             next_probabilities = model.forward_decoder(dec_idxs, memory)[:, -1, :]

@@ -46,7 +46,7 @@ class Transformer(LitSeq2Seq):
         assert encoder_attention_heads == decoder_attention_heads
         assert encoder_ffn_embed_dim == decoder_ffn_embed_dim
 
-    def forward_encoder(self, x):
+    def forward_encoder(self, x, x_len, **kwargs):
         assert x.shape[1] <= self.max_src_positions
 
         # Encode src
@@ -57,7 +57,7 @@ class Transformer(LitSeq2Seq):
         state = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
         return None, state
 
-    def forward_decoder(self, y, state):
+    def forward_decoder(self, y, y_len, states, **kwargs):
         assert y.shape[1] <= self.max_trg_positions
 
         # Encode trg
@@ -68,15 +68,15 @@ class Transformer(LitSeq2Seq):
         # Make trg mask
         tgt_mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
 
-        output = self.transformer.decoder(tgt=y_emb, memory=state, tgt_mask=tgt_mask, memory_mask=None,
+        output = self.transformer.decoder(tgt=y_emb, memory=states, tgt_mask=tgt_mask, memory_mask=None,
                                           tgt_key_padding_mask=None, memory_key_padding_mask=None)
 
         # Get output
         output = output.transpose(0, 1)
         output = self.output_layer(output)
-        return output, state  # Return state for compatibility
+        return output, states  # Return state for compatibility
 
-    def forward_enc_dec(self, x, y):
-        _, states = self.forward_encoder(x)
-        output, _ = self.forward_decoder(y, states)
+    def forward_enc_dec(self, x, x_len, y, y_len, **kwargs):
+        _, states = self.forward_encoder(x, x_len, **kwargs)
+        output, _ = self.forward_decoder(y, y_len, states, **kwargs)
         return output

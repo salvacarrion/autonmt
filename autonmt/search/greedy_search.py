@@ -17,22 +17,23 @@ def greedy_search(model, dataset, sos_id, eos_id, pad_id, batch_size, max_tokens
 
     with torch.no_grad():
         outputs = []
-        for x, _ in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
+        for (x, _), (x_len, _) in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
             max_gen_length = int(max_len_a*x.shape[1] + max_len_b)
 
             # Run encoder
-            _, states = model.forward_encoder(x.to(device))
+            _, states = model.forward_encoder(x=x.to(device), x_len=x_len.to(device))
 
             # Set start token <sos> and initial probabilities
             y_pred = torch.full((x.shape[0], max_gen_length), pad_id, dtype=torch.long).to(device)  # (B, L)
             y_pred[:, 0] = sos_id
 
             # Iterate over trg tokens
+            x_pad_mask = (x != pad_id) if model.packed_sequence else None  # Mask padding
             eos_mask = torch.zeros(x.shape[0], dtype=torch.bool).to(device)
             max_iter = 0
             for i in range(1, max_gen_length):
                 max_iter = i
-                outputs_t, states = model.forward_decoder(y_pred[:, :i], states)
+                outputs_t, states = model.forward_decoder(y=y_pred[:, :i], state=states, x_pad_mask=x_pad_mask)
                 top1 = outputs_t[:, -1, :].argmax(1)  # Get most probable next-word (logits)
 
                 # Update y_pred for next iteration

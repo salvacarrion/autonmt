@@ -12,11 +12,12 @@ from autonmt.preprocessing.processors import decode_lines
 
 class LitSeq2Seq(pl.LightningModule):
 
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, architecture="base", **kwargs):
+    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=False, architecture="base", **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
         self.padding_idx = padding_idx
+        self.packed_sequence = packed_sequence
         self.architecture = architecture
 
         # Hyperparams (PyTorch Lightning stuff)
@@ -33,11 +34,15 @@ class LitSeq2Seq(pl.LightningModule):
         self.validation_step_outputs = defaultdict(list)
 
     @abstractmethod
-    def forward_encoder(self, *args, **kwargs):
+    def forward_encoder(self, x, x_len, **kwargs):
         pass
 
     @abstractmethod
-    def forward_decoder(self, *args, **kwargs):
+    def forward_decoder(self, y, y_len, states, **kwargs):
+        pass
+
+    @abstractmethod
+    def forward_enc_dec(self, x, x_len, y, y_len, **kwargs):
         pass
 
     def configure_optimizers(self):
@@ -117,19 +122,13 @@ class LitSeq2Seq(pl.LightningModule):
         # Free memory
         self.validation_step_outputs.clear()
 
-    def forward_enc_dec(self, x, y):
-        values = self.forward_encoder(x)
-        values = self.forward_decoder(y, **values)  # (B, L, E)
-        output = values["output"]
-        return output
-
     def _step(self, batch, batch_idx, log_prefix):
-        x, y = batch
+        (x, y), (x_len, y_len) = batch
 
         # Forward => (Batch, Length) => (Batch, Length, Vocab)
         # The input of the decoder needs the <sos>, but its output is shifted as it starts with the first word, not
         # with the <sos>. Therefore, we need to remove the last token from 'y'
-        output = self.forward_enc_dec(x, y[:, :-1])
+        output = self.forward_enc_dec(x=x, x_len=x_len, y=y[:, :-1], y_len=y_len)
 
         # Remove the <sos> token from the target
         y = y[:, 1:]

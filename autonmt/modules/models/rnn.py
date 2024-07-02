@@ -22,9 +22,11 @@ class SimpleRNN(LitSeq2Seq):
                  decoder_bidirectional=False,
                  teacher_force_ratio=0.5,
                  padding_idx=None,
+                 packed_sequence=True,
                  architecture="rnn",
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture=architecture, **kwargs)
+        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=packed_sequence,
+                         architecture=architecture, **kwargs)
         self.encoder_embed_dim = encoder_embed_dim
         self.decoder_embed_dim = decoder_embed_dim
         self.encoder_hidden_dim = encoder_hidden_dim
@@ -80,19 +82,27 @@ class SimpleRNN(LitSeq2Seq):
             return None
             # raise ValueError(f"Invalid architecture: {architecture}. Choose: 'rnn', 'lstm' or 'gru'")
 
-    def forward_encoder(self, x):
+    def forward_encoder(self, x, x_len, **kwargs):
         # Encode trg: (batch, length) => (batch, length, emb_dim)
         x_emb = self.src_embeddings(x)
         x_emb = self.enc_dropout(x_emb)
+
+        # Pack sequence
+        if self.packed_sequence:
+            x_emb = nn.utils.rnn.pack_padded_sequence(x_emb, x_len.to('cpu'), batch_first=True, enforce_sorted=False)
 
         # input: (length, batch, emb_dim)
         # output: (length, batch, hidden_dim * n_directions)
         # hidden: (n_layers * n_directions, batch, hidden_dim)
         # cell: (n_layers * n_directions, batch, hidden_dim)
         output, states = self.encoder_rnn(x_emb)
+
+        # Unpack sequence
+        if self.packed_sequence:
+            output, _ = nn.utils.rnn.pad_packed_sequence(output, batch_first=True)
         return output, states
 
-    def forward_decoder(self, y, states):
+    def forward_decoder(self, y, y_len, states, **kwargs):
         # Fix "y" dimensions
         if len(y.shape) == 1:  # (batch) => (batch, 1)
             y = y.unsqueeze(1)
@@ -113,17 +123,18 @@ class SimpleRNN(LitSeq2Seq):
         output = self.output_layer(output)
         return output, states
 
-    def forward_enc_dec(self, x, y):
+    def forward_enc_dec(self, x, x_len, y, y_len, **kwargs):
         # Run encoder
-        _, states = self.forward_encoder(x)
+        _, states = self.forward_encoder(x, x_len)
 
         y_pred = y[:, 0]  # <sos>
         outputs = []  # Doesn't contain <sos> token
 
         # Iterate over trg tokens
+        x_pad_mask = (x != self.padding_idx) if self.packed_sequence else None  # Mask padding
         trg_length = y.shape[1]
         for t in range(trg_length):
-            outputs_t, states = self.forward_decoder(y_pred, states)  # (B, L, E)
+            outputs_t, states = self.forward_decoder(y=y_pred, y_len=y_len, states=states, x_pad_mask=x_pad_mask, **kwargs)  # (B, L, E)
             outputs.append(outputs_t)  # (B, L, V)
 
             # Next input?
@@ -141,19 +152,19 @@ class ContextRNN(SimpleRNN):
         super().__init__(*args, architecture=architecture, **kwargs)
         base_rnn = self.get_base_rnn(self.architecture)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
-                                  hidden_size=self.encoder_hidden_dim,
-                                  num_layers=self.encoder_n_layers,
-                                  dropout=self.encoder_dropout,
-                                  bidirectional=self.encoder_bidirectional, batch_first=True)
+                                    hidden_size=self.encoder_hidden_dim,
+                                    num_layers=self.encoder_n_layers,
+                                    dropout=self.encoder_dropout,
+                                    bidirectional=self.encoder_bidirectional, batch_first=True)
         self.decoder_rnn = base_rnn(input_size=self.decoder_embed_dim + self.encoder_hidden_dim,
-                                  hidden_size=self.decoder_hidden_dim,
-                                  num_layers=self.decoder_n_layers,
-                                  dropout=self.decoder_dropout,
-                                  bidirectional=self.decoder_bidirectional, batch_first=True)
-        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim*2, self.trg_vocab_size)
+                                    hidden_size=self.decoder_hidden_dim,
+                                    num_layers=self.decoder_n_layers,
+                                    dropout=self.decoder_dropout,
+                                    bidirectional=self.decoder_bidirectional, batch_first=True)
+        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim * 2, self.trg_vocab_size)
 
-    def forward_encoder(self, x):
-        output, states = super().forward_encoder(x)
+    def forward_encoder(self, x, x_len, **kwargs):
+        output, states = super().forward_encoder(x, x_len)
 
         # Clone states
         if isinstance(states, tuple):  # Trick to save the context (last hidden state of the encoder)
@@ -163,7 +174,7 @@ class ContextRNN(SimpleRNN):
 
         return output, (states, context)  # (states, context)
 
-    def forward_decoder(self, y, states):
+    def forward_decoder(self, y, y_len, states, **kwargs):
         states, context = states
 
         # Fix "y" dimensions
@@ -188,7 +199,7 @@ class ContextRNN(SimpleRNN):
 
         # Add context
         tmp_hidden = states[0] if isinstance(states, tuple) else states  # Get hidden state
-        tmp_hidden = tmp_hidden.transpose(1, 0).sum(axis=1, keepdims=True)   # The paper has just 1 layer
+        tmp_hidden = tmp_hidden.transpose(1, 0).sum(axis=1, keepdims=True)  # The paper has just 1 layer
         output = torch.cat((y_emb, tmp_hidden, tmp_context), dim=2)
 
         # Get output: (batch, length, hidden_dim * n_directions) => (batch, length, trg_vocab_size)
@@ -201,28 +212,30 @@ class AttentionRNN(SimpleRNN):
         super().__init__(*args, architecture=architecture, **kwargs)
         base_rnn = self.get_base_rnn(self.architecture)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
-                                  hidden_size=self.encoder_hidden_dim,
-                                  num_layers=self.encoder_n_layers,
-                                  dropout=self.encoder_dropout,
-                                  bidirectional=True, batch_first=True)
-        self.decoder_rnn = base_rnn(input_size=self.decoder_embed_dim + self.encoder_hidden_dim*2,
-                                  hidden_size=self.decoder_hidden_dim,
-                                  num_layers=self.decoder_n_layers,
-                                  dropout=self.decoder_dropout,
-                                  bidirectional=False, batch_first=True)
+                                    hidden_size=self.encoder_hidden_dim,
+                                    num_layers=self.encoder_n_layers,
+                                    dropout=self.encoder_dropout,
+                                    bidirectional=True, batch_first=True)
+        self.decoder_rnn = base_rnn(input_size=self.decoder_embed_dim + self.encoder_hidden_dim * 2,
+                                    hidden_size=self.decoder_hidden_dim,
+                                    num_layers=self.decoder_n_layers,
+                                    dropout=self.decoder_dropout,
+                                    bidirectional=False, batch_first=True)
 
         # Attention
         self.attn = nn.Linear((self.encoder_hidden_dim * 2) + self.decoder_hidden_dim, self.decoder_hidden_dim)
         self.v = nn.Linear(self.decoder_hidden_dim, 1, bias=False)
 
-        self.enc_ffn = nn.Linear(self.encoder_hidden_dim * self.encoder_n_layers * 2, self.decoder_hidden_dim * self.decoder_n_layers)
-        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim + self.encoder_hidden_dim*2, self.trg_vocab_size)
+        self.enc_ffn = nn.Linear(self.encoder_hidden_dim * self.encoder_n_layers * 2,
+                                 self.decoder_hidden_dim * self.decoder_n_layers)
+        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim + self.encoder_hidden_dim * 2,
+                                      self.trg_vocab_size)
 
-    def forward_encoder(self, x):
+    def forward_encoder(self, x, x_len, **kwargs):
         # input: (B, L) =>
         # output: (B, L, hidden_dim * n_directions)
         # hidden: (n_layers * n_directions, batch, hidden_dim)
-        output, states = super().forward_encoder(x)
+        output, states = super().forward_encoder(x, x_len)
 
         # Reshape hidden to (batch, n_layers * n_directions * hidden_dim)
         states = states if isinstance(states, tuple) else (states,)  # Get hidden state
@@ -240,8 +253,7 @@ class AttentionRNN(SimpleRNN):
         states = tuple(states) if len(states) > 1 else states[0]
         return output, (states, output)
 
-
-    def forward_decoder(self, y, states):
+    def forward_decoder(self, y, y_len, states, x_pad_mask=None, **kwargs):
         states, enc_outputs = states
 
         # Fix "y" dimensions
@@ -255,7 +267,7 @@ class AttentionRNN(SimpleRNN):
         y_emb = self.dec_dropout(y_emb)
 
         # Attention (using only the top layer of hidden state)
-        attn = self.attention(states, enc_outputs)
+        attn = self.attention(states, enc_outputs, x_pad_mask)
         attn = attn.unsqueeze(1)  # (B, L) => (B, 1, L)
         weighted = torch.bmm(attn, enc_outputs)  # (B, 1, L) x (B, L, H) => (B, 1, H)
 
@@ -271,7 +283,7 @@ class AttentionRNN(SimpleRNN):
 
         return output, (states, enc_outputs)  # pass enc_outputs (trick)
 
-    def attention(self, states, encoder_outputs):
+    def attention(self, states, encoder_outputs, x_pad_mask):
         hidden = states[0][-1] if isinstance(states, tuple) else states[-1]  # Get hidden state
         src_len = encoder_outputs.shape[1]
 
@@ -285,4 +297,9 @@ class AttentionRNN(SimpleRNN):
 
         # Compute attention
         attention = self.v(energy).squeeze(2)  # (B, L, H) => (B, L)  # "weight logits"
+
+        # Mask attention
+        if x_pad_mask is not None:
+            attention = attention.masked_fill(x_pad_mask == 0, -1e10)
+
         return F.softmax(attention, dim=1)  # (B, L): normalized between 0..1 (attention)

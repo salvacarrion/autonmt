@@ -58,6 +58,10 @@ class Seq2SeqDataset(Dataset):
                 print(msg.format(drop_ratio, max_tokens))
                 break
 
+        # Get lengths
+        x_len = torch.tensor([len(x) for x in x_encoded], dtype=torch.long)
+        y_len = torch.tensor([len(y) for y in y_encoded], dtype=torch.long)
+
         # Pad sequence
         x_padded = pad_sequence(x_encoded, batch_first=False, padding_value=self.src_vocab.pad_id).T
         y_padded = pad_sequence(y_encoded, batch_first=False, padding_value=self.trg_vocab.pad_id).T
@@ -65,7 +69,7 @@ class Seq2SeqDataset(Dataset):
         # Check stuff
         assert x_padded.shape[0] == y_padded.shape[0] == len(x_encoded)  # Control samples
         assert max_tokens is None or (x_padded.numel() + y_padded.numel()) <= max_tokens  # Control max tokens
-        return x_padded, y_padded
+        return (x_padded, y_padded), (x_len, y_len)
 
     def get_collate_fn(self, max_tokens):
         return functools.partial(self.collate_fn, max_tokens=max_tokens)
