@@ -475,8 +475,7 @@ class BaseTranslator(ABC):
             vocab_size = f"{len(self.src_vocab)}"
 
         # Get model params
-        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        no_trainable_params = sum(p.numel() for p in self.model.parameters() if not p.requires_grad)
+        total_params, trainable_params, no_trainable_params = self.model.count_parameters()
 
         # Report
         report_dict = {
@@ -486,10 +485,10 @@ class BaseTranslator(ABC):
             "eval_datetime": str(datetime.datetime.now()),
 
             # Model
-            "model__architecture": self.model.__class__.__name__,
+            "model__architecture": self.model.architecture,
             "model__trainable_params": trainable_params,
             "model__no_trainable_params": no_trainable_params,
-            "model__total_params": trainable_params + no_trainable_params,
+            "model__total_params": total_params,
             "model__dtype": str(self.model.dtype),
 
             # Vocab

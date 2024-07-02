@@ -33,7 +33,7 @@ def greedy_search(model, dataset, sos_id, eos_id, pad_id, batch_size, max_tokens
             max_iter = 0
             for i in range(1, max_gen_length):
                 max_iter = i
-                outputs_t, states = model.forward_decoder(y=y_pred[:, :i], state=states, x_pad_mask=x_pad_mask)
+                outputs_t, states = model.forward_decoder(y=y_pred[:, :i], y_len=None, states=states, x_pad_mask=x_pad_mask)
                 top1 = outputs_t[:, -1, :].argmax(1)  # Get most probable next-word (logits)
 
                 # Update y_pred for next iteration

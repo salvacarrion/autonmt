@@ -25,10 +25,11 @@ class SimpleRNN(LitSeq2Seq):
                  teacher_force_ratio=0.5,
                  padding_idx=None,
                  packed_sequence=False,
-                 architecture="rnn",
+                 base_rnn="rnn",
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=packed_sequence,
-                         architecture=architecture, **kwargs)
+                         base_rnn=base_rnn, architecture=f"{self.__class__.__name__}-{base_rnn.upper()}", **kwargs)
+        self.base_rnn = base_rnn
         self.encoder_embed_dim = encoder_embed_dim
         self.decoder_embed_dim = decoder_embed_dim
         self.encoder_hidden_dim = encoder_hidden_dim
@@ -49,7 +50,7 @@ class SimpleRNN(LitSeq2Seq):
         self.output_layer = nn.Linear(decoder_hidden_dim, trg_vocab_size)
 
         # RNN
-        base_rnn = self.get_base_rnn(self.architecture)
+        base_rnn = self.get_base_rnn(self.base_rnn)
         if base_rnn is None:
             self.encoder_rnn = None
             self.decoder_rnn = None
@@ -71,18 +72,16 @@ class SimpleRNN(LitSeq2Seq):
         assert encoder_n_layers == decoder_n_layers
 
     @staticmethod
-    def get_base_rnn(architecture):
-        # Choose architecture
-        architecture = architecture.lower().strip()
-        if architecture == "rnn":
+    def get_base_rnn(base_rnn):
+        base_rnn = base_rnn.lower().strip()
+        if base_rnn == "rnn":
             return nn.RNN
-        elif architecture == "lstm":
+        elif base_rnn == "lstm":
             return nn.LSTM
-        elif architecture == "gru":
+        elif base_rnn == "gru":
             return nn.GRU
         else:
             return None
-            # raise ValueError(f"Invalid architecture: {architecture}. Choose: 'rnn', 'lstm' or 'gru'")
 
     def forward_encoder(self, x, x_len, **kwargs):
         # Encode trg: (batch, length) => (batch, length, emb_dim)
@@ -150,9 +149,9 @@ class SimpleRNN(LitSeq2Seq):
 
 
 class ContextRNN(SimpleRNN):
-    def __init__(self, *args, architecture="gru", **kwargs):
-        super().__init__(*args, architecture=architecture, **kwargs)
-        base_rnn = self.get_base_rnn(self.architecture)
+    def __init__(self, *args, base_rnn="gru", **kwargs):
+        super().__init__(*args, base_rnn=base_rnn, **kwargs)
+        base_rnn = self.get_base_rnn(base_rnn=base_rnn)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
                                     hidden_size=self.encoder_hidden_dim,
                                     num_layers=self.encoder_n_layers,
@@ -210,9 +209,9 @@ class ContextRNN(SimpleRNN):
 
 
 class AttentionRNN(SimpleRNN):
-    def __init__(self, *args, architecture="gru", **kwargs):
-        super().__init__(*args, architecture=architecture, **kwargs)
-        base_rnn = self.get_base_rnn(self.architecture)
+    def __init__(self, *args, base_rnn="gru", **kwargs):
+        super().__init__(*args, base_rnn=base_rnn, **kwargs)
+        base_rnn = self.get_base_rnn(self.base_rnn)
         self.encoder_rnn = base_rnn(input_size=self.encoder_embed_dim,
                                     hidden_size=self.encoder_hidden_dim,
                                     num_layers=self.encoder_n_layers,

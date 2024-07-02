@@ -12,13 +12,13 @@ from autonmt.preprocessing.processors import decode_lines
 
 class LitSeq2Seq(pl.LightningModule):
 
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=False, architecture="base", **kwargs):
+    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=False, architecture=None, **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
         self.trg_vocab_size = trg_vocab_size
         self.padding_idx = padding_idx
         self.packed_sequence = packed_sequence  # Use for RNNs and to "sort within batches"
-        self.architecture = architecture
+        self.architecture = architecture if architecture else self.__class__.__name__
 
         # Hyperparams (PyTorch Lightning stuff)
         self.strategy = None
@@ -44,6 +44,13 @@ class LitSeq2Seq(pl.LightningModule):
     @abstractmethod
     def forward_enc_dec(self, x, x_len, y, y_len, **kwargs):
         pass
+
+    def count_parameters(self):
+        # Get model params
+        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        no_trainable_params = sum(p.numel() for p in self.parameters() if not p.requires_grad)
+        total_params = trainable_params + no_trainable_params
+        return total_params, trainable_params, no_trainable_params
 
     def configure_optimizers(self):
         optim_fn = {
