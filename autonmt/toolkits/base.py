@@ -16,7 +16,6 @@ from autonmt.bundle.utils import (
     count_file_lines,
     is_debug_enabled,
     make_dir,
-    parse_beer_json,
     parse_bertscore_json,
     parse_comet_json,
     parse_fairseq_txt,
@@ -79,14 +78,12 @@ class BaseTranslator(ABC):
     TOOL_PARSERS = {"sacrebleu": {"filename": "sacrebleu_scores", "py": (parse_sacrebleu_json, "json")},
                     "bertscore": {"filename": "bertscore_scores", "py": (parse_bertscore_json, "json")},
                     "comet": {"filename": "comet_scores", "py": (parse_comet_json, "json")},
-                    "beer": {"filename": "beer_scores", "py": (parse_beer_json, "json")},
                     "huggingface": {"filename": "huggingface_scores", "py": (parse_huggingface_json, "json")},
                     "fairseq": {"filename": "fairseq_scores", "py": (parse_fairseq_txt, "txt")},
                     }
     TOOL2METRICS = {"sacrebleu": {"bleu", "chrf", "ter"},
                     "bertscore": {"bertscore"},
                     "comet": {"comet"},
-                    "beer": {"beer"},
                     "fairseq": {"fairseq"},
                     # "huggingface": "huggingface",
                     }
@@ -649,7 +646,7 @@ class BaseTranslator(ABC):
         import torch
         import random
         import numpy as np
-        from lightning_fabric.utilities.seed import seed_everything
+        import pytorch_lightning as pl
 
         # Define seed
         seed = seed if seed is not None else int(time.time()) % 2**32
@@ -658,7 +655,7 @@ class BaseTranslator(ABC):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
-        seed_everything(seed)
+        pl.seed_everything(seed)
 
         # Tricky: https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
         torch.use_deterministic_algorithms(use_deterministic_algorithms)

@@ -374,7 +374,15 @@ class DatasetBuilder:
 
                 # Read lines, clean and shuffle
                 log.info(f"\t=> Processing from '{ds.source_data}'...")
-                lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
+                src_lines = read_file_lines(src_path)
+                trg_lines = read_file_lines(trg_path)
+                # zip would silently truncate; raw files must be aligned line-for-line.
+                if len(src_lines) != len(trg_lines):
+                    raise ValueError(
+                        f"Raw source/target line count mismatch for '{ds.id(as_path=True)}': "
+                        f"{len(src_lines)} ({src_path}) vs {len(trg_lines)} ({trg_path})"
+                    )
+                lines = list(zip(src_lines, trg_lines))
 
                 # Parse split sizes
                 train_size, val_size, test_size = ds.splits_sizes

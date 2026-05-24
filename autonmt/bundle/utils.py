@@ -77,25 +77,6 @@ def rename_file(base_path, old_name, new_name):
         pass
 
 
-def make_empty_path(path, force_overwrite, interactive=False, safe_seconds=0):
-    # Check if the directory and can be deleted it
-    is_empty = os.listdir(path) == []
-    if force_overwrite and os.path.exists(path) and not is_empty:
-        log.warning(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
-        res = ask_yes_or_no(question="Do you want to continue?", interactive=interactive)
-        if res:
-            if safe_seconds:
-                log.info(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
-                time.sleep(safe_seconds)
-            # Delete path
-            shutil.rmtree(path)
-
-    # Create path if it doesn't exist
-    make_dir(path)
-    is_empty = os.listdir(path) == []
-    return is_empty
-
-
 def get_split_files(split_names, langs):
     return [f"{fname}.{ext}" for fname in split_names for ext in langs]
 
@@ -308,16 +289,8 @@ def parse_huggingface_json(text):
     return parse_json_metrics(text, fields={"score"})
 
 
-def parse_huggingface_txt(text):
-    raise NotImplementedError("'Huggingface' is only available through the json file")
-
-
 def parse_sacrebleu_json(text):
     return parse_json_metrics(text, fields={"score"})
-
-
-def parse_sacrebleu_txt(text):
-    raise NotImplementedError("'Sacrebleu' is only available through the json file")
 
 
 def parse_bertscore_json(text):
@@ -341,18 +314,6 @@ def parse_comet_txt(text):
     line = text[-1].strip()
     groups = re.search(pattern, line).groups()
     result = {"comet": {"score": float(groups[0])}}
-    return result
-
-
-def parse_beer_json(text):
-    raise NotImplementedError("'Beer' is only available through the text file")
-
-
-def parse_beer_txt(text):
-    pattern = r"total BEER ([01]\.\d*)"
-    line = text[-1].strip()
-    groups = re.search(pattern, line).groups()
-    result = {"beer": {"score": float(groups[0])}}
     return result
 
 
