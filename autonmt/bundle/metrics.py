@@ -4,9 +4,22 @@ from tqdm import tqdm
 
 import bert_score
 import sacrebleu
-from datasets import load_metric  # https://huggingface.co/metrics
 
 from autonmt.bundle import utils
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
+
+# HuggingFace migrated metrics out of ``datasets`` into the standalone ``evaluate``
+# package (``load_metric`` was removed). We support both for backwards compatibility:
+# if neither is available, ``compute_huggingface`` raises at call time, not at import.
+try:
+    from evaluate import load as _hf_load_metric
+except ImportError:
+    try:
+        from datasets import load_metric as _hf_load_metric  # legacy datasets<2.20
+    except ImportError:
+        _hf_load_metric = None
 
 
 def compute_sacrebleu(ref_file, hyp_file, output_file, metrics):
@@ -105,7 +118,7 @@ def _comet(src_lines, hyp_lines, ref_lines):
     try:
         import comet
     except ImportError as e:
-        print("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
+        log.warning("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
 
     # Get model
     model_path = comet.download_model("wmt20-comet-da")
@@ -133,7 +146,7 @@ def compute_fairseq(ref_file, hyp_file, output_file):
         lines = [utils.read_file_lines(generate_test_path, autoclean=True)[-1]]
         utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
     else:
-        print("\t- [INFO]: No 'generate-test.txt' was found.")
+        log.info("\t- [INFO]: No 'generate-test.txt' was found.")
 
 
 def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_lang):
@@ -141,6 +154,12 @@ def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_
 
     if not metrics:
         return
+
+    if _hf_load_metric is None:
+        raise ImportError(
+            "HuggingFace metrics require the 'evaluate' package (or legacy 'datasets'<2.20). "
+            "Install with: pip install evaluate"
+        )
 
     # Read files
     hyp_lines = utils.read_file_lines(hyp_file, autoclean=True)
@@ -155,7 +174,7 @@ def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_
             ref_lines_tok = [[x] for x in ref_lines]
 
             # Compute score
-            hg_metric = load_metric(metric)
+            hg_metric = _hf_load_metric(metric)
             hg_metric.add_batch(predictions=hyp_lines_tok, references=ref_lines_tok)
             result = hg_metric.compute()
 
@@ -168,7 +187,7 @@ def compute_huggingface(src_file, hyp_file, ref_file, output_file, metrics, trg_
             # Add results
             scores.append(d)
         except Exception as e:
-            print(f"\t- [HUGGINGFACE ERROR]: Ignoring metric: {str(metric)}.\n"
+            log.info(f"\t- [HUGGINGFACE ERROR]: Ignoring metric: {str(metric)}.\n"
                   f"\t                       Message: {str(e)}")
 
     # Save json

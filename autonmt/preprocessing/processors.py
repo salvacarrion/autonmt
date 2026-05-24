@@ -1,4 +1,8 @@
 import collections
+import os
+import random
+import shutil
+
 import numpy as np
 
 from tokenizers import normalizers
@@ -6,7 +10,11 @@ from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 from autonmt.preprocessing import tokenizers
 from autonmt.bundle import utils
-from autonmt.bundle.utils import *
+from autonmt.bundle.utils import read_file_lines, write_file_lines, shuffle_in_order
+
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
 
 
 def preprocess_pairs(src_lines, tgt_lines, normalize_fn=None, min_len=None, max_len=None, max_len_percentile=None,
@@ -16,7 +24,7 @@ def preprocess_pairs(src_lines, tgt_lines, normalize_fn=None, min_len=None, max_
 
     # Normalize lines: lowercase, strip, NFKC
     if normalize_fn:
-        print(f"\t\t- Normalizing {len(src_lines):,} pairs...")
+        log.info(f"\t\t- Normalizing {len(src_lines):,} pairs...")
         src_lines = normalize_fn(src_lines)
         tgt_lines = normalize_fn(tgt_lines)
 
@@ -34,43 +42,43 @@ def preprocess_pairs(src_lines, tgt_lines, normalize_fn=None, min_len=None, max_
             max_len_src = np.percentile(np.array(src_lengths), max_len_ratio_percentile)
             max_len_trg = np.percentile(np.array(trg_lengths), max_len_ratio_percentile)
 
-        print("\t\t- Checking lengths...")
+        log.info("\t\t- Checking lengths...")
         total_lines = len(src_lines)
         src_lines, tgt_lines = zip(*[(src, tgt) for src, tgt in zip(src_lines, tgt_lines) if
                                      min_len_src <= len(src) <= max_len_src and
                                      min_len_trg <= len(tgt) <= max_len_trg])
         assert len(src_lines) == len(tgt_lines)
-        print(f"\t\t\t- Removed {total_lines - len(src_lines):,} lines with invalid lengths")
+        log.info(f"\t\t\t- Removed {total_lines - len(src_lines):,} lines with invalid lengths")
 
     # Remove duplicate pairs of source and target lines
     if remove_duplicates:
-        print("\t\t- Removing duplicates...")
+        log.info("\t\t- Removing duplicates...")
         total_lines = len(src_lines)
         src_lines, tgt_lines = list(zip(*[item for item, count in collections.Counter(zip(src_lines, tgt_lines)).items()]))
         assert len(src_lines) == len(tgt_lines)
-        print(f"\t\t\t- Removed {total_lines - len(src_lines):,} duplicate lines")
+        log.info(f"\t\t\t- Removed {total_lines - len(src_lines):,} duplicate lines")
 
     # Remove language pairs that differ too much in length
     if max_len_ratio_percentile and max_len_ratio_percentile < 100:  # Percentile 99.95 -> 2.5 x src_len (aprox.)
-        print("\t\t- Removing pairs whose length ratios differ too much...")
+        log.info("\t\t- Removing pairs whose length ratios differ too much...")
         total_lines = len(src_lines)
         diff_ratios = np.array([max(len(src), len(trg)) / min(len(src), len(trg)) for (src, trg) in zip(src_lines, tgt_lines)])
         threshold = np.percentile(diff_ratios, max_len_ratio_percentile)
         if threshold < safe_len_ratio:  # Do not remove pairs below this threshold
-            print(f"\t\t\t- Percentile threshold overruled (safe threshold: {safe_len_ratio:.2f})")
+            log.info(f"\t\t\t- Percentile threshold overruled (safe threshold: {safe_len_ratio:.2f})")
             threshold = max(threshold, safe_len_ratio)
-        print("\t\t\t- Threshold: {:.2f} (percentile: {:.2f})".format(threshold, max_len_ratio_percentile))
+        log.info("\t\t\t- Threshold: {:.2f} (percentile: {:.2f})".format(threshold, max_len_ratio_percentile))
         src_lines, tgt_lines = list(zip(*[(src, trg) for (src, trg) in zip(src_lines, tgt_lines) if max(len(src), len(trg))/min(len(src), len(trg)) <= threshold]))
         assert len(src_lines) == len(tgt_lines)
-        print(f"\t\t\t- Removed {total_lines - len(src_lines):,} lines due to the length difference")
+        log.info(f"\t\t\t- Removed {total_lines - len(src_lines):,} lines due to the length difference")
 
     # Shuffle lines
     if shuffle_lines:
-        print(f"\t\t- Shuffling {len(src_lines):,} pairs...")
+        log.info(f"\t\t- Shuffling {len(src_lines):,} pairs...")
         src_lines, tgt_lines = shuffle_in_order(src_lines, tgt_lines)
 
     # Summary
-    print(f"\t\t- Total lines removed {total_lines0-len(src_lines):,} ({1-len(src_lines)/total_lines0:.3f}%)")
+    log.info(f"\t\t- Total lines removed {total_lines0-len(src_lines):,} ({1-len(src_lines)/total_lines0:.3f}%)")
     return src_lines, tgt_lines
 
 def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remove_duplicates=False, shuffle_lines=False):
@@ -82,30 +90,30 @@ def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remov
 
     # Normalize lines: lowercase, strip, NFKC
     if normalize_fn:
-        print(f"\t\t- Normalizing {len(lines):,} lines...")
+        log.info(f"\t\t- Normalizing {len(lines):,} lines...")
         lines = normalize_fn(lines)
 
     # Remove source and target lines that are too long or too short
     if min_len is not None or max_len is not None:
-        print("\t\t- Checking lengths...")
+        log.info("\t\t- Checking lengths...")
         total_lines = len(lines)
         lines = [l for l in lines if min_len <= len(l) <= max_len]
-        print(f"\t\t\t- Removed {total_lines - len(lines):,} lines with invalid lengths")
+        log.info(f"\t\t\t- Removed {total_lines - len(lines):,} lines with invalid lengths")
 
     # Remove duplicate pairs of source and target lines
     if remove_duplicates:
-        print("\t\t- Removing duplicates...")
+        log.info("\t\t- Removing duplicates...")
         total_lines = len(lines)
         lines = [item for item, count in collections.Counter(lines).items()]
-        print(f"\t\t\t- Removed {total_lines - len(lines):,} duplicate lines")
+        log.info(f"\t\t\t- Removed {total_lines - len(lines):,} duplicate lines")
 
     # Shuffle lines
     if shuffle_lines:
-        print(f"\t\t- Shuffling {len(lines):,} lines...")
+        log.info(f"\t\t- Shuffling {len(lines):,} lines...")
         random.shuffle(lines)
 
     # Summary
-    print(f"\t\t- Total lines removed {total_lines0-len(lines):,} ({1-len(lines)/total_lines0:.3f}%)")
+    log.info(f"\t\t- Total lines removed {total_lines0-len(lines):,} ({1-len(lines)/total_lines0:.3f}%)")
     return lines
 
 def normalize_lines(lines, seq=None):

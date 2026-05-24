@@ -36,16 +36,11 @@ def moses_detokenizer_file(input_file, output_file, lang):
     lines = _moses_detokenizer(lines, lang)
     utils.write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
 
-def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_sentence_size, character_coverage, split_digits):
-    # Enable
-    byte_fallback = False
-    if "+bytes" in subword_model:
-        subword_model = subword_model.replace("+bytes", "")
-        byte_fallback = True
-
+def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_sentence_size,
+                   character_coverage, split_digits, byte_fallback=False):
     # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
     spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix,
-                                   model_type=subword_model, vocab_size=vocab_size,
+                                   model_type=str(subword_model), vocab_size=vocab_size,
                                    input_sentence_size=input_sentence_size, byte_fallback=byte_fallback,
                                    character_coverage=character_coverage, split_digits=split_digits,
                                    pad_id=3)  # max_sentencepiece_length=2,

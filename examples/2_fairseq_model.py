@@ -1,116 +1,116 @@
-import os
+"""Same grid as example #1, but using the Fairseq CLI as the backend.
+
+⚠️  DEPRECATED EXAMPLE  ⚠️
+    Fairseq was archived by Meta on 2026-03-20 and is no longer maintained
+    (https://github.com/facebookresearch/fairseq). This example is kept for
+    users with an existing fairseq install; new projects should use
+    ``examples/1_custom_model.py`` (AutonmtTranslator + PyTorch Lightning).
+
+Demonstrates AutoNMT's toolkit abstraction: only the trainer class changes
+(``AutonmtTranslator`` → ``FairseqTranslator``). Subword models, dataset
+layout, scoring and reports are identical.
+
+Fairseq is an *optional* dependency and is NOT in ``requirements.txt``.
+Install it manually (``pip install fairseq``) before running this example;
+``FairseqTranslator()`` will otherwise raise ``ImportError``.
+"""
 import datetime
+import os
 
-from autonmt.modules.models import Transformer
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.toolkits.fairseq import FairseqTranslator
-from autonmt.vocabularies import Vocabulary
-
-from autonmt.bundle.report import generate_report
-from autonmt.bundle.plots import plot_metrics
-
-from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
 from tokenizers.normalizers import NFKC, Strip
 
-# Preprocess functions
-normalize_fn = lambda x: normalize_lines(x, seq=[NFKC(), Strip()])
-preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=True, shuffle_lines=True)
-preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
-preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
+from autonmt.bundle.plots import plot_metrics
+from autonmt.bundle.report import generate_report
+from autonmt.preprocessing import DatasetBuilder
+from autonmt.preprocessing.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.toolkits.config import FitConfig, PredictConfig
+from autonmt.toolkits.fairseq import FairseqTranslator
+
+
+def normalize(x):
+    return normalize_lines(x, seq=[NFKC(), Strip()])
+
+
+def preprocess_predict(x):
+    return preprocess_lines(x, normalize_fn=normalize)
+
+
+# Fairseq CLI flags. Any flag here ALWAYS wins over the equivalent AutoNMT kwarg.
+FAIRSEQ_MODEL_ARGS = [
+    "--arch transformer",
+    "--encoder-embed-dim 256",
+    "--decoder-embed-dim 256",
+    "--encoder-layers 3",
+    "--decoder-layers 3",
+    "--encoder-attention-heads 8",
+    "--decoder-attention-heads 8",
+    "--encoder-ffn-embed-dim 512",
+    "--decoder-ffn-embed-dim 512",
+    "--dropout 0.1",
+]
+FAIRSEQ_TRAINING_ARGS = [
+    "--no-epoch-checkpoints",
+    "--maximize-best-checkpoint-metric",
+    "--best-checkpoint-metric bleu",
+    "--eval-bleu",
+    '--eval-bleu-args {"beam": 5}',
+    "--eval-bleu-print-samples",
+    "--scoring sacrebleu",
+    "--log-format simple",
+    "--task translation",
+]
 
 
 def main(fairseq_args):
-    # Create preprocessing for training
-    # Create preprocessing for training
     builder = DatasetBuilder(
-        # Root folder for datasets
         base_path="datasets/translate",
-
-        # Set of datasets, languages, training sizes to try
         datasets=[
-            {"name": "europarl", "languages": ["es-en"], "sizes": [("50k", 50000)]},
+            {"name": "europarl", "languages": ["es-en"], "sizes": [("50k", 50_000)]},
         ],
-
-        # Set of subword models and vocab sizes to try
         encoding=[
             {"subword_models": ["word"], "vocab_sizes": [32000]},
             {"subword_models": ["bpe"], "vocab_sizes": [8000, 16000, 32000]},
             {"subword_models": ["bytes", "char"], "vocab_sizes": [1000]},
         ],
-
-        # Preprocessing functions
-        preprocess_raw_fn=preprocess_raw_fn,
-        preprocess_splits_fn=preprocess_splits_fn,
-
-        # Additional args
+        preprocess_raw_fn=lambda x, y: preprocess_pairs(
+            x, y, normalize_fn=normalize, min_len=1, remove_duplicates=True, shuffle_lines=True),
+        preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize),
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(force_overwrite=False)
 
-    # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
     ts_datasets = builder.get_test_ds()
 
-    # Train & Score a model for each dataset
+    fit_cfg = FitConfig(
+        max_epochs=5, batch_size=128, learning_rate=1e-3, optimizer="adam",
+        patience=10, num_workers=0, seed=1234,
+    )
+    pred_cfg = PredictConfig(
+        metrics={"bleu"}, beams=[1], load_checkpoint="best",
+        preprocess_fn=preprocess_predict, eval_mode="compatible",
+    )
+
     scores = []
     for train_ds in tr_datasets:
-        # Define trainer
-        runs_dir = train_ds.get_runs_path(toolkit="autonmt")
-        run_name = train_ds.get_run_name(run_prefix="mymodel")
-        trainer = FairseqTranslator(runs_dir=runs_dir, run_name=run_name)
+        trainer = FairseqTranslator(
+            runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
+            run_name=train_ds.get_run_name(run_prefix="mymodel"),
+        )
+        trainer.fit(train_ds, config=fit_cfg, strategy="ddp", fairseq_args=fairseq_args)
+        scores.append(trainer.predict(ts_datasets, config=pred_cfg))
 
-        # Train model
-        trainer.fit(train_ds, max_epochs=5, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
-                    patience=10, num_workers=0, strategy="ddp", fairseq_args=fairseq_args)
-
-        # Test model
-        m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",
-                                   preprocess_fn=preprocess_predict_fn, eval_mode="compatible", force_overwrite=False)
-        scores.append(m_scores)
-
-    # Make report and print it
-    output_path = f".outputs/fairseq/{str(datetime.datetime.now())}"
+    output_path = f".outputs/fairseq/{datetime.datetime.now():%Y%m%d_%H%M%S}"
     df_report, df_summary = generate_report(scores=scores, output_path=output_path)
-
-    # Print summary
-    print("Summary:")
+    print("\nSummary:")
     print(df_summary.to_string(index=False))
 
-    # Plot metrics
-    plots_path = os.path.join(output_path, "plots")
-    plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
-                 xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
+    plot_metrics(
+        output_path=os.path.join(output_path, "plots"),
+        df_report=df_report,
+        plot_metric="translations.beam1.sacrebleu_bleu_score",
+        xlabel="MT Models", ylabel="BLEU", title="Model comparison",
+    )
 
 
 if __name__ == "__main__":
-    # These args are pass to fairseq using our pipeline
-    # Fairseq Command-line tools: https://fairseq.readthedocs.io/en/latest/command_line_tools.html
-    fairseq_model_args = [
-        "--arch transformer",
-        "--encoder-embed-dim 256",
-        "--decoder-embed-dim 256",
-        "--encoder-layers 3",
-        "--decoder-layers 3",
-        "--encoder-attention-heads 8",
-        "--decoder-attention-heads 8",
-        "--encoder-ffn-embed-dim 512",
-        "--decoder-ffn-embed-dim 512",
-        "--dropout 0.1",
-    ]
-
-    fairseq_training_args = [
-        "--no-epoch-checkpoints",
-        "--maximize-best-checkpoint-metric",
-        "--best-checkpoint-metric bleu",
-        "--eval-bleu",
-        '--eval-bleu-args {\"beam\": 5}',
-        "--eval-bleu-print-samples",
-        "--scoring sacrebleu",
-        "--log-format simple",
-        "--task translation",
-    ]
-
-    cmd_args = fairseq_model_args+fairseq_training_args
-
-    # Run grid
-    main(fairseq_args=cmd_args)
-
+    main(fairseq_args=FAIRSEQ_MODEL_ARGS + FAIRSEQ_TRAINING_ARGS)

@@ -9,6 +9,10 @@ from torch import nn
 from autonmt.bundle.metrics import _sacrebleu  # TODO: I don't like this
 from autonmt.preprocessing.processors import decode_lines
 
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
+
 
 class LitSeq2Seq(pl.LightningModule):
 
@@ -108,7 +112,7 @@ class LitSeq2Seq(pl.LightningModule):
         if self._print_samples:
             for (dl_idx, outputs), (fn_name, _) in zip(self.validation_step_outputs.items(), self._filter_eval):  # Iterate over dataloader
                 extra_info = f" (Filter: {fn_name}; val_dataloader_idx={dl_idx})" if dl_idx else ""
-                print(f"=> Printing samples:" + extra_info)
+                log.info(f"=> Printing samples:" + extra_info)
 
                 # Unpack outputs
                 d = defaultdict(list)
@@ -120,11 +124,11 @@ class LitSeq2Seq(pl.LightningModule):
                 # Print samples
                 src, hyp, ref = d["src"], d["hyp"], d["ref"]
                 for i, (src_i, hyp_i, ref_i) in enumerate(list(zip(src, hyp, ref))[:self._print_samples], 1):
-                    print(f"- Src. #{i}: {src_i}")
-                    print(f"- Ref. #{i}: {ref_i}")
-                    print(f"- Hyp. #{i}: {hyp_i}")
-                    print("")
-                print("-"*100)
+                    log.info(f"- Src. #{i}: {src_i}")
+                    log.info(f"- Ref. #{i}: {ref_i}")
+                    log.info(f"- Hyp. #{i}: {hyp_i}")
+                    log.info("")
+                log.info("-"*100)
 
         # Free memory
         self.validation_step_outputs.clear()
@@ -163,7 +167,7 @@ class LitSeq2Seq(pl.LightningModule):
                 ppl = math.exp(loss)
             except OverflowError as e:
                 ppl = float("inf")
-                print("=> [WARNING] Overflow detected when computing perplexity. Set to 'inf'")
+                log.warning("=> [WARNING] Overflow detected when computing perplexity. Set to 'inf'")
 
             # Log metrics
             self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)

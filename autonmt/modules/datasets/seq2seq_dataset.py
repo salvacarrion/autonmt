@@ -7,6 +7,10 @@ from itertools import compress
 
 from autonmt.bundle.utils import read_file_lines
 
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
+
 class Seq2SeqDataset(Dataset):
     def __init__(self, file_prefix, src_lang, trg_lang, src_vocab=None, trg_vocab=None, filter_fn=None, **kwargs):
         # Set vocabs
@@ -55,7 +59,7 @@ class Seq2SeqDataset(Dataset):
             else:
                 msg = "[WARNING] Dropping {:.2f}% of the batch because the maximum number of tokens ({}) was exceeded"
                 drop_ratio = 1 - ((i+1)/len(batch))
-                print(msg.format(drop_ratio, max_tokens))
+                log.info(msg.format(drop_ratio, max_tokens))
                 break
 
         # Get lengths

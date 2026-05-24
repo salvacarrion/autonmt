@@ -1,38 +1,39 @@
-# conda create --name autonmt python=3.11
+# Runtime dependencies. Source of truth lives in pyproject.toml; this file
+# mirrors [project.dependencies] for the conda/pip workflows that still
+# expect a flat requirements.txt.
+#
+# Optional extras live under [project.optional-dependencies] in pyproject.toml.
+# Install them with:
+#     pip install -e '.[hf]'        # HuggingFace dataset loader
+#     pip install -e '.[wandb]'     # wandb logger
+#     pip install -e '.[comet]'     # comet_ml logger
+#     pip install -e '.[fairseq]'   # FairseqTranslator (deprecated; archived 2026-03-20)
+#     pip install -e '.[dev]'       # pytest + flake8
+#     pip install -e '.[all]'       # everything above
 
 # Deep learning
 torch
 pytorch-lightning
+
+# Numeric / data
 numpy
 pandas
 
-# Plot
+# Plotting
 matplotlib
 seaborn
 
 # Metrics
 sacrebleu  # bleu, chrf, ter
 bert-score
-datasets  # Huggingface metrics
-#unbabel-comet  # Uses an old version of pytorch and pytorch-lightning
 
-# NLP
+# NLP / tokenization
 sacremoses
 sentencepiece
-tokenizers  # NFDK, strip,...
+tokenizers
 
-# Other
+# UX
 tqdm
-pytest
-Cython
 
-# Loggers
-wandb
-tensorboardX
-#comet_ml
-
-# Fairseq
-# fairseq
-# See: https://github.com/pypa/pip/issues/2994
-#fairseq @ git+https://github.com/pytorch/fairseq.git@31d94f556bd49bc7e61511adbda482b2c54652b5#egg=fairseq
-#fairseq @ git+https://github.com/salvacarrion/fairseq.git@main#egg=fairseq
+# Logging backend (used by pytorch-lightning's TensorBoardLogger)
+tensorboard

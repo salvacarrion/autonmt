@@ -2,21 +2,44 @@ import os
 import shutil
 import subprocess
 import time
+import warnings
 
 from autonmt.bundle import utils
+from autonmt.bundle.logger import get_logger
 from autonmt.toolkits.base import BaseTranslator
 
+log = get_logger(__name__)
+
+# ---------------------------------------------------------------------------
+# DEPRECATED.
+# Fairseq was archived by Meta on 2026-03-20 and is no longer maintained:
+#     https://github.com/facebookresearch/fairseq
+# We keep the FairseqTranslator working for users with an existing install,
+# but new code should prefer the built-in AutonmtTranslator (PyTorch Lightning).
+# ---------------------------------------------------------------------------
+_DEPRECATION_MSG = (
+    "FairseqTranslator is deprecated: fairseq was archived by its maintainers on "
+    "2026-03-20 and is no longer receiving updates. Existing installations still "
+    "work, but new code should use AutonmtTranslator. See "
+    "https://github.com/facebookresearch/fairseq for context."
+)
+warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+
 try:
-    import fairseq_cli
-    from fairseq import options
-    from fairseq_cli import preprocess, train, generate
-    from fairseq.distributed import utils as distributed_utils
-    from fairseq.dataclass.utils import convert_namespace_to_omegaconf
-except ImportError as e:
-    print("WARNING: Fairseq toolkit could not be loaded. FairseqTranslator will not be available.")
-except Exception as e:
-    print("WARNING: Fairseq toolkit could not be loaded. FairseqTranslator will not be available.")
-    print(e)
+    import fairseq_cli  # noqa: F401
+    from fairseq import options  # noqa: F401
+    from fairseq_cli import preprocess, train, generate  # noqa: F401
+    from fairseq.distributed import utils as distributed_utils  # noqa: F401
+    from fairseq.dataclass.utils import convert_namespace_to_omegaconf  # noqa: F401
+    _FAIRSEQ_AVAILABLE = True
+    _FAIRSEQ_IMPORT_ERROR = None
+except Exception as e:  # ImportError or anything fairseq raises internally
+    _FAIRSEQ_AVAILABLE = False
+    _FAIRSEQ_IMPORT_ERROR = e
+    log.info(
+        "Fairseq is not installed or failed to import; FairseqTranslator will "
+        "raise ImportError on instantiation. Install with: pip install fairseq"
+    )
 
 
 
@@ -114,14 +137,29 @@ def vocab_spm2fairseq(filename):
 
 
 class FairseqTranslator(BaseTranslator):
+    """Translator backend that shells out to the Fairseq CLI.
 
-    def __init__(self,  wandb_params=None, **kwargs):
+    .. deprecated::
+        Fairseq was archived on 2026-03-20 and is no longer maintained.
+        New code should prefer :class:`~autonmt.toolkits.autonmt.AutonmtTranslator`.
+    """
+
+    def __init__(self, wandb_params=None, **kwargs):
+        if not _FAIRSEQ_AVAILABLE:
+            raise ImportError(
+                "Fairseq is not installed. FairseqTranslator requires the (now-archived) "
+                "'fairseq' package.\n"
+                "  Install:  pip install fairseq\n"
+                "  Note:     fairseq was archived on 2026-03-20 and is unmaintained — "
+                "prefer AutonmtTranslator for new projects."
+            ) from _FAIRSEQ_IMPORT_ERROR
+
+        # Re-emit the deprecation at the call site (the module-level warning fires
+        # once; this one tells the user *where in their code* the dependency lives).
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+
         super().__init__(engine="fairseq", **kwargs)
-
-        # Vars
         self.wandb_params = wandb_params
-
-        # Custom
         self.data_bin_name = "data-bin"
 
     def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path, src_vocab_path,
@@ -137,10 +175,10 @@ class FairseqTranslator(BaseTranslator):
         # Check if the output directory is empty and take action
         if not utils.is_dir_empty(output_path):
             if force_overwrite:  # Empty dir
-                print(f"\t- [Preprocess]: Deleting directory: {output_path}")
+                log.info(f"\t- [Preprocess]: Deleting directory: {output_path}")
                 utils.empty_dir(output_path, safe_seconds=self.safe_seconds)
             else:
-                print("\t- [Preprocess]: Skipped. The output directory is not empty")
+                log.info("\t- [Preprocess]: Skipped. The output directory is not empty")
                 return
 
         # Reformat vocab files for fairseq
@@ -182,8 +220,8 @@ class FairseqTranslator(BaseTranslator):
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
 
         # Command
-        print("COMMAND:")
-        print("fairseq-preprocess " + ' '.join(input_args))
+        log.info("COMMAND:")
+        log.info("fairseq-preprocess " + ' '.join(input_args))
 
         # Run command
         parser = options.get_preprocessing_parser(default_task="translation")
@@ -199,15 +237,15 @@ class FairseqTranslator(BaseTranslator):
         # Check if the directory is empty and take action
         if not utils.is_dir_empty(checkpoints_dir):
             if force_overwrite:  # Empty dir
-                print(f"\t- [Train]: Renaming previous checkpoints to avoid overwriting...")
+                log.info(f"\t- [Train]: Renaming previous checkpoints to avoid overwriting...")
                 utils.rename_file(checkpoints_dir, "checkpoint_best.pt", "checkpoint_best.pt.bak")
                 utils.rename_file(checkpoints_dir, "checkpoint_last.pt", "checkpoint_last.pt.bak")
             else:
-                print("\t- [Train]: Skipped. The checkpoint directory is not empty")
+                log.info("\t- [Train]: Skipped. The checkpoint directory is not empty")
                 return
 
         # if self.wandb_params:
-        #     print("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
+        #     log.warning("\t\t- [WARNING]: 'wandb_params' will be ignored when using Fairseq due to some known bugs")
 
         # Write command
         input_args = [data_bin_path]
@@ -215,7 +253,7 @@ class FairseqTranslator(BaseTranslator):
         input_args += ["--tensorboard-logdir", logs_path] if logs_path else []
         if wandb_params:
             # raise ValueError("WandB monitoring is disabled for FairSeq due to a bug related to parallelization.")
-            print("\t\t- [WARNING]: 'wandb_params' will produce to some known bugs")
+            log.warning("\t\t- [WARNING]: 'wandb_params' will produce to some known bugs")
 
             # Set vars
             input_args += ["--wandb-project", wandb_params["project"]]
@@ -232,8 +270,8 @@ class FairseqTranslator(BaseTranslator):
             os.environ["CUDA_VISIBLE_DEVICES"] = ','.join([str(i) for i in range(num_gpus)])
 
         # Command
-        print("COMMAND:")
-        print("fairseq-train " + ' '.join(input_args))
+        log.info("COMMAND:")
+        log.info("fairseq-train " + ' '.join(input_args))
 
         # Run command
         # From: https://github.com/pytorch/fairseq/blob/main/fairseq_cli/train.py
@@ -247,7 +285,7 @@ class FairseqTranslator(BaseTranslator):
                    force_overwrite, **kwargs):
         # Set warnings
         if kwargs.get('devices'):
-            print("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
+            log.warning("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
 
         # Write command
         data_bin_path = os.path.join(data_path, model_ds.data_path, self.data_bin_name)
@@ -276,8 +314,8 @@ class FairseqTranslator(BaseTranslator):
         input_args = sum([str(c).split(' ', 1) for c in input_args], [])  # Split key/val (str) and flat list
 
         # Command
-        print("COMMAND:")
-        print("fairseq-generate " + ' '.join(input_args))
+        log.info("COMMAND:")
+        log.info("fairseq-generate " + ' '.join(input_args))
 
         # Run command
         # From: https://github.com/facebookresearch/fairseq/blob/main/fairseq_cli/generate.py

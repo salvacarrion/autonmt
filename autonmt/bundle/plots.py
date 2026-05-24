@@ -8,6 +8,10 @@ import seaborn as sns
 
 from autonmt.bundle import utils
 
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
+
 sns.set()
 
 
@@ -25,7 +29,7 @@ def catplot(data, x, y, hue, title, xlabel, ylabel, leyend_title, output_dir, fn
 
     # Check if the figures exists
     if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
-        print(f"\t\t\t- Skipped catplot as it already exists ({fname})")
+        log.info(f"\t\t\t- Skipped catplot as it already exists ({fname})")
         return False
 
     # Dynamically adjust width based on label length
@@ -69,7 +73,7 @@ def barplot(data, x, y, output_dir, fname, title="", xlabel="x", ylabel="y", asp
 
     # Check if the figures exists
     if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
-        print(f"\t\t\t- Skipped barplot as it already exists ({fname})")
+        log.info(f"\t\t\t- Skipped barplot as it already exists ({fname})")
         return False
 
     # Create subplot
@@ -167,7 +171,7 @@ def lineplot(data, x, y_left, y_left_hue, title, xlabel, ylabel_left, leyend_tit
 
     # Check if the figures exists
     if not overwrite and (save_fig and do_all_figs_exists(output_dir, fname, formats)):
-        print(f"\t\t\t- Skipped lineplot as it already exists ({fname})")
+        log.info(f"\t\t\t- Skipped lineplot as it already exists ({fname})")
         return False
 
     # Create subplot
@@ -215,13 +219,13 @@ def _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig=N
             # Save image
             filename = os.path.join(save_dir, f"{fname}.{ext}")
             plt.savefig(filename, dpi=dpi)
-            print(f"\t\t\t- Figure saved: {filename}")
+            log.info(f"\t\t\t- Figure saved: {filename}")
 
     # Show plot
     if show_fig:
         plt.show()
         if save_fig:
-            print("[WARNING]: 'show_fig' is incompatible with 'save_fig'")
+            log.warning("[WARNING]: 'show_fig' is incompatible with 'save_fig'")
     else:
         # Close figure
         plt.close(fig) if fig else plt.close()
@@ -247,8 +251,8 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
         # Set default values for the columns
         return text.title().replace('_', ' ')
 
-    print(f"=> Plotting metrics...")
-    print(f"\t- [WARNING]: Matplotlib might miss some images if the loop is too fast")
+    log.info(f"=> Plotting metrics...")
+    log.warning(f"\t- [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
     # Copy dataframe to avoid modifying the original one
     df = df_report.copy()
@@ -293,8 +297,8 @@ def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel
 def plot_vocabs_report(output_path, data, x, y_left, y_right=None,
                        xlabel="Vocab sizes", ylabel_left=None, ylabel_right=None, title="Vocabularies report",
                        loc_legend="upper left", prefix="", save_figures=True, show_figures=False):
-    print(f"=> Plotting vocabs report...")
-    print(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
+    log.info(f"=> Plotting vocabs report...")
+    log.warning(f"   [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
     # Check if the metrics are in the dataframe
     y_left, y_left_hue = y_left if isinstance(y_left, tuple) else (y_left, None)

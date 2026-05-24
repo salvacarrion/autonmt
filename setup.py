@@ -1,21 +1,9 @@
+"""Compatibility shim — all metadata lives in ``pyproject.toml`` (PEP 621).
 
-from setuptools import setup, find_packages
+This file is kept so that ``pip install -e .`` works on older pip/setuptools
+combinations that don't yet drive editable installs purely from
+``pyproject.toml``. Remove once the minimum supported pip is 21.3+.
+"""
+from setuptools import setup
 
-with open('requirements.txt') as f:
-    requirements = f.read().splitlines()
-
-setup(name='autonmt',
-      version='0.6',
-      description='A Framework to streamline the research of seq2seq models',
-      url='https://github.com/salvacarrion/autonmt',
-      author='Salva Carrión',
-      license='MIT',
-      packages=find_packages(),
-      package_data={},
-      include_package_data=True,
-      install_requires=requirements,
-      zip_safe=False,
-      entry_points={
-          'console_scripts': []
-      },
-      )
+setup()

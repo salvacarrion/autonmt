@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonmt"
+dynamic = ["version"]
+description = "A framework for automating grid experimentation in neural machine translation."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [{ name = "Salva Carrión" }]
+keywords = ["nmt", "seq2seq", "machine-translation", "pytorch", "research"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Runtime deps only — keep this list short. Anything used by a single feature
+# (loggers, HF loading, deprecated backends) goes under [project.optional-dependencies].
+dependencies = [
+    "torch",
+    "pytorch-lightning",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "sacrebleu",
+    "bert-score",
+    "sacremoses",
+    "sentencepiece",
+    "tokenizers",
+    "tqdm",
+    "tensorboard",
+]
+
+[project.optional-dependencies]
+# Pull HuggingFace datasets into AutoNMT layout via autonmt.preprocessing.hf_loader
+hf = ["datasets", "evaluate"]
+wandb = ["wandb"]
+comet = ["comet_ml"]
+# Deprecated: fairseq was archived on 2026-03-20. Kept for users with existing flows.
+fairseq = ["fairseq"]
+dev = ["pytest", "flake8"]
+all = [
+    "datasets", "evaluate",
+    "wandb",
+    "comet_ml",
+    "pytest", "flake8",
+]
+
+[project.urls]
+Homepage = "https://github.com/salvacarrion/autonmt"
+Source = "https://github.com/salvacarrion/autonmt"
+Issues = "https://github.com/salvacarrion/autonmt/issues"
+
+[tool.setuptools]
+# Don't ship a zip; some code does dynamic file I/O.
+zip-safe = false
+
+[tool.setuptools.packages.find]
+# Don't accidentally publish tests/ or examples/ as importable top-level packages.
+include = ["autonmt*"]
+exclude = ["tests*", "examples*", "docs*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "autonmt.__version__" }

@@ -1,30 +1,39 @@
+import inspect
 import os.path
 
-import comet_ml  # Comet needs to be imported before Pytorch
+# IMPORTANT: comet_ml must be imported before torch/pytorch_lightning so its auto-logging
+# patches take effect. Do not reorder. It is an optional dependency — guarded so the
+# module still imports cleanly when the user doesn't need Comet logging.
+try:
+    import comet_ml  # noqa: F401
+    _COMET_AVAILABLE = True
+except ImportError:
+    _COMET_AVAILABLE = False
+
 import torch
 import pytorch_lightning as pl
 
-import wandb
-from pytorch_lightning.loggers import CometLogger
-
-import glob
-import inspect
+try:
+    import wandb
+    _WANDB_AVAILABLE = True
+except ImportError:
+    wandb = None
+    _WANDB_AVAILABLE = False
 
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import CometLogger, TensorBoardLogger, WandbLogger
 from torch.utils.data import DataLoader
 
-from autonmt.bundle.utils import *
+from autonmt.bundle.logger import get_logger
+from autonmt.bundle.utils import write_file_lines
 from autonmt.modules.datasets.seq2seq_dataset import Seq2SeqDataset
+from autonmt.modules.samplers import BucketIterator
 from autonmt.search.beam_search import beam_search
 from autonmt.search.greedy_search import greedy_search
 from autonmt.toolkits.base import BaseTranslator
-from autonmt.modules.samplers import *
 
-from torch.utils.data.sampler import SequentialSampler
-# from torchnlp.samplers import BucketBatchSampler
+log = get_logger(__name__)
 
 
 def set_model_device(model, accelerator="auto"):
@@ -48,10 +57,10 @@ def set_model_device(model, accelerator="auto"):
 
     # Set device
     if model.device.type != device:
-        print(f"\t-[INFO]: Setting '{device}' as the model's device")
+        log.info(f"\t-[INFO]: Setting '{device}' as the model's device")
         model = model.to(device)
     else:
-        print(f"\t-[INFO]: Model is already on '{device}' device")
+        log.info(f"\t-[INFO]: Model is already on '{device}' device")
     return model
 
 
@@ -135,10 +144,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             raise ValueError("Packed sequence is only compatible with bucketing")
 
         # Dataloader: Training
-        print(f"\t- [INFO]: Preparing training dataloader... (1/1)")
+        log.info(f"\t- [INFO]: Preparing training dataloader... (1/1)")
         sampler, shuffle = None, True
         if use_bucketing:
-            print(f"\t\t- Preparing bucketing iterator...")
+            log.info(f"\t\t- Preparing bucketing iterator...")
             shuffle = False  # 'sampler' option is mutually exclusive with shuffle (we shuffle in bucket)
             sampler = BucketIterator(self.train_tds, batch_size=batch_size,
                                      sort_key=lambda x, y: len(self.model._src_vocab.encode(x)),
@@ -152,10 +161,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         # Dataloader: Validation
         val_loaders = []
         for i, val_tds_i in enumerate(self.val_tds):
-            print(f"\t- [INFO]: Preparing validation dataloader... ({i+1}/{len(self.val_tds)})")
+            log.info(f"\t- [INFO]: Preparing validation dataloader... ({i+1}/{len(self.val_tds)})")
             sampler_i = None
             if use_bucketing:
-                print(f"\t\t- Preparing bucketing iterator...")
+                log.info(f"\t\t- Preparing bucketing iterator...")
                 sampler_i = BucketIterator(val_tds_i, batch_size=batch_size,
                                          sort_key=lambda x, y: len(self.model._src_vocab.encode(x)),
                                          sort_within_batch=self.model.packed_sequence, shuffle=True)
@@ -189,12 +198,22 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
 
         # Loggers: WandB
         if wandb_params:
+            if not _WANDB_AVAILABLE:
+                raise ImportError(
+                    "wandb_params was provided but the 'wandb' package is not installed. "
+                    "Install with: pip install 'autonmt[wandb]'  (or: pip install wandb)"
+                )
             wandb_logger = WandbLogger(save_dir=logs_path, name=self.run_name, **wandb_params)
             loggers += [wandb_logger]
 
         # Loggers: Comet
         comet_logger = None
         if comet_params:
+            if not _COMET_AVAILABLE:
+                raise ImportError(
+                    "comet_params was provided but the 'comet_ml' package is not installed. "
+                    "Install with: pip install 'autonmt[comet]'  (or: pip install comet_ml)"
+                )
             comet_logger = CometLogger(save_dir=logs_path, experiment_name=self.run_name, **comet_params)
             loggers += [comet_logger]
 
@@ -205,13 +224,13 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
         # Close stuff
-        print("Finishing loggers(1/2)...")
+        log.info("Finishing loggers(1/2)...")
         if wandb_params:
             wandb.finish()
 
         if comet_params:
             comet_logger.experiment.end()
-        print("Loggers finished! (2/2)")
+        log.info("Loggers finished! (2/2)")
 
     def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width, max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoint, num_workers, devices, accelerator,
@@ -261,10 +280,10 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
             raise ValueError(f"[WARNING] No ({mode}) checkpoints were found in {checkpoints_dir}")
         elif len(checkpoint_paths) > 1:  # Choose latest
             checkpoint_path = checkpoint_paths[0]
-            print(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {checkpoint_path}")
+            log.warning(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {checkpoint_path}")
         else:
             checkpoint_path = checkpoint_paths[0]
-            print(f"[INFO] Checkpoint found: {checkpoint_path}")
+            log.info(f"[INFO] Checkpoint found: {checkpoint_path}")
         return checkpoint_path
 
     def load_checkpoint(self, checkpoint):
@@ -278,8 +297,9 @@ class AutonmtTranslator(BaseTranslator):  # AutoNMT Translator
         else:
             raise ValueError("'checkpoint' must be a filename or 'best' or 'last'")
 
-        # Load checkpoint
-        _model = torch.load(checkpoint_path)
+        # Load checkpoint. Pin to the model's current device and disable weights_only because
+        # we store full Lightning checkpoints (with optimizer state, hyperparams, etc.).
+        _model = torch.load(checkpoint_path, map_location=self.model.device, weights_only=False)
         self.model.load_state_dict(_model.get("state_dict", _model))
         return checkpoint_path
 

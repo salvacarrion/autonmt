@@ -1,4 +1,44 @@
+# Python build artifacts
 __pycache__
 *.pyc
 *.pyo
+*.pyd
 *.egg-info
+build/
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Test/CI cruft
+.pytest_cache/
+.coverage
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Repo metadata not needed at runtime
+.git/
+.github/
+.gitignore
+.dockerignore
+
+# Docs / images / fixture data
+docs/
+.idea/
+.vscode/
+
+# AutoNMT runtime outputs
+.outputs/
+datasets/
+runs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE-specific
+*.swp
+*.swo

@@ -1,27 +1,39 @@
-FROM pytorch/pytorch:latest
+# syntax=docker/dockerfile:1.6
+#
+# Dev/training image for AutoNMT. Defaults to the latest published PyTorch
+# image; pin via build-arg for reproducible builds, e.g.:
+#
+#   docker build --build-arg PYTORCH_TAG=2.4.1-cuda12.1-cudnn9-runtime -t autonmt .
+#
+# Browse available tags at: https://hub.docker.com/r/pytorch/pytorch/tags
+ARG PYTORCH_TAG=latest
+FROM pytorch/pytorch:${PYTORCH_TAG}
 
-# Update and install required tools to develop inside the docker
-RUN apt-get update &&  \
-    apt-get install -y python3-pip &&  \
-    apt-get install -y vim && \
-    apt-get install -y htop && \
-    apt-get install -y tmux
-# RUN apt-get install -y git-all  # Disabled due to interactive shell problems (geographic area/timezone)
+# --- system packages -----------------------------------------------------
+# Single RUN keeps the layer-cache coherent: editing the package list
+# invalidates the apt update too. --no-install-recommends + cleanup of
+# /var/lib/apt/lists keeps the layer small.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        htop \
+        tmux \
+        vim \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the docker container
-WORKDIR /app
+WORKDIR /app/autonmt
 
-# Create a directories
-RUN mkdir /app/autonmt
-RUN mkdir /app/data
+# --- python deps (cached layer) ------------------------------------------
+# Copy only the install metadata first so changes to source code don't
+# invalidate the pip cache. Heavy deps (torch/lightning/sentencepiece/...)
+# get installed once and reused on every rebuild that doesn't touch
+# requirements.txt or setup.py.
+COPY requirements.txt setup.py ./
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
 
+# --- source --------------------------------------------------------------
+COPY . .
+RUN pip install --no-cache-dir -e .
 
-# Copy the content of the local src directory to the working directory
-COPY . /app/autonmt
-
-# Install the python packages
-RUN pip install --upgrade pip
-RUN pip install -e autonmt
-
-# This command will run when the container starts.
+# Keep the container alive so developers can `docker exec` into it.
 CMD ["tail", "-f", "/dev/null"]

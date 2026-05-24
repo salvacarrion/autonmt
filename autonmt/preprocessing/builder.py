@@ -1,4 +1,6 @@
+import json
 import os.path
+import random
 import shutil
 from collections import Counter
 from itertools import islice
@@ -9,9 +11,21 @@ import pandas as pd
 from autonmt.preprocessing import tokenizers
 
 from autonmt.bundle import utils, plots
-from autonmt.bundle.utils import *
+from autonmt.bundle.utils import (
+    ask_yes_or_no,
+    build_counter_low_mem,
+    count_file_lines,
+    make_dir,
+    read_file_lines,
+    save_json,
+    write_file_lines,
+)
+from autonmt.bundle.enums import SourceData
+from autonmt.bundle.logger import get_logger
 from autonmt.preprocessing.dataset import Dataset
 from autonmt.preprocessing.processors import pretokenize_file, encode_file
+
+log = get_logger(__name__)
 
 
 class DatasetBuilder:
@@ -75,14 +89,24 @@ class DatasetBuilder:
         valid_enc = []
         keys = set()
         for enc in encoding:
-            for model in enc.get("subword_models"):
+            entry_fallback = bool(enc.get("byte_fallback", False))
+            for model_raw in enc.get("subword_models"):
+                # Sugar: "<model>+bytes" -> (<model>, byte_fallback=True) for that entry
+                if isinstance(model_raw, str) and model_raw.lower().endswith("+bytes"):
+                    model = model_raw[: -len("+bytes")]
+                    bf = True
+                else:
+                    model = model_raw
+                    bf = entry_fallback
                 for size in enc.get("vocab_sizes"):
-                    key = f"{model}_{size}"
+                    key = f"{model}_{size}_{int(bf)}"
                     if key not in keys:
-                        valid_enc.append({"subword_model": model, "vocab_size": size})
+                        valid_enc.append({"subword_model": model, "vocab_size": size,
+                                          "byte_fallback": bf})
                         keys.add(key)
                     else:
-                        print(f"[WARNING]: Ignoring repeated entry in encoding (subword={model}; size={size})")
+                        log.warning(f"[WARNING]: Ignoring repeated entry in encoding "
+                                    f"(subword={model}; size={size}; byte_fallback={bf})")
         return valid_enc
 
     def _unroll_datasets(self, encodings=None, parent_ds=None, ref_size_only=False):
@@ -107,7 +131,8 @@ class DatasetBuilder:
                                      preprocess_splits_fn=self.preprocess_splits_fn)
 
                     # Add encodings
-                    ds_encs = encodings if encodings else [{"subword_model": None, "vocab_size": None}]
+                    ds_encs = encodings if encodings else [{"subword_model": None, "vocab_size": None,
+                                                            "byte_fallback": False}]
                     for ds_enc in ds_encs:
                         ds = Dataset(parent_ds=parent_ds, splits_sizes=ds_splits_sizes, **ds_params, **ds_enc)
                         ds_unrolled.append(ds)
@@ -127,8 +152,8 @@ class DatasetBuilder:
         return self.get_ds(ignore_variants=True)
 
     def build(self, make_plots=False, force_overwrite=False, verbose=False):
-        print(f"=> Building datasets...")
-        print(f"\t- base_path={self.base_path}")
+        log.info(f"=> Building datasets...")
+        log.info(f"\t- base_path={self.base_path}")
 
         # Check directories, creates the ones missing, and check if the data is valid
         self._check_dir_structure(skip_file_checks=True, force_overwrite=force_overwrite, interactive=False)
@@ -141,7 +166,7 @@ class DatasetBuilder:
 
         # Ignore further preprocessing if there is not encoding
         if not self.encoding:
-            print("\t- [WARNING]: No encoding was specified")
+            log.warning("\t- [WARNING]: No encoding was specified")
         else:
             # Train model (applies pre-tokenization if needed)
             self._train_tokenizer(force_overwrite=force_overwrite)
@@ -160,12 +185,12 @@ class DatasetBuilder:
         return self
 
     def _check_dir_structure(self, skip_file_checks, force_overwrite, interactive):
-        print(f"=> Checking directory structure...")
+        log.info(f"=> Checking directory structure...")
         invalid_structure = False
 
         # Each reference ds must contain either a raw folder or a partitions folder
         for ds in self.ds_refs.values():  # Datasets
-            print(f"\t=> Checking dataset: '{ds.id(as_path=True)}'")
+            log.info(f"\t=> Checking dataset: '{ds.id(as_path=True)}'")
 
             # Truth table
             raw, raw_files_path = ds.has_raw_files(verbose=False)
@@ -175,28 +200,28 @@ class DatasetBuilder:
             # Note: splits data has priority over raw data
             # Check if split data exists, and if it is valid
             if (splits and not raw) or (splits and raw and not force):  # Use split data
-                ds.source_data = "splits"
+                ds.source_data = SourceData.SPLITS
 
                 # Check that each file has the same number of lines
                 if not skip_file_checks:
-                    print("\t\t- Checking that each split pair contains the same number of lines...")
+                    log.info("\t\t- Checking that each split pair contains the same number of lines...")
                     if count_file_lines(split_files_path[0]) != count_file_lines(split_files_path[1]) or \
                             count_file_lines(split_files_path[2]) != count_file_lines(split_files_path[3]) or \
                             count_file_lines(split_files_path[4]) != count_file_lines(split_files_path[5]):
-                        print("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
+                        log.error("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
                                 "have the same number of lines.")
                         invalid_structure = True
                         continue
 
             # Check if raw data exists, and if it is valid
             elif (not splits and raw) or (splits and raw and force):  # Use raw data  (force_overwrite=True or False, as long as there is raw data)
-                ds.source_data = "raw"
+                ds.source_data = SourceData.RAW
 
                 # Check that each file has the same number of lines
                 if not skip_file_checks:
-                    print("\t\t- Checking that each language pair contains the same number of lines...")
+                    log.info("\t\t- Checking that each language pair contains the same number of lines...")
                     if count_file_lines(raw_files_path[0]) != count_file_lines(raw_files_path[1]):
-                        print("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
+                        log.error("\t\t- [Invalid data]: We found the 'raw' folder, but the source and target files do not "
                               "have the same number of lines.")
                         invalid_structure = True
                         continue
@@ -210,37 +235,38 @@ class DatasetBuilder:
                 # Problems with the raw folders
                 if not os.path.exists(ds.get_raw_path()):
                     missing_folders = True
-                    print(f"\t\t=> [Missing folder]: We could not find the 'raw' folder at: {ds.get_path()}")
+                    log.error(f"\t\t=> [Missing folder]: We could not find the 'raw' folder at: {ds.get_path()}")
                 else:
-                    print(f"\t\t=> [Invalid data]: The files in the 'raw' data were invalid: {ds.get_path()}")
+                    log.error(f"\t\t=> [Invalid data]: The files in the 'raw' data were invalid: {ds.get_path()}")
 
                 # Problems with the splits folders
                 if not os.path.exists(ds.get_split_path()):
                     missing_folders = True
-                    print(f"\t\t=> [Missing folder]: We could not find the 'splits' folder at: {ds.get_path()}")
+                    log.error(f"\t\t=> [Missing folder]: We could not find the 'splits' folder at: {ds.get_path()}")
                 else:
-                    print(f"\t\t=> [Invalid data]: The files in the 'splits' data were invalid: {ds.get_path()}")
+                    log.error(f"\t\t=> [Invalid data]: The files in the 'splits' data were invalid: {ds.get_path()}")
 
                 # Create missing folders
                 if missing_folders:
                     res = ask_yes_or_no(question="Do you want to create the missing directories?", interactive=interactive)
                     if res:
-                        print(f"\t\t\t- Creating missing directories...")
+                        log.info(f"\t\t\t- Creating missing directories...")
                         make_dir(ds.get_raw_path()) if res else None
                         make_dir(ds.get_split_path()) if res else None
 
                 # Summary
-                print(f"\t\t=> [ACTION REQUIRED] You need to add a valid dataset to at least one of these folders:")
-                print(
+                log.warning(f"\t\t=> [ACTION REQUIRED] You need to add a valid dataset to at least one of these folders:")
+                log.info(
                     f"\t\t\t- '{ds.data_raw_path}': Used to create partitions from a parallel corpus (e.g. 'data.{ds.src_lang}' and 'data.{ds.trg_lang}')")
-                print(
+                log.info(
                     f"\t\t\t- '{ds.data_splits_path}': Used when the partitions are available (e.g. '[train,val,test].[{ds.src_lang},{ds.trg_lang}]'")
 
         # Stop program if there are files missing
         if invalid_structure:
-            print("=> [ERROR]: Closing program due to missing files")
-            print("*** Restart the program when these files are added in their respective folders ***")
-            exit(0)
+            raise FileNotFoundError(
+                "Missing or invalid dataset files. Add the required raw/splits files in their "
+                "respective folders and re-run."
+            )
 
     def _preprocess_files(self, ds, input_sets, output_sets, preprocess_fn, force_overwrite):
         # Preprocess files pairs
@@ -248,17 +274,17 @@ class DatasetBuilder:
             (src_in, trg_in), (src_out, trg_out) = input_paths, output_paths
             # Preprocessed files (if needed)
             if force_overwrite or not all(os.path.exists(f) for f in [src_out, trg_out]):
-                print(f"\t=> Preprocessing file-pair ({i}/{len(input_sets)}) dataset '{ds.id(as_path=True)}'")
+                log.info(f"\t=> Preprocessing file-pair ({i}/{len(input_sets)}) dataset '{ds.id(as_path=True)}'")
                 # Read lines (+minor cleaning)
                 src_lines = read_file_lines(src_in, autoclean=True)
                 tgt_lines = read_file_lines(trg_in, autoclean=True)
 
                 # Check that each file pair has the same number of lines
                 if len(src_lines) != len(tgt_lines):
-                    print(f"=> [ERROR]: The source and target files do not have the same number of lines "
+                    log.error(f"=> [ERROR]: The source and target files do not have the same number of lines "
                           f"({len(src_lines)} != {len(tgt_lines)})")
-                    print(f"\t- Source file: {src_in}")
-                    print(f"\t- Target file: {src_out}")
+                    log.info(f"\t- Source file: {src_in}")
+                    log.info(f"\t- Target file: {src_out}")
 
                 # Preprocess lines
                 data = {"src": {"lang": ds.src_lang, "lines": src_lines},
@@ -274,11 +300,11 @@ class DatasetBuilder:
         if self.preprocess_raw_fn is None:
             return
 
-        print(f"=> Checking raw files...")
+        log.info(f"=> Checking raw files...")
         for ds_key, ds in self.ds_refs.items():  # Dataset
             # Update source data
-            if self.ds_refs[ds_key].source_data == "raw":  # Do not preprocess if we are going to use splits or other
-                self.ds_refs[ds_key].source_data = "raw_preprocessed"
+            if self.ds_refs[ds_key].source_data == SourceData.RAW:  # Do not preprocess if we are going to use splits or other
+                self.ds_refs[ds_key].source_data = SourceData.RAW_PREPROCESSED
 
                 # Create directory
                 make_dir(ds.get_raw_preprocessed_path())
@@ -298,7 +324,7 @@ class DatasetBuilder:
         if self.preprocess_splits_fn is None:
             return
 
-        print(f"=> Preprocessing split files...")
+        log.info(f"=> Preprocessing split files...")
         for ds in self.ds_list_parents:  # Dataset
             # Create directory
             make_dir(ds.get_splits_preprocessed_path())
@@ -316,7 +342,7 @@ class DatasetBuilder:
 
     def _create_splits(self, use_ref_partitions):
         # NOTE: The 'force_overwrite' is implicit in the 'ds.source_data' value
-        print(f"=> Checking partitions...")
+        log.info(f"=> Checking partitions...")
 
         # Select reference datasets
         if use_ref_partitions:
@@ -327,27 +353,27 @@ class DatasetBuilder:
         # Create partitions for each dataset
         for ds in datasets:
             # 'ds.source_data' are set in a previous step, taking 'force_overwrite' into account
-            if ds.source_data == "splits":  # Use split data
+            if ds.source_data == SourceData.SPLITS:  # Use split data
                 # Check if all partitions exist
                 if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]):
-                    print(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
+                    log.info(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
                     continue
                 else:
                     raise ValueError(f"\t=> Some partitions are missing for '{ds.id(as_path=True)}'")
 
             # Create partitions (overwrite all partitions even if only one is missing - due to the randomization)
             # Context: There are no partitions or 'force_overwrite==True' with raw data existing
-            print(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
-            if ds.source_data in {"raw", "raw_preprocessed"}:  # Use raw data
+            log.info(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
+            if ds.source_data in {SourceData.RAW, SourceData.RAW_PREPROCESSED}:  # Use raw data
                 # Get raw/raw_preprocessed files
-                if ds.source_data == "raw":
+                if ds.source_data == SourceData.RAW:
                     src_path, trg_path = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
                 else:  # "raw_preprocessed":
                     src_path, trg_path = [ds.get_raw_preprocessed_path(f) for f in ds.get_raw_preprocessed_fnames()]
                 assert os.path.isfile(src_path) and os.path.isfile(trg_path)
 
                 # Read lines, clean and shuffle
-                print(f"\t=> Processing from '{ds.source_data}'...")
+                log.info(f"\t=> Processing from '{ds.source_data}'...")
                 lines = [(src, trg) for src, trg in zip(read_file_lines(src_path), read_file_lines(trg_path))]
 
                 # Parse split sizes
@@ -372,13 +398,13 @@ class DatasetBuilder:
                         # Save partition
                         savepath = ds.get_split_path(f"{split_name}.{lang}")
                         utils.write_file_lines(list(zip(*split_lines))[i], savepath)
-                        print(f"\t\t- Partition saved: {split_name}.{lang}")
+                        log.info(f"\t\t- Partition saved: {split_name}.{lang}")
             else:
                 raise ValueError(f"\t=> Invalid value for 'ds.source_data': {ds.source_data} ('raw', 'raw_preprocessed', or 'splits')")
 
 
     def _create_reduced_versions(self, force_overwrite):
-        print("=> Creating reduced versions...")
+        log.info("=> Creating reduced versions...")
 
         # Create reduce splits
         for ds in self.ds_list_parents:  # Dataset
@@ -391,14 +417,14 @@ class DatasetBuilder:
             make_dir(ds.get_split_path())
 
             # Add truncated splits
-            print(f"\t=> Creating reduced version: {ds.id(as_path=True)}")
+            log.info(f"\t=> Creating reduced version: {ds.id(as_path=True)}")
             for fname in ds.get_split_fnames():
                 ref_filename = os.path.join(self.base_path, *ds_ref, ds.data_splits_path, fname)
                 new_filename = ds.get_split_path(fname)
 
                 # Copy partitions
                 if force_overwrite or not os.path.exists(new_filename):
-                    print(f"\t\t- Creating split file: {fname}...")
+                    log.info(f"\t\t- Creating split file: {fname}...")
 
                     if fname.split('.')[0] == ds.train_name:  # train.xx
                         with open(ref_filename, 'rb') as fin:
@@ -425,9 +451,9 @@ class DatasetBuilder:
         pretokenize_path = ds.get_pretok_path()
         make_dir([pretokenize_path])
 
-        print(f"\t- Pretokenizing splits: {ds.id(as_path=True)}")
+        log.info(f"\t- Pretokenizing splits: {ds.id(as_path=True)}")
         for fname in ds.get_split_fnames():
-            print(f"\t\t- Pretokenizing split file: {fname}...")
+            log.info(f"\t\t- Pretokenizing split file: {fname}...")
             lang = fname.split(".")[1]
             input_file = ds.get_splits_auto_path(fname)
             output_file = ds.get_pretok_path(fname)
@@ -437,7 +463,7 @@ class DatasetBuilder:
                              force_overwrite=force_overwrite)
 
     def _train_tokenizer(self, force_overwrite):
-        print(f"=> Building vocabularies...")
+        log.info(f"=> Building vocabularies...")
 
         for ds in self.ds_list:  # Dataset
             src_lang, trg_lang = ds.id()[1].split("-")
@@ -447,7 +473,7 @@ class DatasetBuilder:
             tmp_path = os.path.join(ds.get_vocab_path(base=True), "_tmp")
             pretokenize_path = ds.get_pretok_path()
             make_dir([vocab_path, tmp_path, pretokenize_path])
-            print(f"\t- Building vocabulary: {ds.id2(as_path=True)}")
+            log.info(f"\t- Building vocabulary: {ds.id2(as_path=True)}")
 
             # Ignore dataset but create directories (just in case... for plots or stats)
             if ds.subword_model in {None, "none"}:
@@ -500,15 +526,16 @@ class DatasetBuilder:
                     if force_overwrite or not os.path.exists(f"{output_file}.model"):
                         tokenizers.spm_train_file(input_file=input_file, model_prefix=output_file, subword_model=ds.subword_model,
                                                   vocab_size=ds.vocab_size, input_sentence_size=self.input_sentence_size,
-                                                  character_coverage=self.character_coverage, split_digits=self.split_digits)
+                                                  character_coverage=self.character_coverage, split_digits=self.split_digits,
+                                                  byte_fallback=ds.byte_fallback)
                         assert os.path.exists(f"{output_file}.model")
 
                 # Check vocabs
-                print(f"=> Checking existing vocabularies...")
+                log.info(f"=> Checking existing vocabularies...")
                 ds.check_vocab_folder_consistency()
             
     def _encode_datasets(self, force_overwrite):
-        print(f"=> Building datasets...")
+        log.info(f"=> Building datasets...")
         for ds in self:  # Dataset
             # Ignore dataset
             if ds.subword_model in {None, "none"}:
@@ -519,7 +546,7 @@ class DatasetBuilder:
             make_dir([encoded_path])
 
             # Encode files
-            print(f"\t- Encoding dataset: {ds.id2(as_path=True)}")
+            log.info(f"\t- Encoding dataset: {ds.id2(as_path=True)}")
             for fname in ds.get_split_fnames():
                 lang = fname.split('.')[-1]
                 file_path_fn = ds.get_pretok_path if ds.pretok_flag else ds.get_splits_auto_path
@@ -558,7 +585,7 @@ class DatasetBuilder:
                 lang_files = [src_lang, trg_lang]
 
             # Check if file/files exists
-            print(f"\t- Exporting frequency vocab: {ds.id2(as_path=True)}")
+            log.info(f"\t- Exporting frequency vocab: {ds.id2(as_path=True)}")
             vocab_files = [ds.get_vocab_path(fname=f)+".vocabf" for f in lang_files]
             if force_overwrite or not all([os.path.exists(f) for f in vocab_files]):
                 # Get train paths
@@ -604,11 +631,11 @@ class DatasetBuilder:
                         write_file_lines(lines=lines, filename=vocab_path, insert_break_line=True)
 
     def _compute_stats(self, force_overwrite, print_stats=True):
-        print(f"=> Computing stats... (base_path={self.base_path})")
+        log.info(f"=> Computing stats... (base_path={self.base_path})")
 
         # Walk through preprocessing
         for ds in self:
-            print(f"\t- Computing stats for dataset: {ds.id2(as_path=True)}")
+            log.info(f"\t- Computing stats for dataset: {ds.id2(as_path=True)}")
 
             # Get path
             make_dir(ds.get_stats_path())
@@ -624,12 +651,12 @@ class DatasetBuilder:
 
                 # Print dictionary of stats (pretty)
                 if print_stats:
-                    print(json.dumps(stats, indent=4))
+                    log.info(json.dumps(stats, indent=4))
 
 
     def _plot_datasets(self, force_overwrite, save_figures=True, show_figures=False, add_dataset_title=True, vocab_top_k=None):
-        print(f"=> Plotting started... (base_path={self.base_path})")
-        print(f"- [WARNING]: Matplotlib might miss some images if the loop is too fast")
+        log.info(f"=> Plotting started... (base_path={self.base_path})")
+        log.warning(f"- [WARNING]: Matplotlib might miss some images if the loop is too fast")
 
         # Set default vars
         if vocab_top_k is None:
@@ -650,7 +677,7 @@ class DatasetBuilder:
             ds_title = f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
             vocab_name = f"_{ds.vocab_size}" if ds.vocab_size else ""
             suffix_fname = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}{vocab_name}".lower().replace('/', '_')
-            print(f"\t- Creating plots for: {ds.id2(as_path=True)}")
+            log.info(f"\t- Creating plots for: {ds.id2(as_path=True)}")
 
             # Set paths and create dirs
             vocab_path = ds.get_vocab_path()
@@ -658,7 +685,7 @@ class DatasetBuilder:
             plots_encoded_path = ds.get_plots_path()
             make_dir(plots_encoded_path)
 
-            print(f"\t\t- Creating 'Sentence length distribution' plots...")
+            log.info(f"\t\t- Creating 'Sentence length distribution' plots...")
             split_stats = {}
             for fname in ds.get_split_fnames():
                 split_name, split_lang = fname.split('.')
@@ -693,7 +720,7 @@ class DatasetBuilder:
             # df.to_csv(os.path.join(plots_encoded_path, f"stats__{base_fname}.csv"), index=False)
 
             # Plot split size (by the number o f sentences)
-            print(f"\t\t- Creating 'Split sizes' plots...")
+            log.info(f"\t\t- Creating 'Split sizes' plots...")
             title = f"Split sizes (by number of sentences)"
             title = title if not add_dataset_title else f"{ds_title}:\n{title}"
             p_fname = f"split_size_sent__{suffix_fname}".lower()
@@ -715,7 +742,7 @@ class DatasetBuilder:
 
             # Plot vocabulary frequency
             if ds.subword_model not in {None, "none"}:
-                print(f"\t\t- Creating 'Vocabulary distribution' plots...")
+                log.info(f"\t\t- Creating 'Vocabulary distribution' plots...")
 
                 # Load vocabulary
                 if self.merge_vocabs:
@@ -757,7 +784,7 @@ class DatasetBuilder:
 
     def merge_datasets(self, name="europarl", language_pair="xx-yy", dataset_size_name="original",
                        shuffle_lines=False, use_preprocessed_splits=False, preprocess_fn=None, force_overwrite=False):
-        print(f"=> Merging datasets... (base_path={self.base_path})")
+        log.info(f"=> Merging datasets... (base_path={self.base_path})")
 
         # Buckets
         src_train, trg_train = [], []
@@ -772,13 +799,13 @@ class DatasetBuilder:
 
         # Check if the merged dataset exists
         if all([os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()]) and not force_overwrite:
-            print(f"\t=> Merged dataset already exist for '{ds.id(as_path=True)}'")
+            log.info(f"\t=> Merged dataset already exist for '{ds.id(as_path=True)}'")
             return
         else:
             # Select split files
             # Walk through all the datasets
             for ds_i in self.get_train_ds():
-                print(f"\t- Reading dataset: {ds_i.id2(as_path=True)}")
+                log.info(f"\t- Reading dataset: {ds_i.id2(as_path=True)}")
                 fn_split_path = ds_i.get_splits_preprocessed_path if use_preprocessed_splits else ds_i.get_split_path
 
                 # Read lines
@@ -808,7 +835,7 @@ class DatasetBuilder:
 
             # Shuffle lines pairs
             if shuffle_lines:
-                print(f"\t- Shuffling lines...")
+                log.info(f"\t- Shuffling lines...")
                 src_train, trg_train = utils.shuffle_in_order(src_train, trg_train)
                 src_val, trg_val = utils.shuffle_in_order(src_val, trg_val)
                 src_test, trg_test = utils.shuffle_in_order(src_test, trg_test)
@@ -823,4 +850,4 @@ class DatasetBuilder:
             for src_lines, trg_lines, fname in _splits:
                 utils.write_file_lines(src_lines, ds.get_split_path(f"{fname}.{ds.src_lang}"))
                 utils.write_file_lines(trg_lines, ds.get_split_path(f"{fname}.{ds.trg_lang}"))
-                print(f"\t\t- Partitions saved: {fname}.{ds.src_lang} and {fname}.{ds.trg_lang}")
+                log.info(f"\t\t- Partitions saved: {fname}.{ds.src_lang} and {fname}.{ds.trg_lang}")

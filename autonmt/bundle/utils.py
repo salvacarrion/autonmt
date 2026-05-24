@@ -15,6 +15,10 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
+from autonmt.bundle.logger import get_logger
+
+log = get_logger(__name__)
+
 
 def ask_yes_or_no(question, interactive=True, default=True):
     # Default behaviour when it is not interactive
@@ -26,7 +30,7 @@ def ask_yes_or_no(question, interactive=True, default=True):
     if reply == 'y':
         return True
     else:
-        print("Abort.")
+        log.info("Abort.")
         return False
 
 
@@ -47,7 +51,7 @@ def make_dir(path, parents=True, exist_ok=True, base_path=""):
         p = os.path.join(base_path, p)  # Add base path (if needed)
         if not os.path.exists(p):
             Path(p).mkdir(parents=parents, exist_ok=exist_ok)
-            # print(f"Directory created: {p}")
+            # log.info(f"Directory created: {p}")
 
 
 def is_dir_empty(path):
@@ -56,10 +60,10 @@ def is_dir_empty(path):
 
 def empty_dir(path, safe_seconds=0):
     if safe_seconds > 0:
-        print(f"\t- Deleting files... (safe mode: ON | waiting {safe_seconds} seconds)")
+        log.info(f"\t- Deleting files... (safe mode: ON | waiting {safe_seconds} seconds)")
         time.sleep(safe_seconds)
     else:
-        print(f"\t- Deleting files... (safe mode: OFF | no wait)")
+        log.info(f"\t- Deleting files... (safe mode: OFF | no wait)")
 
     # Delete files
     shutil.rmtree(path)
@@ -77,11 +81,11 @@ def make_empty_path(path, force_overwrite, interactive=False, safe_seconds=0):
     # Check if the directory and can be deleted it
     is_empty = os.listdir(path) == []
     if force_overwrite and os.path.exists(path) and not is_empty:
-        print(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
+        log.warning(f"=> [Existing data]: The contents of following directory are going to be deleted: {path}")
         res = ask_yes_or_no(question="Do you want to continue?", interactive=interactive)
         if res:
             if safe_seconds:
-                print(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
+                log.info(f"\t- Deleting files... (waiting {safe_seconds} seconds)")
                 time.sleep(safe_seconds)
             # Delete path
             shutil.rmtree(path)
@@ -154,7 +158,7 @@ def save_json(d, savepath, ignore_empty=True, allow_overwrite=True):
             with open(savepath, 'w') as f:
                 json.dump(d, f)
     else:
-        print(f"\t- [INFO]: Ignoring empty json. Not saved: {savepath}")
+        log.info(f"\t- [INFO]: Ignoring empty json. Not saved: {savepath}")
 
 
 def create_logger(logs_path, log_level=logging.INFO):
