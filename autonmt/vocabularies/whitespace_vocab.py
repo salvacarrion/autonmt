@@ -1,6 +1,4 @@
-from collections import Counter
-
-from autonmt.bundle.utils import read_file_lines, write_file_lines, flatten, hex2text
+from autonmt.bundle.utils import read_file_lines, write_file_lines, hex2text
 from autonmt.vocabularies.base_vocab import BaseVocabulary
 
 
@@ -44,10 +42,10 @@ class Vocabulary(BaseVocabulary):
         import sentencepiece as spm
         self.spm_model = spm.SentencePieceProcessor(model_file=path)
 
-    def _build_from_vocab(self, filename, includes_special_tokes=True):
+    def _build_from_vocab(self, filename, includes_special_tokens=True):
         # Parse file. Special tokens must appear first in the file
         tokens = [line.split('\t') for line in read_file_lines(filename, autoclean=False)]
-        special_tokens = [(tok, 0) for tok, _ in self.special_tokens()] if not includes_special_tokes else []
+        special_tokens = [(tok, 0) for tok, _ in self.special_tokens()] if not includes_special_tokens else []
 
         # Tokens must include the special tokens
         tokens = special_tokens + tokens  # Do not sort
@@ -126,10 +124,10 @@ class Vocabulary(BaseVocabulary):
 
         # Add special tokens
         if include_special_tokens:
-            lines.append((self.unk_piece, 0))
-            lines.append((self.sos_piece, 0))
-            lines.append((self.eos_piece, 0))
-            lines.append((self.pad_piece, 0))
+            lines.append(f"{self.unk_piece}\t0")
+            lines.append(f"{self.sos_piece}\t0")
+            lines.append(f"{self.eos_piece}\t0")
+            lines.append(f"{self.pad_piece}\t0")
 
         # Add tokens
         for voc, idx in self.voc2idx.items():

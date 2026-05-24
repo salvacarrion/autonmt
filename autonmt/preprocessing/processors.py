@@ -39,8 +39,8 @@ def preprocess_pairs(src_lines, tgt_lines, normalize_fn=None, min_len=None, max_
         # Compute percentiles
         if max_len_percentile and max_len_percentile < 100:
             src_lengths, trg_lengths = list(zip(*[(len(src), len(trg)) for (src, trg) in zip(src_lines, tgt_lines)]))
-            max_len_src = np.percentile(np.array(src_lengths), max_len_ratio_percentile)
-            max_len_trg = np.percentile(np.array(trg_lengths), max_len_ratio_percentile)
+            max_len_src = np.percentile(np.array(src_lengths), max_len_percentile)
+            max_len_trg = np.percentile(np.array(trg_lengths), max_len_percentile)
 
         log.info("\t\t- Checking lengths...")
         total_lines = len(src_lines)
@@ -78,7 +78,7 @@ def preprocess_pairs(src_lines, tgt_lines, normalize_fn=None, min_len=None, max_
         src_lines, tgt_lines = shuffle_in_order(src_lines, tgt_lines)
 
     # Summary
-    log.info(f"\t\t- Total lines removed {total_lines0-len(src_lines):,} ({1-len(src_lines)/total_lines0:.3f}%)")
+    log.info(f"\t\t- Total lines removed {total_lines0-len(src_lines):,} ({(1-len(src_lines)/total_lines0)*100:.3f}%)")
     return src_lines, tgt_lines
 
 def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remove_duplicates=False, shuffle_lines=False):
@@ -113,7 +113,7 @@ def preprocess_lines(lines, normalize_fn=None, min_len=None, max_len=None, remov
         random.shuffle(lines)
 
     # Summary
-    log.info(f"\t\t- Total lines removed {total_lines0-len(lines):,} ({1-len(lines)/total_lines0:.3f}%)")
+    log.info(f"\t\t- Total lines removed {total_lines0-len(lines):,} ({(1-len(lines)/total_lines0)*100:.3f}%)")
     return lines
 
 def normalize_lines(lines, seq=None):

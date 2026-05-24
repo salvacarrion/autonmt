@@ -46,7 +46,8 @@ def greedy_search(model, dataset, sos_id, eos_id, pad_id, batch_size, max_tokens
                 if eos_mask.all():
                     break
 
-            # Add outputs
-            outputs.extend(y_pred[:, :max_iter].tolist())
+            # Include position `max_iter` — that's the token written at the final step,
+            # whether EOS (decode strips it) or the final word at the length cap.
+            outputs.extend(y_pred[:, :max_iter + 1].tolist())
 
     return outputs, None

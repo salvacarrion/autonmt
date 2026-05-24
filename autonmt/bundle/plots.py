@@ -233,12 +233,10 @@ def _show_save_figure(output_dir, fname, show_fig, save_fig, formats, dpi, fig=N
 
 def do_all_figs_exists(output_dir, fname, formats):
     for ext in formats:
-        # Create png/pdf/... dirs
         save_dir = os.path.join(output_dir, ext)
-        if os.path.exists(os.path.join(save_dir, f"{fname}.{ext}")):
-            return True
-
-    return False
+        if not os.path.exists(os.path.join(save_dir, f"{fname}.{ext}")):
+            return False
+    return True
 
 
 def plot_metrics(output_path, df_report, plot_metric, xlabel="MT Models", ylabel="BLEU Score", title="Model comparison",

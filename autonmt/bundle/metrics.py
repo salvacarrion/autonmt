@@ -104,7 +104,7 @@ def compute_comet(src_file, ref_file, hyp_file, output_file):
     assert len(ref_lines) == len(hyp_lines) == len(src_lines)
 
     # Check if files have content
-    if not hyp_lines or not ref_lines or not src_file:
+    if not hyp_lines or not ref_lines or not src_lines:
         raise ValueError("Files empty (hyp/ref/src)")
 
     # Compute scores
@@ -118,7 +118,10 @@ def _comet(src_lines, hyp_lines, ref_lines):
     try:
         import comet
     except ImportError as e:
-        log.warning("[WARNING]: 'unbabel-comet' is not installed due to an incompatibility with 'pytorch-lightning'")
+        raise ImportError(
+            "'unbabel-comet' is required to compute COMET scores. "
+            "Install with: pip install unbabel-comet"
+        ) from e
 
     # Get model
     model_path = comet.download_model("wmt20-comet-da")

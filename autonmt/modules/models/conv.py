@@ -137,7 +137,8 @@ class Conv(LitSeq2Seq):
             conv_input = self.decoder_dropout(conv_input)  # (B, hid dim, L)
 
             # Pad the input so decoder can't look ahead: Pad => (B, hid dim, K-1) + Conv => (B, hid dim, L)
-            padding = torch.zeros(batch_size, self.decoder_hidden_dim, self.decoder_kernel_size - 1).fill_(self.padding_idx).to(y.device)
+            # Padding is in hidden-state space (a conv activation), not token-id space — must be 0.0.
+            padding = torch.zeros(batch_size, self.decoder_hidden_dim, self.decoder_kernel_size - 1, device=y.device)
             padded_conv_input = torch.cat((padding, conv_input), dim=2)  # (B, hid dim, L + K - 1)
 
             conved = conv(padded_conv_input)  # (B, 2 * hid dim, L)

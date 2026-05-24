@@ -15,19 +15,13 @@
 
 ---
 
-AutoNMT automates the boring half of seq2seq research (i.e., tokenization, training, scoring,
-logging, plotting, file management) so you can focus on the model. Define a grid of
-datasets × language pairs × subword models × vocab sizes, and AutoNMT runs the cross
-product, stores every intermediate artifact on disk, and produces a single comparable
-report at the end.
+AutoNMT automates the boring half of seq2seq research (i.e., tokenization, training, scoring, logging, plotting, file management) so you can focus on the model. Define a grid of datasets × language pairs × subword models × vocab sizes, and AutoNMT runs the cross product, stores every intermediate artifact on disk, and produces a single comparable report at the end.
 
-The same script can train AutoNMT's own PyTorch Lightning models or shell out to
-Fairseq - switch backends by changing one class.
+The same script can train AutoNMT's own PyTorch Lightning models or shell out to Fairseq - switch backends by changing one class.
 
 ## Quickstart
 
-Fetch a dataset from HuggingFace, train a small Transformer, and print the BLEU score -
-all in one script:
+Fetch a dataset from HuggingFace, train a small Transformer, and print the BLEU score - all in one script:
 
 ```bash
 pip install -e .
@@ -117,18 +111,9 @@ DatasetBuilder  ───►  BaseTranslator  ───►  generate_report
        (Lightning models)         (fairseq CLI)
 ```
 
-- **`DatasetBuilder`** ([`preprocessing/builder.py`](autonmt/preprocessing/builder.py)) unrolls
-  the declared cross-product of datasets × language pairs × sizes × subword models × vocab
-  sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk.
-  Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable
-  SentencePiece byte fallback for that model - declare separate entries to compare
-  `bpe` with and without it. The flag is orthogonal to `subword_models`. As a
-  shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is
-  equivalent to setting `byte_fallback=True` for that model.
-- **`BaseTranslator`** ([`toolkits/base.py`](autonmt/toolkits/base.py)) defines the shared
-  `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
-- **`generate_report`** ([`bundle/report.py`](autonmt/bundle/report.py)) flattens the
-  per-run score dicts into a single CSV + comparison plots.
+- **`DatasetBuilder`** ([`preprocessing/builder.py`](autonmt/preprocessing/builder.py)) unrolls the declared cross-product of datasets × language pairs × sizes × subword models × vocab sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk. Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable SentencePiece byte fallback for that model - declare separate entries to compare `bpe` with and without it. The flag is orthogonal to `subword_models`. As a shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is equivalent to setting `byte_fallback=True` for that model.
+- **`BaseTranslator`** ([`toolkits/base.py`](autonmt/toolkits/base.py)) defines the shared `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
+- **`generate_report`** ([`bundle/report.py`](autonmt/bundle/report.py)) flattens the per-run score dicts into a single CSV + comparison plots.
 
 ### Typed configuration (optional)
 
@@ -145,8 +130,7 @@ trainer.fit(train_ds, config=FitConfig(batch_size=64, max_epochs=10))
 trainer.fit(train_ds, config=FitConfig(batch_size=64), max_epochs=20)
 ```
 
-Toolkit-specific extras (`wandb_params`, `fairseq_args`, `strategy`, …) pass through
-`**kwargs` untouched - they're forwarded to the underlying backend.
+Toolkit-specific extras (`wandb_params`, `fairseq_args`, `strategy`, …) pass through `**kwargs` untouched - they're forwarded to the underlying backend.
 
 ## On-disk layout
 
@@ -169,12 +153,9 @@ multi30k/de-en/original/
     └── logs/                        config_train.json, config_predict.json, TB / wandb / comet
 ```
 
-When `byte_fallback=True`, the `<subword>` segment becomes `<model>+bytes` (e.g. `bpe+bytes/8000`),
-so runs with and without fallback never collide on disk.
+When `byte_fallback=True`, the `<subword>` segment becomes `<model>+bytes` (e.g. `bpe+bytes/8000`), so runs with and without fallback never collide on disk.
 
-Each stage checks `force_overwrite` before rewriting, so re-running an experiment skips
-completed stages. When debugging a stage, delete only that stage's directory - not the
-whole tree.
+Each stage checks `force_overwrite` before rewriting, so re-running an experiment skips completed stages. When debugging a stage, delete only that stage's directory - not the whole tree.
 
 See [`docs/data/tree.txt`](docs/data/tree.txt) for a full example tree.
 
@@ -189,8 +170,7 @@ See [`docs/data/tree.txt`](docs/data/tree.txt) for a full example tree.
 
 ## Custom models
 
-Inherit from `LitSeq2Seq` and implement `forward_encoder`, `forward_decoder`, and
-`forward_enc_dec`. Logits must come out shaped `(batch, length, vocab)`.
+Inherit from `LitSeq2Seq` and implement `forward_encoder`, `forward_decoder`, and `forward_enc_dec`. Logits must come out shaped `(batch, length, vocab)`.
 
 ```python
 from autonmt.modules.seq2seq import LitSeq2Seq
@@ -214,8 +194,7 @@ Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
 > Importing the module emits a `DeprecationWarning`; instantiating without `fairseq`
 > installed raises `ImportError` with install instructions.
 
-`FairseqTranslator` shells out to the Fairseq CLI. AutoNMT translates kwargs (`max_epochs`,
-`batch_size`, …) to Fairseq flags via an internal table.
+`FairseqTranslator` shells out to the Fairseq CLI. AutoNMT translates kwargs (`max_epochs`, `batch_size`, …) to Fairseq flags via an internal table.
 
 ```python
 from autonmt.toolkits.fairseq import FairseqTranslator  # DeprecationWarning here
@@ -253,8 +232,7 @@ multi30k_test  multi30k_test       unigram        4000     35.123375     32.8163
 multi30k_test  multi30k_test          word        4000     34.706139     34.682657
 ```
 
-Score keys are flattened as `<tool>_<metric>_<field>` - e.g. `sacrebleu_bleu_score`,
-`bertscore_f1_mean`, `comet_score`.
+Score keys are flattened as `<tool>_<metric>_<field>` - e.g. `sacrebleu_bleu_score`, `bertscore_f1_mean`, `comet_score`.
 
 ### Plots
 
@@ -264,18 +242,14 @@ Score keys are flattened as `<tool>_<metric>_<field>` - e.g. `sacrebleu_bleu_sco
 
 ## Reproducibility
 
-- All intermediate artifacts are persisted in numbered stage folders, so you can inspect,
-  reuse, or pin any step.
+- All intermediate artifacts are persisted in numbered stage folders, so you can inspect, reuse, or pin any step.
 - Every run dumps its full effective config to `logs/config_{train,predict}.json`.
-- `manual_seed(seed)` seeds Python `random`, NumPy, Torch and Lightning together. Pass
-  `seed=` to `fit()` for deterministic runs.
-- Backed by widely-used reference libraries (SentencePiece, sacreBLEU, Moses, COMET,
-  BERTScore) so results are comparable across papers.
+- `manual_seed(seed)` seeds Python `random`, NumPy, Torch and Lightning together. Pass `seed=` to `fit()` for deterministic runs.
+- Backed by widely-used reference libraries (SentencePiece, sacreBLEU, Moses, COMET, BERTScore) so results are comparable across papers.
 
 ## Logging
 
-AutoNMT uses Python's `logging` module under the `autonmt` namespace. Set the level via
-the env var or programmatically:
+AutoNMT uses Python's `logging` module under the `autonmt` namespace. Set the level via the env var or programmatically:
 
 ```bash
 AUTONMT_LOG_LEVEL=DEBUG python my_script.py
@@ -294,9 +268,7 @@ pytest tests/                                                 # run the test sui
 flake8 . --count --select=E9,F63,F7,F82 --show-source         # the only lint that breaks CI
 ```
 
-The synthetic-corpus E2E test in [`tests/functional/test_builder_e2e.py`](tests/functional/test_builder_e2e.py)
-exercises the full preprocessing pipeline (raw → splits → SentencePiece → encoded) in
-under 2 seconds - useful for verifying refactors without spinning up a GPU.
+The synthetic-corpus E2E test in [`tests/functional/test_builder_e2e.py`](tests/functional/test_builder_e2e.py) exercises the full preprocessing pipeline (raw → splits → SentencePiece → encoded) in under 2 seconds - useful for verifying refactors without spinning up a GPU.
 
 ## License
 

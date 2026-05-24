@@ -251,8 +251,8 @@ class DatasetBuilder:
                     res = ask_yes_or_no(question="Do you want to create the missing directories?", interactive=interactive)
                     if res:
                         log.info(f"\t\t\t- Creating missing directories...")
-                        make_dir(ds.get_raw_path()) if res else None
-                        make_dir(ds.get_split_path()) if res else None
+                        make_dir(ds.get_raw_path())
+                        make_dir(ds.get_split_path())
 
                 # Summary
                 log.warning(f"\t\t=> [ACTION REQUIRED] You need to add a valid dataset to at least one of these folders:")
@@ -284,7 +284,7 @@ class DatasetBuilder:
                     log.error(f"=> [ERROR]: The source and target files do not have the same number of lines "
                           f"({len(src_lines)} != {len(tgt_lines)})")
                     log.info(f"\t- Source file: {src_in}")
-                    log.info(f"\t- Target file: {src_out}")
+                    log.info(f"\t- Target file: {trg_in}")
 
                 # Preprocess lines
                 data = {"src": {"lang": ds.src_lang, "lines": src_lines},

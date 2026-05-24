@@ -560,7 +560,7 @@ class BaseTranslator(ABC):
         # Walk through beams
         assert self.src_vocab.subword_model == self.trg_vocab.subword_model
         if len(self.src_vocab) != len(self.trg_vocab):
-            vocab_size = f"{len(self.src_vocab)}/{len(self.src_vocab)}"
+            vocab_size = f"{len(self.src_vocab)}/{len(self.trg_vocab)}"
         else:
             vocab_size = f"{len(self.src_vocab)}"
 
