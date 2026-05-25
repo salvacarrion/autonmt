@@ -1,10 +1,10 @@
 import pandas as pd
 
-from autonmt.bundle import utils
-from autonmt.bundle.report import generate_multivariable_report
-from autonmt.preprocessing import DatasetBuilder
+from autonmt.utils import fileio as utils
+from autonmt.reporting.report import generate_sweep_report
+from autonmt.datasets import DatasetBuilder
 
-from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from autonmt.datasets.processors import preprocess_pairs, preprocess_lines, normalize_lines
 
 # Preprocess functions
 normalize_fn = lambda x: normalize_lines(x)
@@ -36,7 +36,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(force_overwrite=False)
 
     # Create preprocessing for training and testing
     tr_datasets = builder.get_train_ds()
@@ -66,11 +66,10 @@ def main():
     # Make report and print it
     output_path = f".outputs/myplots"
     prefix = "unknowns_"
-    generate_multivariable_report(data=df_report,
-                           x="vocab_size",
-                           y_left=("unknown_avg_tokens", "subword_model"), y_right=None,
-                           output_path=output_path, prefix=prefix,
-                           save_figures=True, show_figures=False, save_csv=True)
+    generate_sweep_report(data=df_report,
+                          x="vocab_size",
+                          y_left=("unknown_avg_tokens", "subword_model"), y_right=None,
+                          output_path=output_path, prefix=prefix, save_csv=True)
     print("Summary:")
     print(df_report.to_string(index=False))
 

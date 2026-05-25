@@ -20,13 +20,13 @@ import os
 
 from tokenizers.normalizers import NFKC, Strip
 
-from autonmt.bundle.plots import plot_metrics
-from autonmt.bundle.report import generate_report
-from autonmt.modules.models import Transformer
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.preprocessing.processors import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.toolkits import AutonmtTranslator
-from autonmt.toolkits.config import FitConfig, PredictConfig
+from autonmt.reporting.figures import plot_model_comparison
+from autonmt.reporting.report import generate_report
+from autonmt.core.models import Transformer
+from autonmt.datasets import DatasetBuilder
+from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.backends import AutonmtTranslator
+from autonmt.backends.base.config import FitConfig, PredictConfig
 from autonmt.vocabularies import Vocabulary
 
 
@@ -100,10 +100,10 @@ def main():
     print("\nSummary:")
     print(df_summary.to_string(index=False))
 
-    plot_metrics(
-        output_path=os.path.join(output_path, "plots"),
+    plot_model_comparison(
+        out_dir=os.path.join(output_path, "plots"),
         df_report=df_report,
-        plot_metric="translations.beam1.sacrebleu_bleu_score",
+        metric="translations.beam1.sacrebleu_bleu_score",
         xlabel="MT Models", ylabel="BLEU", title="Model comparison",
     )
 

@@ -4,15 +4,15 @@ import os
 import torch
 torch.set_float32_matmul_precision("high")
 
-from autonmt.modules.models import Transformer
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.toolkits import AutonmtTranslator
+from autonmt.core.models import Transformer
+from autonmt.datasets import DatasetBuilder
+from autonmt.backends import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
 
-from autonmt.bundle.report import generate_report
-from autonmt.bundle.plots import plot_metrics
+from autonmt.reporting.report import generate_report
+from autonmt.reporting.figures import plot_model_comparison
 
-from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from autonmt.datasets.processors import preprocess_pairs, preprocess_lines, normalize_lines
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 # Preprocess functions
@@ -48,7 +48,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=True)
+    ).build(force_overwrite=True)
 
     builder_ts = DatasetBuilder(
         # Root folder for datasets
@@ -118,7 +118,7 @@ def main():
 
     # Plot metrics
     plots_path = os.path.join(output_path, "plots")
-    plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
+    plot_model_comparison(out_dir=plots_path, df_report=df_report, metric="translations.beam1.sacrebleu_bleu_score",
                  xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
 
 

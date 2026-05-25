@@ -4,11 +4,11 @@
 #
 # import autonmt as al
 #
-# from autonmt.modules.models.transformer import Transformer
-# from autonmt.toolkits.autonmt import AutonmtTranslator
-# from autonmt.toolkits.fairseq import FairseqTranslator
-# from autonmt.preprocessing.builder import DatasetBuilder
-# from autonmt.bundle.report import generate_report, summarize_scores
+# from autonmt.core.models.transformer import Transformer
+# from autonmt.backends.autonmt.translator import AutonmtTranslator
+# from autonmt.backends.fairseq.translator import FairseqTranslator
+# from autonmt.datasets.dataset_builder import DatasetBuilder
+# from autonmt.reporting.report import generate_report, summarize_scores
 #
 # import pytest
 #

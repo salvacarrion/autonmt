@@ -14,8 +14,8 @@ import pytest
 
 def _reload_fairseq_module():
     """Force re-import so the module-level DeprecationWarning fires under catch_warnings."""
-    sys.modules.pop("autonmt.toolkits.fairseq", None)
-    return importlib.import_module("autonmt.toolkits.fairseq")
+    sys.modules.pop("autonmt.backends.fairseq.translator", None)
+    return importlib.import_module("autonmt.backends.fairseq.translator")
 
 
 class TestModuleLevelDeprecation:

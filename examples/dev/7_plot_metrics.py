@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-from autonmt.bundle.utils import make_dir
-from autonmt.bundle.plots import plot_metrics
+from autonmt.utils.fileio import make_dir
+from autonmt.reporting.figures import plot_model_comparison
 
 BASE_PATH = "/Users/salvacarrion/Documents/Programming/datasets/translate"  # Local
 
@@ -25,7 +25,7 @@ def main():
     make_dir([plots_path])
 
     #Create plots path
-    plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
+    plot_model_comparison(out_dir=plots_path, df_report=df_report, metric="translations.beam1.sacrebleu_bleu_score",
                  xlabel="MT Models", ylabel="BLEU Score", title="Model comparison",
                  bar_group_name_fn=bar_group_name_fn, legend_name_fn=legend_name_fn)
     print("Plots done!")

@@ -5,15 +5,15 @@ import re
 import torch
 torch.set_float32_matmul_precision("high")
 
-from autonmt.modules.models import Transformer
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.toolkits import AutonmtTranslator
+from autonmt.core.models import Transformer
+from autonmt.datasets import DatasetBuilder
+from autonmt.backends import AutonmtTranslator
 from autonmt.vocabularies import Vocabulary
 
-from autonmt.bundle.report import generate_report
-from autonmt.bundle.plots import plot_metrics
+from autonmt.reporting.report import generate_report
+from autonmt.reporting.figures import plot_model_comparison
 
-from autonmt.preprocessing.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from autonmt.datasets.processors import preprocess_pairs, preprocess_lines, normalize_lines
 from tokenizers.normalizers import NFKC, Strip, Lowercase
 
 from minlora import add_lora, LoRAParametrization, apply_to_lora, disable_lora, enable_lora, get_lora_params, merge_lora, name_is_lora, remove_lora, load_multiple_lora, select_lora, get_lora_state_dict
@@ -91,7 +91,7 @@ def main():
 
         # Additional args
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(force_overwrite=False)
 
     # # Merge datasets
     # builder.merge_datasets(name="europarl", language_pair="en-xx", dataset_size_name="original",
@@ -214,7 +214,7 @@ def main():
 
     # Plot metrics
     plots_path = os.path.join(output_path, "plots")
-    plot_metrics(output_path=plots_path, df_report=df_report, plot_metric="translations.beam1.sacrebleu_bleu_score",
+    plot_model_comparison(out_dir=plots_path, df_report=df_report, metric="translations.beam1.sacrebleu_bleu_score",
                  xlabel="MT Models", ylabel="BLEU Score", title="Model comparison")
 
 

@@ -1,7 +1,7 @@
 """FitConfig / PredictConfig precedence: explicit kwargs > config > defaults."""
 import pytest
 
-from autonmt.toolkits.config import FitConfig, PredictConfig, UNSET, merge_config
+from autonmt.backends.base.config import FitConfig, PredictConfig, UNSET, merge_config
 
 
 class TestMerge:

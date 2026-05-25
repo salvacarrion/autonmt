@@ -13,13 +13,13 @@ import os
 
 from tokenizers.normalizers import NFKC, Strip
 
-from autonmt.bundle.report import generate_report
-from autonmt.modules.models import Transformer
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.preprocessing.hf_loader import download_hf_dataset
-from autonmt.preprocessing.processors import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.toolkits import AutonmtTranslator
-from autonmt.toolkits.config import FitConfig, PredictConfig
+from autonmt.reporting.report import generate_report
+from autonmt.core.models import Transformer
+from autonmt.datasets import DatasetBuilder
+from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.backends import AutonmtTranslator
+from autonmt.backends.base.config import FitConfig, PredictConfig
 from autonmt.vocabularies import Vocabulary
 
 BASE_PATH = "datasets/quickstart"

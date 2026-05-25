@@ -4,8 +4,8 @@ existing experiment folder, so the layout is pinned here.
 """
 import pytest
 
-from autonmt.bundle.enums import SubwordModel
-from autonmt.preprocessing.dataset import Dataset, DatasetLayout
+from autonmt.utils.enums import SubwordModel
+from autonmt.datasets.dataset import Dataset, DatasetLayout
 
 
 @pytest.fixture

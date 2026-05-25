@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from autonmt.bundle.enums import EvalMode, SourceData, SubwordModel
+from autonmt.utils.enums import EvalMode, SourceData, SubwordModel
 
 
 class TestStrCompat:

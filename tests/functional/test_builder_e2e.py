@@ -19,7 +19,7 @@ pytest.importorskip("sentencepiece")
 pytest.importorskip("sacremoses")
 pytest.importorskip("tokenizers")
 
-from autonmt.preprocessing.builder import DatasetBuilder  # noqa: E402
+from autonmt.datasets.dataset_builder import DatasetBuilder  # noqa: E402
 
 
 SRC_SENTENCES = [
@@ -79,7 +79,7 @@ def test_builder_runs_full_pipeline(tiny_corpus):
             "vocab_sizes": [200],  # small but viable for SentencePiece
         }],
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(force_overwrite=False)
 
     train_ds = builder.get_train_ds()
     assert len(train_ds) == 1
@@ -110,4 +110,4 @@ def test_builder_runs_full_pipeline(tiny_corpus):
         }],
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": [200]}],
         merge_vocabs=False,
-    ).build(make_plots=False, force_overwrite=False)
+    ).build(force_overwrite=False)

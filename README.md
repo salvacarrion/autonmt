@@ -30,11 +30,11 @@ python examples/0_quickstart_hf.py
 ```
 
 ```python
-from autonmt.preprocessing import DatasetBuilder
-from autonmt.preprocessing.hf_loader import download_hf_dataset
-from autonmt.toolkits import AutonmtTranslator
-from autonmt.toolkits.config import FitConfig, PredictConfig
-from autonmt.modules.models import Transformer
+from autonmt.datasets import DatasetBuilder
+from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.backends import AutonmtTranslator
+from autonmt.backends.base.config import FitConfig, PredictConfig
+from autonmt.core.models import Transformer
 from autonmt.vocabularies import Vocabulary
 
 # 1. Pull multi30k from HuggingFace into AutoNMT's on-disk layout
@@ -111,16 +111,16 @@ DatasetBuilder  ───►  BaseTranslator  ───►  generate_report
        (Lightning models)         (fairseq CLI)
 ```
 
-- **`DatasetBuilder`** ([`preprocessing/builder.py`](autonmt/preprocessing/builder.py)) unrolls the declared cross-product of datasets × language pairs × sizes × subword models × vocab sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk. Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable SentencePiece byte fallback for that model - declare separate entries to compare `bpe` with and without it. The flag is orthogonal to `subword_models`. As a shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is equivalent to setting `byte_fallback=True` for that model.
-- **`BaseTranslator`** ([`toolkits/base.py`](autonmt/toolkits/base.py)) defines the shared `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
-- **`generate_report`** ([`bundle/report.py`](autonmt/bundle/report.py)) flattens the per-run score dicts into a single CSV + comparison plots.
+- **`DatasetBuilder`** ([`datasets/dataset_builder.py`](autonmt/datasets/dataset_builder.py)) unrolls the declared cross-product of datasets × language pairs × sizes × subword models × vocab sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk. Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable SentencePiece byte fallback for that model - declare separate entries to compare `bpe` with and without it. The flag is orthogonal to `subword_models`. As a shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is equivalent to setting `byte_fallback=True` for that model.
+- **`BaseTranslator`** ([`backends/base/translator.py`](autonmt/backends/base/translator.py)) defines the shared `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
+- **`generate_report`** ([`reporting/report.py`](autonmt/reporting/report.py)) flattens the per-run score dicts into a single CSV + comparison plots.
 
 ### Typed configuration (optional)
 
 `fit()` and `predict()` accept either keyword arguments or a typed config object:
 
 ```python
-from autonmt.toolkits.config import FitConfig, PredictConfig
+from autonmt.backends.base.config import FitConfig, PredictConfig
 
 # Equivalent forms
 trainer.fit(train_ds, batch_size=64, max_epochs=10)
@@ -173,7 +173,7 @@ See [`docs/data/tree.txt`](docs/data/tree.txt) for a full example tree.
 Inherit from `LitSeq2Seq` and implement `forward_encoder`, `forward_decoder`, and `forward_enc_dec`. Logits must come out shaped `(batch, length, vocab)`.
 
 ```python
-from autonmt.modules.seq2seq import LitSeq2Seq
+from autonmt.core.seq2seq import LitSeq2Seq
 
 class MyModel(LitSeq2Seq):
     def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, **kwargs):
@@ -197,7 +197,7 @@ Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
 `FairseqTranslator` shells out to the Fairseq CLI. AutoNMT translates kwargs (`max_epochs`, `batch_size`, …) to Fairseq flags via an internal table.
 
 ```python
-from autonmt.toolkits.fairseq import FairseqTranslator  # DeprecationWarning here
+from autonmt.backends.fairseq.translator import FairseqTranslator  # DeprecationWarning here
 
 trainer = FairseqTranslator(runs_dir=..., run_name=...)
 trainer.fit(
@@ -215,7 +215,7 @@ trainer.fit(
 ## Reports
 
 ```python
-from autonmt.bundle.report import generate_report
+from autonmt.reporting.report import generate_report
 
 df_report, df_summary = generate_report(
     scores=scores, output_path="outputs/run1",
