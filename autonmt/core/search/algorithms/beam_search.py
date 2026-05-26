@@ -65,8 +65,7 @@ class BeamSearch(BaseSearch):
                 offsets = torch.arange(B, device=device).unsqueeze(-1) * beam_width  # (B, 1)
 
                 for _ in range(1, max_gen_length):
-                    outputs, _ = model.forward_decoder(
-                        y=dec_idxs, y_len=None, states=states, x_pad_mask=x_pad_mask)
+                    outputs, _ = model.forward_decoder(y=dec_idxs, y_len=None, states=states, x_pad_mask=x_pad_mask)
                     log_probs = outputs[:, -1, :].log_softmax(-1)  # (BK, V)
 
                     # Lock finished hypotheses: force <pad> with log_prob 0 so the
@@ -87,8 +86,7 @@ class BeamSearch(BaseSearch):
                     # Absolute index in the (BK,) layout for the gather below.
                     gather_idx = (beam_source + offsets).view(-1)                # (BK,)
 
-                    dec_idxs = torch.cat(
-                        [dec_idxs[gather_idx], next_tokens.view(-1, 1)], dim=-1)
+                    dec_idxs = torch.cat([dec_idxs[gather_idx], next_tokens.view(-1, 1)], dim=-1)
                     finished = finished[gather_idx] | (next_tokens.view(-1) == eos_id)
 
                     if finished.all():

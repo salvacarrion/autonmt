@@ -1,8 +1,14 @@
-"""Regression tests for autonmt.core.search.{Greedy,Beam}Search."""
+"""Regression tests for autonmt.core.search.*"""
 import torch
 import torch.nn as nn
 
-from autonmt.core.search import BeamSearch, GreedySearch
+from autonmt.core.search import (
+    BeamSearch,
+    GreedySearch,
+    MultinomialSampling,
+    TopKSampling,
+    TopPSampling,
+)
 
 
 class _FixedBatchDataset:
@@ -125,3 +131,33 @@ def test_beam_search_runs_to_length_cap_without_eos():
     assert len(out[0]) == max_len_b
     assert eos_id not in out[0]
     assert out[0][0] == sos_id
+
+
+def test_multinomial_sampling_picks_dominant_token():
+    """With one logit dwarfing the rest, the softmax is effectively a delta and
+    multinomial sampling must always return that token (no seed needed)."""
+    logits = torch.full((4, 10), -50.0)
+    logits[:, 7] = 50.0  # token 7 dominates every row
+    out = MultinomialSampling().pick_next_token(logits)
+    assert out.tolist() == [7, 7, 7, 7]
+
+
+def test_topp_sampling_keeps_only_boundary_token():
+    """Logits ``[10, 9, 0, 0, 0]`` ⇒ softmax ≈ ``[0.73, 0.27, 0, 0, 0]``. With
+    ``top_p=0.5`` only the top-1 falls inside the nucleus (its 0.73 alone
+    already exceeds 0.5), so sampling is deterministically the top-1 token."""
+    logits = torch.zeros(3, 5)
+    logits[:, 0] = 10.0
+    logits[:, 1] = 9.0
+    out = TopPSampling(top_p=0.5).pick_next_token(logits)
+    assert out.tolist() == [0, 0, 0]
+
+
+def test_topk_sampling_only_samples_from_top_k():
+    """With one logit dominating its top-k slice, top-k sampling becomes
+    deterministic — even though the masked-out tokens have higher *raw* logits
+    than the ones outside the kept set, only the kept set is sampled from."""
+    logits = torch.full((3, 10), -100.0)
+    logits[:, 2] = 100.0  # token 2 dominates within the top-k slice
+    out = TopKSampling(top_k=3).pick_next_token(logits)
+    assert out.tolist() == [2, 2, 2]
