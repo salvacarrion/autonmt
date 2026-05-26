@@ -105,7 +105,7 @@ def save_json(d, savepath, ignore_empty=True, allow_overwrite=True):
             with open(savepath, 'w') as f:
                 json.dump(d, f)
     else:
-        log.info(f"\t- [INFO]: Ignoring empty json. Not saved: {savepath}")
+        log.info(f"\t- Ignoring empty json. Not saved: {savepath}")
 
 
 # ---------------------------------------------------------------------------

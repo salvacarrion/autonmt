@@ -155,10 +155,10 @@ class LitSeq2Seq(pl.LightningModule):
             sync_dist = (self.strategy == "ddp")
 
             try:
-                ppl = math.exp(loss)
+                ppl = math.exp(loss.item())
             except OverflowError:
                 ppl = float("inf")
-                log.warning("=> [WARNING] Overflow detected when computing perplexity. Set to 'inf'")
+                log.warning("=> Overflow detected when computing perplexity. Set to 'inf'")
 
             self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
             self.log(f"{log_prefix}_ppl", ppl, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)

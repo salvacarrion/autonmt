@@ -28,6 +28,7 @@ except ImportError:
 
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import CometLogger, TensorBoardLogger, WandbLogger
 from torch.utils.data import DataLoader
 
@@ -61,10 +62,10 @@ def set_model_device(model, accelerator: str = "auto"):
         device = "cpu"
 
     if model.device.type != device:
-        log.info(f"\t-[INFO]: Setting '{device}' as the model's device")
+        log.info(f"\t- Setting '{device}' as the model's device")
         model = model.to(device)
     else:
-        log.info(f"\t-[INFO]: Model is already on '{device}' device")
+        log.info(f"\t- Model is already on '{device}' device")
     return model
 
 
@@ -105,7 +106,7 @@ class AutonmtTranslator(BaseTranslator):
     def _train(self, train_ds, checkpoints_dir, logs_path, force_overwrite, **kwargs):
         monitor = kwargs.get("monitor")
         mode_str = "min" if "loss" in monitor.lower() else "max"
-        pin_memory = kwargs.get('devices') != "cpu"
+        pin_memory = torch.cuda.is_available() and kwargs.get('devices') != "cpu"
         use_bucketing = kwargs.get("use_bucketing")
 
         if not use_bucketing and self.model.packed_sequence:
@@ -134,12 +135,15 @@ class AutonmtTranslator(BaseTranslator):
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
-        log.info("Finishing loggers(1/2)...")
+        closed = []
         if kwargs.get("wandb_params"):
             wandb.finish()
+            closed.append("wandb")
         if comet_logger is not None:
             comet_logger.experiment.end()
-        log.info("Loggers finished! (2/2)")
+            closed.append("comet")
+        if closed:
+            log.info(f"\t- Closed external loggers: {', '.join(closed)}")
 
     def _configure_model(self, kwargs):
         self.model.strategy = kwargs.get("strategy")
@@ -157,7 +161,7 @@ class AutonmtTranslator(BaseTranslator):
 
     def _build_loader(self, tds, kwargs, pin_memory, shuffle_default, label, index):
         i, total = index
-        log.info(f"\t- [INFO]: Preparing {label} dataloader... ({i}/{total})")
+        log.info(f"\t- Preparing {label} dataloader... ({i}/{total})")
         batch_size = kwargs.get("batch_size")
         max_tokens = kwargs.get("max_tokens")
         num_workers = kwargs.get("num_workers")
@@ -183,7 +187,9 @@ class AutonmtTranslator(BaseTranslator):
         save_best = kwargs.get("save_best")
         save_last = kwargs.get("save_last")
         patience = kwargs.get("patience")
-        callbacks = []
+        # tqdm refreshes via \r so it works in PyCharm/notebook consoles where
+        # Lightning's default RichProgressBar buffers until the run ends.
+        callbacks = [TQDMProgressBar()]
 
         ckpt_filename = "{epoch:03d}-{" + monitor.replace('/', '-') + ":.3f}"
         ckpt_p = {}
@@ -280,9 +286,9 @@ class AutonmtTranslator(BaseTranslator):
         if not paths:
             raise ValueError(f"[WARNING] No ({mode}) checkpoints were found in {checkpoints_dir}")
         if len(paths) > 1:
-            log.warning(f"[WARNING] Multiple checkpoints were found. Using more recent '{mode}': {paths[0]}")
+            log.warning(f"Multiple checkpoints were found. Using more recent '{mode}': {paths[0]}")
         else:
-            log.info(f"[INFO] Checkpoint found: {paths[0]}")
+            log.info(f"Checkpoint found: {paths[0]}")
         return paths[0]
 
     def load_checkpoint(self, checkpoint):

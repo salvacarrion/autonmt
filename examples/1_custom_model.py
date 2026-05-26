@@ -34,8 +34,21 @@ def normalize(x):
     return normalize_lines(x, seq=[NFKC(), Strip()])
 
 
-def preprocess_predict(x):
-    return preprocess_lines(x, normalize_fn=normalize)
+def preprocess_raw(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"],
+        normalize_fn=normalize, min_len=1, remove_duplicates=False, shuffle_lines=True,
+    )
+
+
+def preprocess_splits(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize,
+    )
+
+
+def preprocess_predict(data, ds):
+    return preprocess_lines(data["lines"], normalize_fn=normalize)
 
 
 def main():
@@ -54,9 +67,8 @@ def main():
             # Sugar form: "<model>+bytes" expands to byte_fallback=True for that model
             {"subword_models": ["bytes", "char", "char+bytes"], "vocab_sizes": [1000]},
         ],
-        preprocess_raw_fn=lambda x, y: preprocess_pairs(
-            x, y, normalize_fn=normalize, min_len=1, remove_duplicates=False, shuffle_lines=True),
-        preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize),
+        preprocess_raw_fn=preprocess_raw,
+        preprocess_splits_fn=preprocess_splits,
         merge_vocabs=False,
     ).build(force_overwrite=False)
 

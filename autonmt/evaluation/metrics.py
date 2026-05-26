@@ -16,7 +16,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Set
+from typing import Callable, Dict, FrozenSet, Iterable, List, Set
 
 import bert_score
 import sacrebleu
@@ -181,7 +181,7 @@ def _extract_fairseq_score(*, hyp_file, output_file, **_):
     """
     generate_test_path = os.path.join(os.path.dirname(hyp_file), "generate-test.txt")
     if not os.path.exists(generate_test_path):
-        log.info("\t- [INFO]: No 'generate-test.txt' was found.")
+        log.info("\t- No 'generate-test.txt' was found.")
         return
     last = fileio.read_file_lines(generate_test_path, autoclean=True)[-1]
     fileio.write_file_lines(lines=[last], filename=output_file, insert_break_line=True)
@@ -203,7 +203,7 @@ class MetricBackend:
                        in the user-requested set (used by huggingface ``hg_*`` prefix).
     """
     name: str
-    metrics: Set[str]
+    metrics: FrozenSet[str]
     compute_fn: Callable[..., None]
     parse_fn: Callable[[List[str]], Dict[str, Dict[str, float]]]
     output_ext: str = "json"
@@ -219,33 +219,33 @@ def _build_registry():
     backends = [
         MetricBackend(
             name="sacrebleu",
-            metrics={"bleu", "chrf", "ter"},
+            metrics=frozenset({"bleu", "chrf", "ter"}),
             compute_fn=_compute_sacrebleu,
             parse_fn=parse_score_json,
         ),
         MetricBackend(
             name="bertscore",
-            metrics={"bertscore"},
+            metrics=frozenset({"bertscore"}),
             compute_fn=_compute_bertscore,
             parse_fn=parse_bertscore_json,
         ),
         MetricBackend(
             name="comet",
-            metrics={"comet"},
+            metrics=frozenset({"comet"}),
             compute_fn=_compute_comet,
             parse_fn=parse_score_json,
             needs_src=True,
         ),
         MetricBackend(
             name="huggingface",
-            metrics=set(),  # opt-in via "hg_*" prefix; no canonical metric list
+            metrics=frozenset(),  # opt-in via "hg_*" prefix; no canonical metric list
             compute_fn=_compute_huggingface,
             parse_fn=parse_score_json,
             explicit_only=True,
         ),
         MetricBackend(
             name="fairseq",
-            metrics={"fairseq"},
+            metrics=frozenset({"fairseq"}),
             compute_fn=_extract_fairseq_score,
             parse_fn=parse_fairseq_txt,
             output_ext="txt",

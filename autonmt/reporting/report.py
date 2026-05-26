@@ -49,6 +49,40 @@ def summarize_scores(df_report: pd.DataFrame,
     return df_report[selected]
 
 
+def format_summary_table(df_summary: pd.DataFrame) -> str:
+    """Render the summary DataFrame for terminal printing.
+
+    Just prettifies column names (e.g. ``translations.beam1.sacrebleu_bleu_score``
+    → ``beam1 sacrebleu bleu score``) and defers to ``DataFrame.to_string`` for
+    the actual layout — robust and width-aware.
+    """
+    if df_summary.empty:
+        return "(empty report)"
+
+    df = df_summary.copy().map(_fmt_cell)
+    df.columns = [_prettify_column(c) for c in df.columns]
+    body = df.to_string(index=False, na_rep="-")
+    rule = "─" * max(len(line) for line in body.splitlines())
+    return f"{rule}\n{body}\n{rule}"
+
+
+def _fmt_cell(v):
+    """Two-decimal floats, thousand-separated ints; everything else unchanged."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, float):
+        return f"{v:,.2f}"
+    if isinstance(v, int):
+        return f"{v:,}"
+    return v
+
+
+def _prettify_column(col: str) -> str:
+    if col.startswith("translations."):
+        return col.replace("translations.", "").replace("_", " ")
+    return col.replace("__", " ").replace("_", " ")
+
+
 # ---------------------------------------------------------------------------
 # Report orchestration
 # ---------------------------------------------------------------------------
@@ -108,7 +142,7 @@ def generate_sweep_report(data: pd.DataFrame, output_path: str, x: str,
 
 def build_run_report(engine: str, run_name: str, model, eval_ds,
                      src_vocab, trg_vocab, config: Dict,
-                     translations: Dict) -> Dict:
+                     translations: Dict, train_ds=None) -> Dict:
     """Assemble the dict the translator emits per (run, eval_ds) pair.
 
     Lives here (not in ``BaseTranslator``) so the report schema is owned by
@@ -122,9 +156,12 @@ def build_run_report(engine: str, run_name: str, model, eval_ds,
     if len(src_vocab) != len(trg_vocab):
         vocab_size = f"{len(src_vocab)}/{len(trg_vocab)}"
     else:
-        vocab_size = f"{len(src_vocab)}"
+        vocab_size = len(src_vocab)
 
     lang_pair = f"{src_vocab.lang}-{trg_vocab.lang}"
+    merge_src = train_ds if train_ds is not None else eval_ds
+    vocab_merged = bool(getattr(merge_src, "merge_vocabs", False))
+    train_dataset = train_ds.dataset_name if train_ds is not None else None
     return {
         "engine": engine,
         "run_name": run_name,
@@ -138,7 +175,7 @@ def build_run_report(engine: str, run_name: str, model, eval_ds,
 
         "vocab__subword_model": src_vocab.subword_model,
         "vocab__size": vocab_size,
-        "vocab__merged": "no-specified",
+        "vocab__merged": vocab_merged,
         "vocab__lang_pair": lang_pair,
 
         # NOTE: train_subsets / test_subsets can override the effective language
@@ -147,7 +184,7 @@ def build_run_report(engine: str, run_name: str, model, eval_ds,
         "train__lang_pair": lang_pair,
         "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",
 
-        "train_dataset": "no-specified",
+        "train_dataset": train_dataset,
         "test_dataset": eval_ds.dataset_name,
         "test_dataset_full": f"{eval_ds.dataset_name}__{eval_ds.src_lang}-{eval_ds.trg_lang}",
 

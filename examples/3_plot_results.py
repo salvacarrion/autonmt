@@ -4,13 +4,26 @@ from autonmt.utils import fileio as utils
 from autonmt.reporting.report import generate_sweep_report
 from autonmt.datasets import DatasetBuilder
 
-from autonmt.datasets.processors import preprocess_pairs, preprocess_lines, normalize_lines
+from autonmt.datasets.processors import preprocess_pairs, normalize_lines
 
-# Preprocess functions
-normalize_fn = lambda x: normalize_lines(x)
-preprocess_raw_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn, min_len=1, max_len=None, remove_duplicates=True, shuffle_lines=True)
-preprocess_splits_fn = lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize_fn)
-preprocess_predict_fn = lambda x: preprocess_lines(x, normalize_fn=normalize_fn)
+
+def normalize_fn(x):
+    return normalize_lines(x)
+
+
+def preprocess_raw_fn(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"],
+        normalize_fn=normalize_fn, min_len=1, max_len=None,
+        remove_duplicates=True, shuffle_lines=True,
+    )
+
+
+def preprocess_splits_fn(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize_fn,
+    )
+
 
 def main():
     # Create preprocessing for training

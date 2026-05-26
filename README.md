@@ -25,7 +25,7 @@ Fetch a dataset from HuggingFace, train a small Transformer, and print the BLEU 
 
 ```bash
 pip install -e .
-pip install datasets               # optional, for the HF loader
+pip install -e '.[hf]'             # optional, for the HuggingFace loader
 python examples/0_quickstart_hf.py
 ```
 
@@ -91,11 +91,13 @@ docker exec -it autonmt_container bash
 
 ### Optional dependencies
 
-| Package                  | Install                         | Used for                                                                                             |
-| ------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `datasets`               | `pip install datasets`          | `hf_loader.download_hf_dataset()`                                                                    |
-| `fairseq` _(deprecated)_ | `pip install fairseq`           | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
-| `wandb`, `comet_ml`      | (already in `requirements.txt`) | Training loggers (configure via `fit()` kwargs)                                                      |
+| Package                  | Install                       | Used for                                                                                             |
+| ------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `datasets`, `evaluate`   | `pip install -e '.[hf]'`      | `hf_loader.download_hf_dataset()`                                                                    |
+| `wandb`                  | `pip install -e '.[wandb]'`   | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
+| `comet_ml`               | `pip install -e '.[comet]'`   | Training logger (`comet_params=` kwarg on `fit()`)                                                   |
+| `fairseq` _(deprecated)_ | `pip install -e '.[fairseq]'` | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
+| _(everything above)_     | `pip install -e '.[all]'`     | One-shot install of every extra                                                                      |
 
 ## Architecture
 
@@ -198,8 +200,17 @@ Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
 
 ```python
 from autonmt.backends.fairseq.translator import FairseqTranslator  # DeprecationWarning here
+from autonmt.vocabularies import Vocabulary
 
-trainer = FairseqTranslator(runs_dir=..., run_name=...)
+# Vocabs are needed so the base translator can encode eval splits with the
+# same subword model the training run used.
+src_vocab = Vocabulary().build_from_ds(ds=train_ds, lang=train_ds.src_lang)
+trg_vocab = Vocabulary().build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
+
+trainer = FairseqTranslator(
+    src_vocab=src_vocab, trg_vocab=trg_vocab,
+    runs_dir=..., run_name=...,
+)
 trainer.fit(
     train_ds,
     config=FitConfig(max_epochs=5, batch_size=128),
@@ -224,15 +235,15 @@ df_report, df_summary = generate_report(
 print(df_summary.to_string(index=False))
 ```
 
-Output:
+Output (truncated — `df_summary` keeps the identifying columns plus every column matching `ref_metric`, default `"bleu"`):
 
 ```text
-train_dataset  eval_dataset  subword_model  vocab_size  fairseq_bleu  autonmt_bleu
-multi30k_test  multi30k_test       unigram        4000     35.123375     32.816378
-multi30k_test  multi30k_test          word        4000     34.706139     34.682657
+train_dataset  train__lang_pair  test_dataset  test__lang_pair  vocab__subword_model  vocab__size  model__architecture  model__total_params  translations.beam1.sacrebleu_bleu_score
+multi30k                  de-en      multi30k            de-en               unigram         4000          transformer              7654321                                35.123375
+multi30k                  de-en      multi30k            de-en                  word         4000          transformer              7800000                                34.706139
 ```
 
-Score keys are flattened as `<tool>_<metric>_<field>` - e.g. `sacrebleu_bleu_score`, `bertscore_f1_mean`, `comet_score`.
+Score keys are flattened as `translations.beam<n>.<tool>_<metric>_<field>` - e.g. `translations.beam1.sacrebleu_bleu_score`, `translations.beam5.bertscore_f1_mean`. The full per-run dict is also dumped as `reports/report.json` / `reports/report.csv` next to the summary.
 
 ### Plots
 

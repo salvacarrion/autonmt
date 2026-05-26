@@ -30,7 +30,7 @@ def manual_seed(seed=None, use_deterministic_algorithms: bool = False) -> int:
     # See https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
     torch.use_deterministic_algorithms(use_deterministic_algorithms)
 
-    log.info(f"\t- [INFO]: Testing random seed ({seed}):")
+    log.info(f"\t- Testing random seed ({seed}):")
     log.info(f"\t\t- random: {random.random()}")
     log.info(f"\t\t- numpy: {np.random.rand(1)}")
     log.info(f"\t\t- torch: {torch.rand(1)}")

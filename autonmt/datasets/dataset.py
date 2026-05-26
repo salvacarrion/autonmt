@@ -371,7 +371,7 @@ class Dataset(DatasetLayout):
                    f"\n\t- Reason: This can lead to potential vocabulary mismatches during training."
                    f"\n\t- Vocab path: {vocab_path}")
             if custom_vocabs:
-                log.warning(f"=> [WARNING]: {msg}")
+                log.warning(f"=> {msg}")
             else:
                 raise ValueError(f"=> [PROCESS ABORTED]: {msg}")
         return True

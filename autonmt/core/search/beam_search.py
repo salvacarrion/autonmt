@@ -7,7 +7,7 @@ def beam_search(model, dataset, sos_id, eos_id, batch_size, max_tokens, max_len_
     raise NotImplementedError("Beam search with a width larger than '1' is currently disabled.")
     model.eval()
     device = next(model.parameters()).device
-    pin_memory = False if device.type == "cpu" else True
+    pin_memory = device.type == "cuda"
 
     # Create dataloader
     eval_dataloader = tud.DataLoader(dataset,

@@ -53,6 +53,10 @@ class FitConfig:
     seed: Optional[int] = None
     force_overwrite: bool = False
     use_bucketing: bool = False
+    save_best: bool = True
+    save_last: bool = False
+    print_samples: int = 0
+    strategy: str = "auto"
 
     def as_kwargs(self) -> dict:
         return asdict(self)

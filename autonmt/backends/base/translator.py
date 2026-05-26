@@ -73,7 +73,7 @@ def _check_supported_metrics(metrics: Iterable[str], metrics_supported: Iterable
 
     non_valid = metrics.difference(valid)
     if non_valid:
-        log.warning(f"=> [WARNING] These metrics are not supported: {str(non_valid)}")
+        log.warning(f"=> These metrics are not supported: {str(non_valid)}")
         if metrics == non_valid:
             log.info("\t- [Score]: Skipped. No valid metrics were found.")
     return valid
@@ -189,7 +189,9 @@ class BaseTranslator(ABC):
     # --- fit ------------------------------------------------------------
 
     def fit(self, train_ds: Dataset, config: Optional[FitConfig] = None, **kwargs) -> None:
-        log.info("=> [Fit]: Started.")
+        log.info("=" * 70)
+        log.info(f"=> [Fit]: {train_ds.id2(as_path=True)}  (run={self.run_name})")
+        log.info("=" * 70)
         cfg, extra = merge_config(config, FitConfig, kwargs)
 
         self._add_config(key="fit", values=cfg, reset=False)
@@ -204,7 +206,9 @@ class BaseTranslator(ABC):
 
     def predict(self, eval_datasets: Iterable[Dataset],
                 config: Optional[PredictConfig] = None, **kwargs) -> List[dict]:
-        log.info("=> [Predict]: Started.")
+        log.info("=" * 70)
+        log.info(f"=> [Predict]: (run={self.run_name})")
+        log.info("=" * 70)
         cfg, extra = merge_config(config, PredictConfig, kwargs)
 
         # Normalize defaults that need post-processing.
@@ -257,18 +261,41 @@ class BaseTranslator(ABC):
             apply2train=apply2train, apply2val=apply2val, apply2test=apply2test,
             force_overwrite=force_overwrite, **kwargs,
         )
-        log.info(f"\t- [INFO]: Preprocess time: {datetime.timedelta(seconds=time.time() - start)}")
+        log.info(f"\t- Preprocess time: {datetime.timedelta(seconds=time.time() - start)}")
 
     @abstractmethod
     def _train(self, *args, **kwargs):
         pass
+
+    def _log_train_summary(self, train_ds, kwargs):
+        sw = self.src_vocab.subword_model
+        v_src, v_trg = len(self.src_vocab), len(self.trg_vocab)
+        vocab_line = f"src={v_src}, trg={v_trg}, subword={sw}"
+        if getattr(train_ds, "merge_vocabs", False):
+            vocab_line += ", merged=True"
+
+        def _kv(k, default="-"):
+            v = kwargs.get(k)
+            return default if v is None else v
+
+        log.info("\t- Config:")
+        log.info(f"\t\t- vocab: {vocab_line}")
+        log.info(f"\t\t- training: epochs={_kv('max_epochs')}, "
+                 f"batch_size={_kv('batch_size')}, max_tokens={_kv('max_tokens')}, "
+                 f"lr={_kv('learning_rate')}, optimizer={_kv('optimizer')}")
+        log.info(f"\t\t- monitor: {_kv('monitor')} "
+                 f"(patience={_kv('patience')}, save_best={_kv('save_best')}, save_last={_kv('save_last')})")
+        log.info(f"\t\t- device: accelerator={_kv('accelerator')}, devices={_kv('devices')}, "
+                 f"num_workers={_kv('num_workers')}, seed={_kv('seed')}")
 
     def train(self, train_ds, force_overwrite, **kwargs):
         log.info(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
         _check_datasets(train_ds=train_ds)
 
         if _is_debug_enabled():
-            log.warning("\t=> [WARNING]: Debug is enabled. This could lead to critical problems when using a data parallel strategy.")
+            log.warning("\t=> Debug is enabled. This could lead to critical problems when using a data parallel strategy.")
+
+        self._log_train_summary(train_ds, kwargs)
 
         self.trained_ds.append(train_ds)
         checkpoints_dir = self.get_model_checkpoints_path()
@@ -280,7 +307,7 @@ class BaseTranslator(ABC):
         start = time.time()
         self._train(train_ds=train_ds, checkpoints_dir=checkpoints_dir, logs_path=logs_path,
                     force_overwrite=force_overwrite, **kwargs)
-        log.info(f"\t- [INFO]: Training time: {datetime.timedelta(seconds=time.time() - start)}")
+        log.info(f"\t- Training time: {datetime.timedelta(seconds=time.time() - start)}")
 
     @abstractmethod
     def _translate(self, *args, **kwargs):
@@ -410,7 +437,7 @@ class BaseTranslator(ABC):
                                          src_output_file, ref_output_file, hyp_output_file)
         self._assert_ref_hyp_line_count(output_path)
 
-        log.info(f"\t- [INFO]: Translating time (beam={beam}{extra_str}): "
+        log.info(f"\t- Translating time (beam={beam}{extra_str}): "
                  f"{datetime.timedelta(seconds=time.time() - start)}")
 
     def _decode_hypothesis(self, ctx: TranslateContext, output_path, hyp_output_file, force_overwrite):
@@ -512,7 +539,7 @@ class BaseTranslator(ABC):
                         trg_lang=self.trg_vocab.lang,
                     )
 
-                log.info(f"\t- [INFO]: Scoring time (beam={beam}{extra_str}): "
+                log.info(f"\t- Scoring time (beam={beam}{extra_str}): "
                          f"{datetime.timedelta(seconds=time.time() - start)}")
 
     def parse_metrics(self, eval_ds, beams, metrics, **kwargs):
@@ -538,13 +565,14 @@ class BaseTranslator(ABC):
                 entry = {f"beam{beam}": beam_scores}
                 entry = {fn_name: entry} if fn_name else entry
                 translations.update(entry)
-                log.info(f"\t- [INFO]: Parsed time (beam={beam}{extra_str}): "
+                log.info(f"\t- Parsed time (beam={beam}{extra_str}): "
                          f"{datetime.timedelta(seconds=time.time() - start)}")
 
         return build_run_report(
             engine=self.engine, run_name=self.run_name, model=self.model,
             eval_ds=eval_ds, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
             config=self.config, translations=translations,
+            train_ds=self.trained_ds[-1] if self.trained_ds else None,
         )
 
     @staticmethod
@@ -553,7 +581,7 @@ class BaseTranslator(ABC):
         for backend in backends:
             filename = os.path.join(scores_path, backend.output_filename)
             if not os.path.exists(filename):
-                log.warning(f"\t- [WARNING]: There are no metrics from '{backend.name}'")
+                log.warning(f"\t- There are no metrics from '{backend.name}'")
                 continue
             try:
                 with open(filename, 'r') as f:

@@ -13,7 +13,7 @@ import os
 
 from tokenizers.normalizers import NFKC, Strip
 
-from autonmt.reporting.report import generate_report
+from autonmt.reporting.report import format_summary_table, generate_report
 from autonmt.core.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
@@ -29,6 +29,14 @@ LANG_PAIR = "de-en"
 
 def normalize(x):
     return normalize_lines(x, seq=[NFKC(), Strip()])
+
+
+def preprocess_train(data, ds):
+    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+
+
+def preprocess_predict(data, ds):
+    return preprocess_lines(data["lines"], normalize_fn=normalize)
 
 
 def main():
@@ -48,8 +56,8 @@ def main():
             "sizes": [("original", None)],
         }],
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
-        preprocess_raw_fn=lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize),
-        preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize),
+        preprocess_raw_fn=preprocess_train,
+        preprocess_splits_fn=preprocess_train,
         merge_vocabs=False,
     ).build(force_overwrite=False)
 
@@ -67,6 +75,9 @@ def main():
             padding_idx=src_vocab.pad_id,
         )
 
+        # runs_dir = where all runs for this dataset live   (.../<size>/models/autonmt/runs/)
+        # run_name = subfolder for THIS run                 (e.g. "quickstart_bpe_4000")
+        # Together they give every grid cell its own checkpoints/logs/eval tree.
         trainer = AutonmtTranslator(
             model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
             runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
@@ -83,7 +94,7 @@ def main():
             config=PredictConfig(
                 metrics={"bleu"}, beams=[1],
                 load_checkpoint="best",
-                preprocess_fn=lambda x: preprocess_lines(x, normalize_fn=normalize),
+                preprocess_fn=preprocess_predict,
                 eval_mode="compatible",
             ),
         ))
@@ -92,7 +103,7 @@ def main():
     output_path = f".outputs/quickstart/{datetime.datetime.now():%Y%m%d_%H%M%S}"
     _, df_summary = generate_report(scores=scores, output_path=output_path)
     print(f"\nReport saved to: {os.path.abspath(output_path)}\n")
-    print(df_summary.to_string(index=False))
+    print(format_summary_table(df_summary))
 
 
 if __name__ == "__main__":

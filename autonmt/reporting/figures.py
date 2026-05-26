@@ -55,7 +55,7 @@ def plot_model_comparison(df_report: pd.DataFrame, out_dir: str, metric: str,
         raise ValueError(f"Missing columns in df_report: {sorted(missing)}")
 
     log.info("=> Plotting model comparison...")
-    log.warning("\t- [WARNING]: Matplotlib might miss some images if the loop is too fast")
+    log.warning("\t- Matplotlib might miss some images if the loop is too fast")
 
     df = df_report.copy()
     df["bar_group_name"] = df.apply(group_label_fn or _default_group_label, axis=1)

@@ -16,23 +16,27 @@ from autonmt.utils.fileio import read_file_lines, write_file_lines
 # In-memory primitives
 # ---------------------------------------------------------------------------
 
-def moses_tokenize(lines, lang):
+def moses_tokenize(lines, lang, show_progress=False):
     mt = MosesTokenizer(lang=lang)
-    return [mt.tokenize(line, return_str=True) for line in tqdm(lines, total=len(lines))]
+    return [mt.tokenize(line, return_str=True)
+            for line in tqdm(lines, total=len(lines), disable=not show_progress)]
 
 
-def moses_detokenize(lines, lang):
+def moses_detokenize(lines, lang, show_progress=False):
     mt = MosesDetokenizer(lang=lang)
-    return [mt.detokenize(line.split()) for line in tqdm(lines, total=len(lines))]
+    return [mt.detokenize(line.split())
+            for line in tqdm(lines, total=len(lines), disable=not show_progress)]
 
 
-def spm_encode(lines, sp):
+def spm_encode(lines, sp, show_progress=False):
     encoded = sp.encode(lines, out_type=str)
-    return [' '.join(line) for line in tqdm(encoded, total=len(encoded))]
+    return [' '.join(line)
+            for line in tqdm(encoded, total=len(encoded), disable=not show_progress)]
 
 
-def spm_decode(lines, sp):
-    split = [line.split(' ') for line in tqdm(lines, total=len(lines))]
+def spm_decode(lines, sp, show_progress=False):
+    split = [line.split(' ')
+             for line in tqdm(lines, total=len(lines), disable=not show_progress)]
     return sp.decode_pieces(split, out_type=str)
 
 
@@ -54,21 +58,25 @@ def _process_file(input_file, output_file, transform_fn):
 
 
 def moses_tokenizer_file(input_file, output_file, lang):
-    _process_file(input_file, output_file, lambda lines: moses_tokenize(lines, lang))
+    _process_file(input_file, output_file,
+                  lambda lines: moses_tokenize(lines, lang, show_progress=True))
 
 
 def moses_detokenizer_file(input_file, output_file, lang):
-    _process_file(input_file, output_file, lambda lines: moses_detokenize(lines, lang))
+    _process_file(input_file, output_file,
+                  lambda lines: moses_detokenize(lines, lang, show_progress=True))
 
 
 def spm_encode_file(spm_model_path, input_file, output_file):
     sp = spm.SentencePieceProcessor(model_file=spm_model_path)
-    _process_file(input_file, output_file, lambda lines: spm_encode(lines, sp))
+    _process_file(input_file, output_file,
+                  lambda lines: spm_encode(lines, sp, show_progress=True))
 
 
 def spm_decode_file(spm_model_path, input_file, output_file):
     sp = spm.SentencePieceProcessor(model_file=spm_model_path)
-    _process_file(input_file, output_file, lambda lines: spm_decode(lines, sp))
+    _process_file(input_file, output_file,
+                  lambda lines: spm_decode(lines, sp, show_progress=True))
 
 
 def truncate_file(input_file, output_file, max_tokens):

@@ -25,14 +25,28 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends.base.config import FitConfig, PredictConfig
 from autonmt.backends.fairseq.translator import FairseqTranslator
+from autonmt.vocabularies import Vocabulary
 
 
 def normalize(x):
     return normalize_lines(x, seq=[NFKC(), Strip()])
 
 
-def preprocess_predict(x):
-    return preprocess_lines(x, normalize_fn=normalize)
+def preprocess_raw(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"],
+        normalize_fn=normalize, min_len=1, remove_duplicates=True, shuffle_lines=True,
+    )
+
+
+def preprocess_splits(data, ds):
+    return preprocess_pairs(
+        data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize,
+    )
+
+
+def preprocess_predict(data, ds):
+    return preprocess_lines(data["lines"], normalize_fn=normalize)
 
 
 # Fairseq CLI flags. Any flag here ALWAYS wins over the equivalent AutoNMT kwarg.
@@ -72,9 +86,8 @@ def main(fairseq_args):
             {"subword_models": ["bpe"], "vocab_sizes": [8000, 16000, 32000]},
             {"subword_models": ["bytes", "char"], "vocab_sizes": [1000]},
         ],
-        preprocess_raw_fn=lambda x, y: preprocess_pairs(
-            x, y, normalize_fn=normalize, min_len=1, remove_duplicates=True, shuffle_lines=True),
-        preprocess_splits_fn=lambda x, y: preprocess_pairs(x, y, normalize_fn=normalize),
+        preprocess_raw_fn=preprocess_raw,
+        preprocess_splits_fn=preprocess_splits,
         merge_vocabs=False,
     ).build(force_overwrite=False)
 
@@ -92,7 +105,13 @@ def main(fairseq_args):
 
     scores = []
     for train_ds in tr_datasets:
+        # Vocabs are required at predict() time so the base translator can encode
+        # the eval splits with the same subword model the training run used.
+        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
+        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
+
         trainer = FairseqTranslator(
+            src_vocab=src_vocab, trg_vocab=trg_vocab,
             runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
             run_name=train_ds.get_run_name(run_prefix="mymodel"),
         )

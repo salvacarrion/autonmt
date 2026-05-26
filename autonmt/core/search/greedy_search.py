@@ -6,7 +6,7 @@ import tqdm
 def greedy_search(model, dataset, sos_id, eos_id, pad_id, batch_size, max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
     model.eval()
     device = next(model.parameters()).device
-    pin_memory = False if device.type == "cpu" else True
+    pin_memory = device.type == "cuda"
 
     # Create dataloader
     eval_dataloader = tud.DataLoader(dataset,

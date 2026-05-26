@@ -258,7 +258,7 @@ class FairseqTranslator(BaseTranslator):
         if logs_path:
             input_args += ["--tensorboard-logdir", logs_path]
         if wandb_params:
-            log.warning("\t\t- [WARNING]: 'wandb_params' has known parallelisation bugs in fairseq")
+            log.warning("\t\t- 'wandb_params' has known parallelisation bugs in fairseq")
             input_args += ["--wandb-project", wandb_params["project"]]
             os.environ["WANDB_NAME"] = self.run_name
 
@@ -285,7 +285,7 @@ class FairseqTranslator(BaseTranslator):
                    checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
                    force_overwrite, **kwargs):
         if kwargs.get('devices'):
-            log.warning("\t\t- [WARNING]: 'devices' will be ignored when using Fairseq")
+            log.warning("\t\t- 'devices' will be ignored when using Fairseq")
 
         data_bin_path = os.path.join(data_path, model_ds.data_path, self.data_bin_name)
         input_args = [data_bin_path]

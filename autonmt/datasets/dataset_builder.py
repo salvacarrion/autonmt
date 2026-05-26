@@ -113,7 +113,7 @@ class DatasetBuilder:
                 for size in enc.get("vocab_sizes"):
                     key = f"{canonical_model}_{size}_{int(bf)}"
                     if key in seen:
-                        log.warning(f"[WARNING]: Ignoring repeated entry in encoding "
+                        log.warning(f"Ignoring repeated entry in encoding "
                                     f"(subword={canonical_model}; size={size}; byte_fallback={bf})")
                         continue
                     valid_enc.append({"subword_model": canonical_model,
@@ -165,7 +165,7 @@ class DatasetBuilder:
         self._preprocess_split_files(force_overwrite=force_overwrite)
 
         if not self.encoding:
-            log.warning("\t- [WARNING]: No encoding was specified")
+            log.warning("\t- No encoding was specified")
             return self
 
         self._train_tokenizer(force_overwrite=force_overwrite)
@@ -241,7 +241,7 @@ class DatasetBuilder:
             tgt_lines = read_file_lines(trg_in, autoclean=True)
 
             if len(src_lines) != len(tgt_lines):
-                log.error(f"=> [ERROR]: The source and target files do not have the same number of lines "
+                log.error(f"=> The source and target files do not have the same number of lines "
                           f"({len(src_lines)} != {len(tgt_lines)})")
                 log.info(f"\t- Source file: {src_in}")
                 log.info(f"\t- Target file: {trg_in}")
@@ -429,7 +429,7 @@ class DatasetBuilder:
     # --- Stage: encoding -----------------------------------------------
 
     def _encode_datasets(self, force_overwrite):
-        log.info(f"=> Building datasets...")
+        log.info(f"=> Encoding datasets...")
         for ds in self.ds_list:
             if is_no_model(ds.subword_model):
                 continue
