@@ -1,5 +1,5 @@
-from autonmt.core.search.base import BaseSearch
-from autonmt.core.search.beam_search import beam_search
-from autonmt.core.search.greedy_search import greedy_search
+from autonmt.core.search.algorithms import BeamSearch, GreedySearch
+from autonmt.core.search.base_search import BaseSearch
+from autonmt.core.search.base_step_search import BaseStepSearch
 
-__all__ = ["BaseSearch", "beam_search", "greedy_search"]
+__all__ = ["BaseSearch", "BaseStepSearch", "BeamSearch", "GreedySearch"]

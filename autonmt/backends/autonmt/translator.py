@@ -36,8 +36,7 @@ from autonmt.utils.logger import get_logger
 from autonmt.utils.fileio import write_file_lines
 from autonmt.core.dataset import TranslationDataset
 from autonmt.core.samplers import BucketIterator
-from autonmt.core.search.beam_search import beam_search
-from autonmt.core.search.greedy_search import greedy_search
+from autonmt.core.search import BeamSearch, GreedySearch
 from autonmt.backends.base.translator import BaseTranslator
 
 log = get_logger(__name__)
@@ -248,8 +247,8 @@ class AutonmtTranslator(BaseTranslator):
 
         self.model = set_model_device(self.model, accelerator=accelerator)
 
-        search_algorithm = beam_search if beam_width > 1 else greedy_search
-        predictions, _ = search_algorithm(
+        search_algorithm = BeamSearch() if beam_width > 1 else GreedySearch()
+        predictions, _ = search_algorithm.decode(
             model=self.model, dataset=self.test_tds[filter_idx],
             sos_id=self.trg_vocab.sos_id,
             eos_id=self.trg_vocab.eos_id,
