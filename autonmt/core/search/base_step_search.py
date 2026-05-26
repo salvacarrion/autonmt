@@ -56,8 +56,7 @@ class BaseStepSearch(BaseSearch):
                 max_iter = 0
                 for i in range(1, max_gen_length):
                     max_iter = i
-                    outputs_t, states = model.forward_decoder(
-                        y=y_pred[:, :i], y_len=None, states=states, x_pad_mask=x_pad_mask)
+                    outputs_t, states = model.forward_decoder(y=y_pred[:, :i], y_len=None, states=states, x_pad_mask=x_pad_mask)
                     next_tok = self.pick_next_token(outputs_t[:, -1, :])
                     y_pred[:, i] = next_tok
 
