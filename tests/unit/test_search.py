@@ -53,6 +53,28 @@ class _ConstPredModel(nn.Module):
         return logits, states
 
 
+class _StepModel(nn.Module):
+    """Decoder whose next-token logits depend only on the prefix length, not on
+    its content. Useful to engineer specific beam-search trajectories where the
+    same prefix-length always returns the same logits across beams."""
+
+    def __init__(self, vocab_size, logits_per_step):
+        super().__init__()
+        self._param = nn.Parameter(torch.zeros(1))
+        self.vocab_size = vocab_size
+        self.logits_per_step = logits_per_step  # list of (V,) tensors
+        self.packed_sequence = False
+
+    def forward_encoder(self, x, x_len):
+        return None, None
+
+    def forward_decoder(self, y, y_len, states, x_pad_mask):
+        idx = min(y.shape[1] - 1, len(self.logits_per_step) - 1)
+        out = torch.zeros(y.shape[0], y.shape[1], self.vocab_size)
+        out[:, -1, :] = self.logits_per_step[idx]
+        return out, states
+
+
 def test_greedy_search_breaks_on_eos_and_keeps_eos_token():
     """When every sequence emits EOS the loop short-circuits; the EOS token
     itself must remain in the output so downstream decode() can strip it."""
@@ -151,6 +173,41 @@ def test_topp_sampling_keeps_only_boundary_token():
     logits[:, 1] = 9.0
     out = TopPSampling(top_p=0.5).pick_next_token(logits)
     assert out.tolist() == [0, 0, 0]
+
+
+def test_beam_search_length_penalty_flips_best_beam():
+    """With ``length_penalty=0`` (raw score) the short hypothesis wins; with
+    ``length_penalty=1`` (linear normalization) the longer hypothesis wins
+    because its per-token average log-probability is higher.
+
+    Setup: step-1 logits favor <eos> only slightly over token A; step-2 logits
+    are dominated by <eos>. So beam 0 = [sos, eos] (length 1) just barely beats
+    beam 1 = [sos, A, eos] (length 2) on raw cumulative log-prob — but beam 1's
+    per-token mean is roughly twice as high, so length-1 norm flips the winner."""
+    sos_id, eos_id, pad_id, A = 1, 2, 0, 3
+    V = 10
+    src = torch.tensor([[5, 6, 7]])
+
+    step1 = torch.full((V,), -10.0)
+    step1[eos_id] = 1.0
+    step1[A] = 0.9
+    step2 = torch.full((V,), -10.0)
+    step2[eos_id] = 10.0
+    model = _StepModel(vocab_size=V, logits_per_step=[step1, step2])
+
+    common = dict(
+        model=model, dataset=_FixedBatchDataset(src),
+        sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
+        batch_size=1, max_tokens=None, max_len_a=0, max_len_b=4,
+        beam_width=2, num_workers=0,
+    )
+
+    out_raw, _ = BeamSearch(length_penalty=0.0).decode(**common)
+    out_norm, _ = BeamSearch(length_penalty=1.0).decode(**common)
+
+    assert out_raw[0][1] == eos_id            # short [sos, eos, ...]
+    assert out_norm[0][1] == A                # longer [sos, A, eos]
+    assert out_norm[0][2] == eos_id
 
 
 def test_topk_sampling_only_samples_from_top_k():
