@@ -243,13 +243,18 @@ class FairseqTranslator(BaseTranslator):
         wandb_params = kwargs.get("wandb_params")
         data_bin_path = train_ds.get_bin_data(self.engine, self.data_bin_name)
 
-        if not utils.is_dir_empty(checkpoints_dir):
+        # Gate on live ``.pt`` files only — ``.pt.bak`` from previous runs is ignored
+        # so cumulative backups don't block re-training. Matches AutonmtTranslator.
+        existing_ckpts = [f for f in os.listdir(checkpoints_dir) if f.endswith(".pt")] \
+            if os.path.isdir(checkpoints_dir) else []
+        if existing_ckpts:
             if force_overwrite:
-                log.info(f"\t- [Train]: Renaming previous checkpoints to avoid overwriting...")
-                utils.rename_file(checkpoints_dir, "checkpoint_best.pt", "checkpoint_best.pt.bak")
-                utils.rename_file(checkpoints_dir, "checkpoint_last.pt", "checkpoint_last.pt.bak")
+                log.info(f"\t- [Train]: Renaming {len(existing_ckpts)} previous checkpoint(s) to '.pt.bak' to avoid overwriting...")
+                for fname in existing_ckpts:
+                    utils.rename_file(checkpoints_dir, fname, fname + ".bak")
             else:
-                log.info("\t- [Train]: Skipped. The checkpoint directory is not empty")
+                log.info("\t- [Train]: Skipped. The checkpoint directory already contains checkpoints "
+                         "(pass force_overwrite=True to back them up and retrain).")
                 return
 
         input_args = [data_bin_path]
@@ -283,7 +288,7 @@ class FairseqTranslator(BaseTranslator):
     def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
-                   force_overwrite, **kwargs):
+                   **kwargs):
         if kwargs.get('devices'):
             log.warning("\t\t- 'devices' will be ignored when using Fairseq")
         if kwargs.get('decoder') is not None:

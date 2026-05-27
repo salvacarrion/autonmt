@@ -180,11 +180,15 @@ class BaseTranslator(ABC):
         self.config[key].update(
             {k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
 
-    def _save_config(self, fname: str = "config.json", force_overwrite: bool = False) -> None:
+    def _save_config(self, fname: str = "config.json") -> None:
+        # Config files mirror *this* run's params; always overwrite so the
+        # persisted JSON can't disagree with the artifacts produced in the
+        # same call. (The user-facing ``force_overwrite`` flag gates expensive
+        # outputs like checkpoints / translations, not run metadata.)
         logs_path = self.get_model_logs_path()
         make_dir(logs_path)
         save_json(self.config, savepath=os.path.join(logs_path, fname),
-                  allow_overwrite=force_overwrite)
+                  allow_overwrite=True)
 
     # --- fit ------------------------------------------------------------
 
@@ -196,7 +200,7 @@ class BaseTranslator(ABC):
 
         self._add_config(key="fit", values=cfg, reset=False)
         self._add_config(key="fit", values=extra, reset=False)
-        self._save_config(fname="config_train.json", force_overwrite=cfg["force_overwrite"])
+        self._save_config(fname="config_train.json")
 
         self.preprocess(train_ds, apply2train=True, apply2val=True, apply2test=False,
                         force_overwrite=cfg["force_overwrite"], **extra)
@@ -217,7 +221,7 @@ class BaseTranslator(ABC):
 
         self._add_config(key="predict", values=cfg, reset=False)
         self._add_config(key="predict", values=extra, reset=False)
-        self._save_config(fname="config_predict.json", force_overwrite=cfg["force_overwrite"])
+        self._save_config(fname="config_predict.json")
 
         scores = []
         eval_datasets = self.filter_eval_datasets(eval_datasets, eval_mode=cfg["eval_mode"])
@@ -237,7 +241,7 @@ class BaseTranslator(ABC):
             self.score_translations(eval_ds, beams=cfg["beams"], metrics=cfg["metrics"],
                                     force_overwrite=cfg["force_overwrite"], **extra)
             run_scores = self.parse_metrics(eval_ds, beams=cfg["beams"], metrics=cfg["metrics"],
-                                            force_overwrite=cfg["force_overwrite"], **extra)
+                                            **extra)
             scores.append(run_scores)
         return scores
 
@@ -417,13 +421,16 @@ class BaseTranslator(ABC):
             return
 
         start = time.time()
+        # NOTE: ``force_overwrite`` is *not* forwarded to ``_translate`` — the
+        # cache gate above (hyp.tok existence) is the single source of truth. The
+        # backend's job is just to produce the artifacts.
         self._translate(
             data_path=ctx.model_eval_path, output_path=output_path,
             src_lang=eval_ds.src_lang, trg_lang=eval_ds.trg_lang,
             beam_width=beam, checkpoints_dir=ctx.checkpoints_dir,
             model_src_vocab_path=ctx.model_src_vocab_path,
             model_trg_vocab_path=ctx.model_trg_vocab_path,
-            force_overwrite=force_overwrite, filter_idx=filter_idx, **kwargs,
+            filter_idx=filter_idx, **kwargs,
         )
 
         src_output_file = os.path.join(output_path, "src.txt")

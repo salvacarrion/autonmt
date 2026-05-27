@@ -33,7 +33,7 @@ from pytorch_lightning.loggers import CometLogger, TensorBoardLogger, WandbLogge
 from torch.utils.data import DataLoader
 
 from autonmt.utils.logger import get_logger
-from autonmt.utils.fileio import write_file_lines
+from autonmt.utils.fileio import rename_file, write_file_lines
 from autonmt.core.dataset import TranslationDataset
 from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSampler
 from autonmt.core.decoding import BeamSearch, GreedySearch
@@ -103,6 +103,22 @@ class AutonmtTranslator(BaseTranslator):
     # --- train ----------------------------------------------------------
 
     def _train(self, train_ds, checkpoints_dir, logs_path, force_overwrite, **kwargs):
+        # Mirror the conservative semantics of the Fairseq backend: never silently
+        # clobber an existing checkpoint. Live ``.pt`` files (i.e. ignoring
+        # ``.pt.bak`` left by previous runs) gate the run — skip if
+        # force_overwrite=False, rename to ``.pt.bak`` if True.
+        existing_ckpts = [f for f in os.listdir(checkpoints_dir) if f.endswith(".pt")] \
+            if os.path.isdir(checkpoints_dir) else []
+        if existing_ckpts:
+            if force_overwrite:
+                log.info(f"\t- [Train]: Renaming {len(existing_ckpts)} previous checkpoint(s) to '.pt.bak' to avoid overwriting...")
+                for fname in existing_ckpts:
+                    rename_file(checkpoints_dir, fname, fname + ".bak")
+            else:
+                log.info("\t- [Train]: Skipped. The checkpoint directory already contains checkpoints "
+                         "(pass force_overwrite=True to back them up and retrain).")
+                return
+
         monitor = kwargs.get("monitor")
         mode_str = "min" if "loss" in monitor.lower() else "max"
         pin_memory = torch.cuda.is_available() and kwargs.get('devices') != "cpu"
@@ -257,7 +273,7 @@ class AutonmtTranslator(BaseTranslator):
     def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoint, num_workers, devices, accelerator,
-                   force_overwrite, checkpoints_dir=None, filter_idx=0,
+                   checkpoints_dir=None, filter_idx=0,
                    decoder=None, **kwargs):
         if checkpoint:  # "best", "last", filename, or absolute path
             self.from_checkpoint = self.load_checkpoint(checkpoint)
