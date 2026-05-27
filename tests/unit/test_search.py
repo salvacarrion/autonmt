@@ -47,7 +47,7 @@ class _ConstPredModel(nn.Module):
     def forward_encoder(self, x, x_len):
         return None, None
 
-    def forward_decoder(self, y, y_len, states, x_pad_mask):
+    def forward_decoder(self, y, y_len, states, x_pad_mask, **kwargs):
         logits = torch.zeros(y.shape[0], y.shape[1], self.vocab_size)
         logits[:, :, self.const_id] = 10.0
         return logits, states
@@ -68,7 +68,7 @@ class _StepModel(nn.Module):
     def forward_encoder(self, x, x_len):
         return None, None
 
-    def forward_decoder(self, y, y_len, states, x_pad_mask):
+    def forward_decoder(self, y, y_len, states, x_pad_mask, **kwargs):
         idx = min(y.shape[1] - 1, len(self.logits_per_step) - 1)
         out = torch.zeros(y.shape[0], y.shape[1], self.vocab_size)
         out[:, -1, :] = self.logits_per_step[idx]

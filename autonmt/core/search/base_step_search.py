@@ -15,6 +15,11 @@ class BaseStepSearch(BaseSearch):
     each step — the rest (DataLoader, encoder call, EOS short-circuit, length
     cap, output assembly) is identical. Subclasses implement
     :py:meth:`pick_next_token`; this class drives the loop.
+
+    If the model exposes ``supports_incremental_decoding = True``, decoding
+    switches to KV-cached mode: each step feeds only the last token plus an
+    ``incremental_state`` dict, so the decoder cost per step is O(L) instead
+    of O(L^2). Models without the flag get the legacy full-prefix path.
     """
 
     @abstractmethod
@@ -32,6 +37,7 @@ class BaseStepSearch(BaseSearch):
         model.eval()
         device = next(model.parameters()).device
         pin_memory = device.type == "cuda"
+        incremental = getattr(model, "supports_incremental_decoding", False)
 
         eval_dataloader = tud.DataLoader(
             dataset,
@@ -53,10 +59,19 @@ class BaseStepSearch(BaseSearch):
 
                 x_pad_mask = (x != pad_id) if model.packed_sequence else None
                 eos_mask = torch.zeros(x.shape[0], dtype=torch.bool).to(device)
+                # Incremental mode keeps a per-batch cache that grows by one
+                # token per step. ``None`` opts out and falls back to the
+                # legacy full-prefix path.
+                incremental_state = {} if incremental else None
                 max_iter = 0
                 for i in range(1, max_gen_length):
                     max_iter = i
-                    outputs_t, states = model.forward_decoder(y=y_pred[:, :i], y_len=None, states=states, x_pad_mask=x_pad_mask)
+                    # Incremental: feed only the previous token; the cache
+                    # provides the K/V for all earlier positions.
+                    y_in = y_pred[:, i-1:i] if incremental else y_pred[:, :i]
+                    outputs_t, states = model.forward_decoder(
+                        y=y_in, y_len=None, states=states, x_pad_mask=x_pad_mask,
+                        incremental_state=incremental_state)
                     next_tok = self.pick_next_token(outputs_t[:, -1, :])
                     y_pred[:, i] = next_tok
 

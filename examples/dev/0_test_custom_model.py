@@ -59,7 +59,7 @@ def main():
     # Train & Score a model for each dataset
     scores = []
     for i, train_ds in enumerate(tr_datasets, 1):
-        for model_class in [SimpleRNN, ContextRNN, AttentionRNN, Conv, Transformer]:
+        for model_class in [SimpleRNN, ContextRNN, BahdanauRNN, LuongRNN, ConvS2S, Transformer]:
             # Define max tokens (99.96% of the data)
             if train_ds.subword_model == "bytes":
                 max_tokens_src, max_tokens_tgt = 539, 598

@@ -1,3 +1,8 @@
 from autonmt.core.layers.generic_pos_emb import PositionalEmbedding
 from autonmt.core.layers.learned_pos_emb import LearnedPositionalEmbedding
 from autonmt.core.layers.sinusoidal_pos_emb import SinusoidalPositionalEmbedding
+from autonmt.core.layers.incremental_transformer import (
+    IncrementalTransformerDecoder,
+    IncrementalTransformerDecoderLayer,
+    pos_embedding_at,
+)

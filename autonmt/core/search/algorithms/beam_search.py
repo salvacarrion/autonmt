@@ -13,7 +13,7 @@ def _reorder_states(states, new_order):
     Best-effort heuristic — relies on each state tensor having a batch-like
     dimension equal to ``len(new_order)``. For the models in this repo
     (Transformer encoder state with batch dim 1, RNN hidden with batch dim 1,
-    AttentionRNN ``enc_outputs`` with batch dim 0) it picks the right one. If
+    attention-RNN ``enc_outputs`` with batch dim 0) it picks the right one. If
     two dims happen to match, the first wins.
     """
     if states is None:
@@ -27,6 +27,10 @@ def _reorder_states(states, new_order):
     if isinstance(states, (tuple, list)):
         cls = type(states)
         return cls(_reorder_states(s, new_order) for s in states)
+    if isinstance(states, dict):
+        # ``incremental_state`` dicts can contain non-tensor scalars (e.g. a
+        # 'step' counter) — those pass through via the leaf branches above.
+        return {k: _reorder_states(v, new_order) for k, v in states.items()}
     return states
 
 
@@ -49,10 +53,19 @@ class BeamSearch(BaseSearch):
     def decode(self, model, dataset, sos_id, eos_id, pad_id, batch_size,
                max_tokens, max_len_a, max_len_b, num_workers, *,
                beam_width, **kwargs):
+        # Algorithm at a glance:
+        #   B  = batch size (sentences per mini-batch)
+        #   K  = beam_width (live hypotheses per sentence)
+        #   BK = B * K     (rows in every per-beam tensor)
+        #   V  = target vocab size
+        # Layout used everywhere: beam i of sentence j sits at row j*K + i
+        # (interleaved). ``offsets[j] = j*K`` lets us map (sentence, local-beam)
+        # → absolute row.
         assert beam_width >= 1
         model.eval()
         device = next(model.parameters()).device
         pin_memory = device.type == "cuda"
+        incremental = getattr(model, "supports_incremental_decoding", False)
 
         eval_dataloader = tud.DataLoader(
             dataset,
@@ -62,88 +75,115 @@ class BeamSearch(BaseSearch):
             batch_size=batch_size, shuffle=False,
         )
 
-        vocab_size = len(dataset.trg_vocab)
+        V = len(dataset.trg_vocab)
+        K = beam_width
         all_idxs = []
         all_scores = []
 
         with torch.no_grad():
             for (x, _), (x_len, _) in tqdm.tqdm(eval_dataloader, total=len(eval_dataloader)):
-                x = x.to(device)
-                x_len = x_len.to(device)
+                x = x.to(device)                              # (B, L_src)
+                x_len = x_len.to(device)                      # (B,)
                 B = x.shape[0]
-                BK = B * beam_width
+                BK = B * K
                 max_gen_length = int(max_len_a * x.shape[1] + max_len_b)
 
-                # Expand source up front so every model's encoder state is implicitly
-                # broadcast across beams. Layout used everywhere below: beam i of
-                # sentence j lives at index j * beam_width + i (interleaved).
-                x_exp = x.repeat_interleave(beam_width, dim=0)
-                x_len_exp = x_len.repeat_interleave(beam_width, dim=0)
+                # Expand the source so the encoder produces BK identical copies
+                # of each sentence's memory. Done up front so the algorithm can
+                # stay model-agnostic — no need to broadcast/reshape the
+                # heterogeneous state structures of different decoder families.
+                x_exp = x.repeat_interleave(K, dim=0)         # (BK, L_src)
+                x_len_exp = x_len.repeat_interleave(K, dim=0) # (BK,)
                 _, states = model.forward_encoder(x=x_exp, x_len=x_len_exp)
                 x_pad_mask = (x_exp != pad_id) if model.packed_sequence else None
 
                 # Every beam starts at <sos>.
                 dec_idxs = torch.full((BK, 1), sos_id, dtype=torch.long, device=device)
 
-                # Mask all but beam 0 with -inf at step 1 so the first top-k picks
-                # k *distinct* extensions of <sos> rather than k copies of the same.
-                beam_scores = torch.full((B, beam_width), float("-inf"), device=device)
+                # Initial scores: only beam 0 of each sentence is "real" at
+                # step 1; the others are dead (-inf) so the first top-K picks
+                # K *distinct* extensions of <sos> instead of K copies of the
+                # single best one.
+                beam_scores = torch.full((B, K), float("-inf"), device=device)
                 beam_scores[:, 0] = 0.0
-                beam_scores = beam_scores.view(-1)  # (BK,)
+                beam_scores = beam_scores.view(-1)             # (BK,)
 
                 finished = torch.zeros(BK, dtype=torch.bool, device=device)
                 beam_lengths = torch.zeros(BK, dtype=torch.long, device=device)
-                offsets = torch.arange(B, device=device).unsqueeze(-1) * beam_width  # (B, 1)
+                offsets = torch.arange(B, device=device).unsqueeze(-1) * K  # (B, 1)
+                # Incremental mode: each layer holds K/V caches that grow by
+                # one token per step. None opts out → legacy full-prefix path.
+                incremental_state = {} if incremental else None
 
                 for _ in range(1, max_gen_length):
-                    outputs, states = model.forward_decoder(y=dec_idxs, y_len=None, states=states, x_pad_mask=x_pad_mask)
-                    log_probs = outputs[:, -1, :].log_softmax(-1)  # (BK, V)
+                    # Next-token log-probabilities for every live hypothesis.
+                    # Incremental: feed only the last token; cache provides the rest.
+                    y_in = dec_idxs[:, -1:] if incremental else dec_idxs
+                    outputs, states = model.forward_decoder(
+                        y=y_in, y_len=None, states=states, x_pad_mask=x_pad_mask,
+                        incremental_state=incremental_state)
+                    log_probs = outputs[:, -1, :].log_softmax(-1)   # (BK, V)
 
-                    # Lock finished hypotheses: force <pad> with log_prob 0 so the
-                    # cumulative score is preserved and no new branches are spawned.
+                    # Freeze finished hypotheses: force <pad> with log_prob 0 so
+                    # their cumulative score is preserved and they cannot spawn
+                    # new branches that would push live hypotheses out of top-K.
                     if finished.any():
                         log_probs[finished] = float("-inf")
                         log_probs[finished, pad_id] = 0.0
 
-                    scores = beam_scores.unsqueeze(-1) + log_probs               # (BK, V)
-                    scores = scores.view(B, beam_width * vocab_size)             # (B, K*V)
+                    # Add log-prob to running score, then flatten the (beam,
+                    # vocab) axis to a single (K*V,) per sentence so top-K
+                    # competes across both — i.e. the K best (parent, token)
+                    # combinations across the K beams of each sentence.
+                    scores = (beam_scores.unsqueeze(-1) + log_probs)  # (BK, V)
+                    scores = scores.view(B, K * V)                    # (B, K*V)
+                    beam_scores, top_idxs = scores.topk(K, dim=-1)    # both (B, K)
+                    beam_scores = beam_scores.view(-1)                # (BK,)
 
-                    beam_scores, top_idxs = scores.topk(beam_width, dim=-1)      # (B, K)
-                    beam_scores = beam_scores.view(-1)                           # (BK,)
+                    # Each flat index in top_idxs packs (parent beam, token):
+                    #   parent = idx // V, token = idx % V.
+                    beam_source = top_idxs // V                       # (B, K)
+                    next_tokens = top_idxs % V                        # (B, K)
 
-                    beam_source = top_idxs // vocab_size                         # (B, K)
-                    next_tokens = top_idxs % vocab_size                          # (B, K)
+                    # Convert per-sentence local beam index → absolute row in
+                    # the (BK,) layout, so we can gather parent prefixes/states.
+                    gather_idx = (beam_source + offsets).view(-1)     # (BK,)
 
-                    # Absolute index in the (BK,) layout for the gather below.
-                    gather_idx = (beam_source + offsets).view(-1)                # (BK,)
-
-                    # Length bookkeeping: increment only for hypotheses that were
-                    # still active before this step. Must be done *before* the
-                    # ``finished`` update so already-finished beams don't tick up.
+                    # Bookkeeping: bump length only for hypotheses that were
+                    # alive *before* this step (frozen <pad> beams keep their
+                    # original length). Must run before updating ``finished``.
                     finished_before = finished[gather_idx]
                     beam_lengths = beam_lengths[gather_idx] + (~finished_before).long()
 
-                    dec_idxs = torch.cat([dec_idxs[gather_idx], next_tokens.view(-1, 1)], dim=-1)
+                    # Stitch each new token onto its parent's prefix.
+                    dec_idxs = torch.cat(
+                        [dec_idxs[gather_idx], next_tokens.view(-1, 1)], dim=-1)  # (BK, t+1)
                     finished = finished_before | (next_tokens.view(-1) == eos_id)
 
-                    # Reorder decoder states so beam k's history lives at row k
-                    # in the next step (necessary for stateful decoders like RNN;
-                    # no-op for Transformer where states are the encoder memory).
+                    # Permute decoder states so row k carries the state of the
+                    # *parent* hypothesis whose history flows into beam k next
+                    # step. No-op for Transformer encoder memory (constant
+                    # across the K beams of a sentence); critical for stateful
+                    # decoders like RNN whose hidden state evolves per token —
+                    # and for the KV cache when running incrementally.
                     states = _reorder_states(states, gather_idx)
+                    if incremental_state is not None:
+                        incremental_state = _reorder_states(incremental_state, gather_idx)
 
                     if finished.all():
                         break
 
-                # Pick the best beam per sentence using length-normalized scores.
-                lengths = beam_lengths.clamp(min=1).float().view(B, beam_width)
-                scores_2d = beam_scores.view(B, beam_width)
+                # Pick the best beam per sentence using length-normalized score
+                # (raw log-prob biases toward short hypotheses; Wu et al. 2016).
+                lengths = beam_lengths.clamp(min=1).float().view(B, K)
+                scores_2d = beam_scores.view(B, K)
                 normalized = scores_2d / lengths.pow(self.length_penalty)
 
-                dec_idxs = dec_idxs.view(B, beam_width, -1)
+                dec_idxs = dec_idxs.view(B, K, -1)
                 best = normalized.argmax(dim=-1)
                 arange_B = torch.arange(B, device=device)
-                best_seqs = dec_idxs[arange_B, best]       # (B, L)
-                best_scores = scores_2d[arange_B, best]    # (B,)  raw cumulative log-prob
+                best_seqs = dec_idxs[arange_B, best]       # (B, L_out)
+                best_scores = scores_2d[arange_B, best]    # (B,) raw cumulative log-prob
 
                 all_idxs.append(best_seqs)
                 all_scores.append(best_scores)
