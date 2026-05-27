@@ -19,8 +19,7 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends import AutonmtTranslator
-from autonmt.backends.base.config import FitConfig, PredictConfig
-from autonmt.vocabularies import Vocabulary
+from autonmt.backends.base.config import PredictConfig
 
 BASE_PATH = "datasets/quickstart"
 DATASET = "multi30k"
@@ -67,27 +66,20 @@ def main():
     # 3. Train one Transformer per dataset variant (one here) and score it
     scores = []
     for train_ds in tr_datasets:
-        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
-        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-        model = Transformer(
-            src_vocab_size=len(src_vocab),
-            trg_vocab_size=len(trg_vocab),
-            padding_idx=src_vocab.pad_id,
+        src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+        model = Transformer.from_vocabs(src_vocab, trg_vocab)
+
+        # ``from_dataset`` resolves runs_dir + run_name from the dataset variant
+        # so every grid cell gets its own checkpoints/logs/eval tree automatically.
+        trainer = AutonmtTranslator.from_dataset(
+            train_ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+            run_prefix="quickstart",
         )
 
-        # runs_dir = where all runs for this dataset live   (.../<size>/models/autonmt/runs/)
-        # run_name = subfolder for THIS run                 (e.g. "quickstart_bpe_4000")
-        # Together they give every grid cell its own checkpoints/logs/eval tree.
-        trainer = AutonmtTranslator(
-            model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
-            runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
-            run_name=train_ds.get_run_name(run_prefix="quickstart"),
+        trainer.fit(
+            train_ds,
+            config=FitConfig(max_epochs=3, batch_size=128, learning_rate=1e-3, seed=42),
         )
-
-        # trainer.fit(
-        #     train_ds,
-        #     config=FitConfig(max_epochs=3, batch_size=128, learning_rate=1e-3, seed=42),
-        # )
 
         scores.append(trainer.predict(
             ts_datasets,

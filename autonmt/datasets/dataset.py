@@ -334,6 +334,32 @@ class Dataset(DatasetLayout):
             split_stats[fname] = row
         return split_stats
 
+    # --- Vocab builders --------------------------------------------------
+
+    def build_vocabs(self, max_tokens=None, **kwargs):
+        """Build the src/trg vocabularies for this dataset variant.
+
+        Returns ``(src_vocab, trg_vocab)``. When ``self.merge_vocabs`` is True,
+        both entries are the same shared :class:`Vocabulary` instance (loaded
+        from the joint vocab file), so the caller can still write
+        ``src_vocab, trg_vocab = ds.build_vocabs(...)`` without special-casing.
+
+        ``max_tokens`` and any extra ``**kwargs`` are forwarded to the
+        :class:`Vocabulary` constructor.
+        """
+        from autonmt.vocabularies import Vocabulary
+
+        if self.merge_vocabs:
+            shared = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
+                ds=self, lang=self.dataset_lang_pair)
+            return shared, shared
+
+        src_vocab = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
+            ds=self, lang=self.src_lang)
+        trg_vocab = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
+            ds=self, lang=self.trg_lang)
+        return src_vocab, trg_vocab
+
     # --- Vocab consistency ----------------------------------------------
 
     def check_vocab_folder_consistency(self, check_extra: bool = False, custom_vocabs: bool = False) -> bool:

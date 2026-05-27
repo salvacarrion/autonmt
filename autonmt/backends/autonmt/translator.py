@@ -70,6 +70,8 @@ def set_model_device(model, accelerator: str = "auto"):
 
 class AutonmtTranslator(BaseTranslator):
 
+    ENGINE = "autonmt"
+
     def __init__(self, model, **kwargs):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model

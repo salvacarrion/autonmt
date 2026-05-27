@@ -27,7 +27,6 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends.base.config import FitConfig, PredictConfig
-from autonmt.vocabularies import Vocabulary
 
 
 def normalize(x):
@@ -88,17 +87,12 @@ def main():
 
     scores = []
     for train_ds in tr_datasets:
-        src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
-        trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
-        model = Transformer(
-            src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab),
-            padding_idx=src_vocab.pad_id,
-        )
+        src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+        model = Transformer.from_vocabs(src_vocab, trg_vocab)
 
-        trainer = AutonmtTranslator(
-            model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
-            runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
-            run_name=train_ds.get_run_name(run_prefix="mymodel"),
+        trainer = AutonmtTranslator.from_dataset(
+            train_ds, model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+            run_prefix="mymodel",
         )
 
         # `strategy` and the loggers (wandb/comet) are not part of FitConfig — they

@@ -54,6 +54,29 @@ class LitSeq2Seq(pl.LightningModule):
         self.best_scores = defaultdict(float)
         self.validation_step_outputs = defaultdict(list)
 
+    @classmethod
+    def from_vocabs(cls, src_vocab, trg_vocab, **kwargs):
+        """Build the model inferring sizes / pad id from the vocabularies.
+
+        Equivalent to:
+            cls(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab),
+                padding_idx=src_vocab.pad_id, **kwargs)
+
+        ``src_vocab`` and ``trg_vocab`` must share ``pad_id`` (true by default
+        for AutoNMT vocabularies); otherwise pass ``padding_idx`` explicitly.
+        """
+        assert src_vocab.pad_id == trg_vocab.pad_id, (
+            f"src/trg vocabularies have different pad_id "
+            f"({src_vocab.pad_id} vs {trg_vocab.pad_id}); "
+            f"pass padding_idx= explicitly to the model constructor instead."
+        )
+        kwargs.setdefault("padding_idx", src_vocab.pad_id)
+        return cls(
+            src_vocab_size=len(src_vocab),
+            trg_vocab_size=len(trg_vocab),
+            **kwargs,
+        )
+
     @abstractmethod
     def forward_encoder(self, x, x_len, **kwargs):
         pass

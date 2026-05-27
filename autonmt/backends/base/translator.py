@@ -112,6 +112,29 @@ class TranslateContext:
 class BaseTranslator(ABC):
 
     total_runs = 0
+    # Toolkit identifier used to compute the on-disk runs path (e.g. when the
+    # caller uses :meth:`from_dataset`). Subclasses override.
+    ENGINE: str = "base"
+
+    @classmethod
+    def from_dataset(cls, train_ds: Dataset, *, run_prefix: str, **kwargs) -> "BaseTranslator":
+        """Build a translator bound to ``train_ds``'s runs path.
+
+        Resolves ``runs_dir`` and ``run_name`` from the dataset variant and
+        forwards everything else (``model=...``, ``src_vocab=...``, …) to the
+        normal constructor. Equivalent to::
+
+            cls(
+                runs_dir=train_ds.get_runs_path(toolkit=cls.ENGINE),
+                run_name=train_ds.get_run_name(run_prefix=run_prefix),
+                **kwargs,
+            )
+        """
+        return cls(
+            runs_dir=train_ds.get_runs_path(toolkit=cls.ENGINE),
+            run_name=train_ds.get_run_name(run_prefix=run_prefix),
+            **kwargs,
+        )
 
     def __init__(self, engine, runs_dir="runs", run_name=None, src_vocab=None, trg_vocab=None,
                  train_subset=None, val_subsets=None, test_subsets=None,

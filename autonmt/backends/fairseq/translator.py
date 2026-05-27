@@ -161,6 +161,8 @@ class FairseqTranslator(BaseTranslator):
         New code should prefer :class:`~autonmt.backends.autonmt.translator.AutonmtTranslator`.
     """
 
+    ENGINE = "fairseq"
+
     def __init__(self, wandb_params=None, **kwargs):
         if not _FAIRSEQ_AVAILABLE:
             raise ImportError(
