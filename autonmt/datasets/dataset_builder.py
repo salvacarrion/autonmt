@@ -133,6 +133,19 @@ class DatasetBuilder:
             for ds_lang_pair in ds_entry["languages"]:
                 sizes = [(self.REF_SIZE_NAME, None)] if ref_size_only else ds_entry["sizes"]
                 for ds_size_name, ds_lines in sizes:
+                    # Footgun guard: the size named REF_SIZE_NAME ("original")
+                    # is the un-truncated reference; ``_create_reduced_versions``
+                    # skips it. A caller passing ``("original", 5000)`` would
+                    # silently get the full corpus.
+                    if ds_size_name == self.REF_SIZE_NAME and ds_lines is not None:
+                        log.warning(
+                            f"\t- Size '({ds_size_name!r}, {ds_lines})' for "
+                            f"dataset {ds_name!r}/{ds_lang_pair}: the line cap "
+                            f"({ds_lines}) is IGNORED because '{ds_size_name}' "
+                            f"is the reference (un-truncated) variant. To cap "
+                            f"the training set, rename the size — e.g. "
+                            f"('{ds_lines // 1000}k', {ds_lines})."
+                        )
                     base = dict(
                         base_path=self.base_path,
                         dataset_name=ds_name,

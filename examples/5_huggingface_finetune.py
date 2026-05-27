@@ -64,13 +64,13 @@ def main():
 
     # 2. Fine-tune + evaluate one HF model per dataset variant.
     fit_cfg = FitConfig(
-        max_epochs=1, batch_size=64, learning_rate=2e-5,
+        max_epochs=3, batch_size=8, learning_rate=2e-5,
         weight_decay=0.01, gradient_clip_val=1.0,
         patience=2, num_workers=2, seed=42,
         save_best=True, monitor="eval_loss",
     )
     pred_cfg = PredictConfig(
-        metrics={"bleu", "chrf"}, beams=[1],
+        metrics={"bleu", "chrf"}, beams=[1, 5],
         preprocess_fn=preprocess_predict,
         eval_mode="compatible",
         batch_size=8,
