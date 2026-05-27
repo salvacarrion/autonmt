@@ -1,12 +1,12 @@
-from autonmt.core.search.algorithms import (
+from autonmt.core.decoding.algorithms import (
     BeamSearch,
     GreedySearch,
     MultinomialSampling,
     TopKSampling,
     TopPSampling,
 )
-from autonmt.core.search.base_search import BaseSearch
-from autonmt.core.search.base_step_search import BaseStepSearch
+from autonmt.core.decoding.base_search import BaseSearch
+from autonmt.core.decoding.base_step_search import BaseStepSearch
 
 __all__ = [
     "BaseSearch", "BaseStepSearch",

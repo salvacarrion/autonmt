@@ -1,8 +1,8 @@
-"""Regression tests for autonmt.core.search.*"""
+"""Regression tests for autonmt.core.decoding.*"""
 import torch
 import torch.nn as nn
 
-from autonmt.core.search import (
+from autonmt.core.decoding import (
     BeamSearch,
     GreedySearch,
     MultinomialSampling,

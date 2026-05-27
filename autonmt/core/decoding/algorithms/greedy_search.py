@@ -1,4 +1,4 @@
-from autonmt.core.search.base_step_search import BaseStepSearch
+from autonmt.core.decoding.base_step_search import BaseStepSearch
 
 
 class GreedySearch(BaseStepSearch):

@@ -35,8 +35,8 @@ from torch.utils.data import DataLoader
 from autonmt.utils.logger import get_logger
 from autonmt.utils.fileio import write_file_lines
 from autonmt.core.dataset import TranslationDataset
-from autonmt.core.samplers import BucketIterator
-from autonmt.core.search import BeamSearch, GreedySearch
+from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSampler
+from autonmt.core.decoding import BeamSearch, GreedySearch
 from autonmt.backends.base.translator import BaseTranslator
 
 log = get_logger(__name__)
@@ -165,21 +165,37 @@ class AutonmtTranslator(BaseTranslator):
         max_tokens = kwargs.get("max_tokens")
         num_workers = kwargs.get("num_workers")
         use_bucketing = kwargs.get("use_bucketing")
+        seed = kwargs.get("seed") or 0
 
-        sampler, shuffle = None, shuffle_default
-        if use_bucketing:
-            log.info(f"\t\t- Preparing bucketing iterator...")
-            shuffle = False  # 'sampler' option is mutually exclusive with shuffle
-            sampler = BucketIterator(
-                tds, batch_size=batch_size,
-                sort_key=lambda x, y: len(self.model._src_vocab.encode(x)),
-                sort_within_batch=self.model.packed_sequence, shuffle=True,
-            )
-        return DataLoader(
-            tds, collate_fn=tds.get_collate_fn(max_tokens), sampler=sampler,
-            num_workers=num_workers, persistent_workers=bool(num_workers),
-            pin_memory=pin_memory, batch_size=batch_size, shuffle=shuffle,
+        common = dict(
+            collate_fn=tds.get_collate_fn(max_tokens),
+            num_workers=num_workers,
+            persistent_workers=bool(num_workers),
+            pin_memory=pin_memory,
         )
+
+        if use_bucketing:
+            mode = "max_tokens" if max_tokens else "batch_size"
+            log.info(f"\t\t- Preparing bucketing iterator (mode={mode})...")
+            batch_sampler = BucketSampler(
+                tds,
+                sort_key=lambda x, y: (
+                    len(self.model._src_vocab.encode(x))
+                    + len(self.model._trg_vocab.encode(y))
+                ),
+                batch_size=None if max_tokens else batch_size,
+                max_tokens=max_tokens,
+                shuffle=shuffle_default,
+                sort_within_batch=self.model.packed_sequence,
+                seed=seed,
+            )
+            return DataLoader(tds, batch_sampler=batch_sampler, **common)
+        elif shuffle_default:
+            return DataLoader(tds, sampler=RandomSampler(tds, seed=seed),
+                              batch_size=batch_size, **common)
+        else:
+            return DataLoader(tds, sampler=SequentialSampler(tds),
+                              batch_size=batch_size, **common)
 
     @staticmethod
     def _build_callbacks(monitor, mode_str, checkpoints_dir, kwargs):

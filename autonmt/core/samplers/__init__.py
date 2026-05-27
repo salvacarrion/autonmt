@@ -1,3 +1,3 @@
-from autonmt.core.samplers.sequential import SequentialIterator
-from autonmt.core.samplers.random import RandomIterator
-from autonmt.core.samplers.bucket import BucketIterator
+from autonmt.core.samplers.sequential import SequentialSampler
+from autonmt.core.samplers.random import RandomSampler
+from autonmt.core.samplers.bucket import BucketSampler

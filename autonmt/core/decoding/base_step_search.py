@@ -4,7 +4,7 @@ import torch
 import torch.utils.data as tud
 import tqdm
 
-from autonmt.core.search.base_search import BaseSearch
+from autonmt.core.decoding.base_search import BaseSearch
 
 
 class BaseStepSearch(BaseSearch):
