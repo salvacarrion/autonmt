@@ -15,6 +15,12 @@ def _reorder_states(states, new_order):
     (Transformer encoder state with batch dim 1, RNN hidden with batch dim 1,
     attention-RNN ``enc_outputs`` with batch dim 0) it picks the right one. If
     two dims happen to match, the first wins.
+
+    TODO: this is fragile. Properly fixing it requires each model to declare
+    which dim is the batch axis for every tensor in its state (e.g. via a
+    ``reorder_state`` method on ``LitSeq2Seq`` or a per-tensor annotation).
+    Until then, edge cases where another dim happens to equal B*K (e.g. small
+    batches with vocab/length collisions) will silently reorder the wrong axis.
     """
     if states is None:
         return states
