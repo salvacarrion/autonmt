@@ -4,7 +4,7 @@
 ``autonmt.backends.base.config`` doesn't pull in torch / pytorch_lightning /
 comet_ml.
 """
-__all__ = ["AutonmtTranslator", "FairseqTranslator"]
+__all__ = ["AutonmtTranslator", "FairseqTranslator", "HuggingFaceTranslator"]
 
 
 def __getattr__(name):
@@ -14,4 +14,7 @@ def __getattr__(name):
     if name == "FairseqTranslator":
         from autonmt.backends.fairseq.translator import FairseqTranslator
         return FairseqTranslator
+    if name == "HuggingFaceTranslator":
+        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        return HuggingFaceTranslator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

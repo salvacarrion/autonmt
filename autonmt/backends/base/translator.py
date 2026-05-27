@@ -605,6 +605,15 @@ class BaseTranslator(ABC):
                 log.info(f"\t- Parsed time (beam={beam}{extra_str}): "
                          f"{datetime.timedelta(seconds=time.time() - start)}")
 
+        return self._build_run_report(eval_ds=eval_ds, translations=translations)
+
+    def _build_run_report(self, eval_ds, translations) -> Dict:
+        """Assemble the per-(run, eval_ds) report dict.
+
+        Default implementation assumes an AutoNMT-style model + vocabularies
+        (``self.model``, ``self.src_vocab``, ``self.trg_vocab``). Backends with
+        a different shape (e.g. HuggingFace) override this hook.
+        """
         return build_run_report(
             engine=self.engine, run_name=self.run_name, model=self.model,
             eval_ds=eval_ds, src_vocab=self.src_vocab, trg_vocab=self.trg_vocab,
