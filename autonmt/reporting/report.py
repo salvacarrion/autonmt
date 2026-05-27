@@ -52,15 +52,16 @@ def summarize_scores(df_report: pd.DataFrame,
 def format_summary_table(df_summary: pd.DataFrame) -> str:
     """Render the summary DataFrame for terminal printing.
 
-    Just prettifies column names (e.g. ``translations.beam1.sacrebleu_bleu_score``
-    → ``beam1 sacrebleu bleu score``) and defers to ``DataFrame.to_string`` for
-    the actual layout — robust and width-aware.
+    Column names are kept verbatim — they're the JSON/CSV keys downstream
+    code and users reference, and keeping the ``__`` / ``.`` separators makes
+    column boundaries visible without explicit borders. Layout is delegated
+    to ``DataFrame.to_string`` (width-aware) with a unicode rule above and
+    below.
     """
     if df_summary.empty:
         return "(empty report)"
 
     df = df_summary.copy().map(_fmt_cell)
-    df.columns = [_prettify_column(c) for c in df.columns]
     body = df.to_string(index=False, na_rep="-")
     rule = "─" * max(len(line) for line in body.splitlines())
     return f"{rule}\n{body}\n{rule}"
@@ -75,12 +76,6 @@ def _fmt_cell(v):
     if isinstance(v, int):
         return f"{v:,}"
     return v
-
-
-def _prettify_column(col: str) -> str:
-    if col.startswith("translations."):
-        return col.replace("translations.", "").replace("_", " ")
-    return col.replace("__", " ").replace("_", " ")
 
 
 # ---------------------------------------------------------------------------

@@ -84,15 +84,15 @@ def main():
             run_name=train_ds.get_run_name(run_prefix="quickstart"),
         )
 
-        trainer.fit(
-            train_ds,
-            config=FitConfig(max_epochs=3, batch_size=128, learning_rate=1e-3, seed=42),
-        )
+        # trainer.fit(
+        #     train_ds,
+        #     config=FitConfig(max_epochs=3, batch_size=128, learning_rate=1e-3, seed=42),
+        # )
 
         scores.append(trainer.predict(
             ts_datasets,
             config=PredictConfig(
-                metrics={"bleu"}, beams=[1],
+                metrics={"bleu"}, beams=[5],
                 load_checkpoint="best",
                 preprocess_fn=preprocess_predict,
                 eval_mode="compatible",
