@@ -34,7 +34,7 @@ from torch.utils.data import DataLoader
 
 from autonmt.utils.logger import get_logger
 from autonmt.utils.fileio import rename_file, write_file_lines
-from autonmt.core.dataset import TranslationDataset
+from autonmt.core.data.translation_dataset import TranslationDataset
 from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSampler
 from autonmt.core.decoding import BeamSearch, GreedySearch
 from autonmt.backends.base.translator import BaseTranslator
