@@ -49,6 +49,25 @@ class TestMerge:
         assert cfg["beams"] == [1, 5]
         assert cfg["eval_mode"] == "same"
 
+    def test_predict_config_decoder_round_trips(self):
+        """A BaseSearch instance passed via PredictConfig must survive ``merge_config``
+        so the translator can pick it up. ``asdict`` deep-copies the value, so we
+        check type + attrs rather than identity."""
+        from autonmt.core.decoding import TopPSampling
+        decoder = TopPSampling(top_p=0.85, temperature=0.7)
+        cfg, _ = merge_config(PredictConfig(decoder=decoder), PredictConfig, {})
+        assert isinstance(cfg["decoder"], TopPSampling)
+        assert cfg["decoder"].top_p == 0.85
+        assert cfg["decoder"].temperature == 0.7
+
+    def test_predict_config_decoder_kwarg_overrides_config(self):
+        from autonmt.core.decoding import GreedySearch, TopKSampling
+        cfg, _ = merge_config(
+            PredictConfig(decoder=GreedySearch()), PredictConfig,
+            {"decoder": TopKSampling(top_k=5)},
+        )
+        assert isinstance(cfg["decoder"], TopKSampling)
+
     def test_wrong_config_type_raises(self):
         with pytest.raises(TypeError, match="FitConfig"):
             merge_config(PredictConfig(), FitConfig, {})

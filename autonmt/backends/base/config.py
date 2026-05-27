@@ -10,7 +10,7 @@ The motivation is to (a) document the expected argument shape in one place,
 disappearing into ``**kwargs``, and (c) let users build configs programmatically.
 """
 from dataclasses import dataclass, fields, asdict
-from typing import Callable, Iterable, List, Optional, Sequence, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Union
 
 from autonmt.utils.enums import EvalMode
 
@@ -77,6 +77,11 @@ class PredictConfig:
     preprocess_fn: Optional[Callable] = None
     eval_mode: Union[str, EvalMode] = "same"
     force_overwrite: bool = False
+    # Optional decoder instance (BaseSearch subclass). When None, the backend
+    # picks a default — AutonmtTranslator falls back to GreedySearch / BeamSearch
+    # depending on beam_width. Pass an instance of MultinomialSampling /
+    # TopKSampling / TopPSampling / custom BaseSearch to override.
+    decoder: Optional[Any] = None
 
     def as_kwargs(self) -> dict:
         return asdict(self)

@@ -232,6 +232,7 @@ class BaseTranslator(ABC):
                            num_workers=cfg["num_workers"],
                            checkpoint=cfg["load_checkpoint"],
                            preprocess_fn=cfg["preprocess_fn"],
+                           decoder=cfg["decoder"],
                            force_overwrite=cfg["force_overwrite"], **extra)
             self.score_translations(eval_ds, beams=cfg["beams"], metrics=cfg["metrics"],
                                     force_overwrite=cfg["force_overwrite"], **extra)
@@ -527,8 +528,14 @@ class BaseTranslator(ABC):
                     "ref_file": os.path.join(beam_path, "ref.txt"),
                     "hyp_file": os.path.join(beam_path, "hyp.txt"),
                 }
-                if not all(os.path.exists(p) for p in files.values()):
-                    raise IOError("Missing files to compute scores")
+                # ref and hyp are always required; src only if a backend uses it
+                # (currently COMET).
+                required = {"ref_file": files["ref_file"], "hyp_file": files["hyp_file"]}
+                if any(b.needs_src for b in grouped):
+                    required["src_file"] = files["src_file"]
+                missing = [p for p in required.values() if not os.path.exists(p)]
+                if missing:
+                    raise IOError(f"Missing files required to compute scores: {missing}")
 
                 for backend, backend_metrics in grouped.items():
                     output_file = os.path.join(scores_path, backend.output_filename)

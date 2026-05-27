@@ -257,13 +257,20 @@ class AutonmtTranslator(BaseTranslator):
     def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoint, num_workers, devices, accelerator,
-                   force_overwrite, checkpoints_dir=None, filter_idx=0, **kwargs):
+                   force_overwrite, checkpoints_dir=None, filter_idx=0,
+                   decoder=None, **kwargs):
         if checkpoint:  # "best", "last", filename, or absolute path
             self.from_checkpoint = self.load_checkpoint(checkpoint)
 
         self.model = set_model_device(self.model, accelerator=accelerator)
 
-        search_algorithm = BeamSearch() if beam_width > 1 else GreedySearch()
+        # If the caller supplied a decoder (e.g. TopPSampling, TopKSampling,
+        # MultinomialSampling, or a custom BeamSearch with non-default
+        # length_penalty), use it as-is. Otherwise fall back to the historical
+        # behaviour: BeamSearch when beam_width > 1, GreedySearch otherwise.
+        search_algorithm = decoder if decoder is not None else (
+            BeamSearch() if beam_width > 1 else GreedySearch()
+        )
         predictions, _ = search_algorithm.decode(
             model=self.model, dataset=self.test_tds[filter_idx],
             sos_id=self.trg_vocab.sos_id,

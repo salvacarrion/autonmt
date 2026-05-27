@@ -62,7 +62,7 @@ def parse_bertscore_json(text):
 
 
 def parse_fairseq_txt(text):
-    pattern = r"beam=(\d+): BLEU = (\d+.\d*)"
+    pattern = r"beam=(\d+): BLEU = (\d+\.\d*)"
     groups = re.search(pattern, text[-1].strip()).groups()
     return {"bleu": {"score": float(groups[1])}}
 
@@ -144,8 +144,16 @@ def _score_huggingface(hyp_lines, ref_lines, metrics):
 def _read_aligned(*paths):
     lines = [fileio.read_file_lines(p, autoclean=True) for p in paths]
     assert len({len(L) for L in lines}) == 1, "ref/hyp/src must be line-aligned"
-    if not all(lines):
-        raise ValueError(f"Empty file(s) among: {paths}")
+    for p, L in zip(paths, lines):
+        if not L:
+            raise ValueError(f"Empty file: {p}")
+        # Blank lines slip past sacrebleu but break bertscore / COMET (NaN or
+        # tokenizer errors). Warn rather than raise — the user may have legit
+        # empty refs (e.g. unanswerable items) and want to score the rest.
+        n_blank = sum(1 for line in L if not line.strip())
+        if n_blank:
+            log.warning(f"\t- {n_blank}/{len(L)} blank line(s) in {p} — "
+                        f"bertscore/COMET may produce NaN")
     return lines
 
 

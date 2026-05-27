@@ -286,6 +286,9 @@ class FairseqTranslator(BaseTranslator):
                    force_overwrite, **kwargs):
         if kwargs.get('devices'):
             log.warning("\t\t- 'devices' will be ignored when using Fairseq")
+        if kwargs.get('decoder') is not None:
+            log.warning("\t\t- 'decoder' will be ignored when using Fairseq "
+                        "(custom decoders are only supported by AutonmtTranslator)")
 
         data_bin_path = os.path.join(data_path, model_ds.data_path, self.data_bin_name)
         input_args = [data_bin_path]
