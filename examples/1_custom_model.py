@@ -26,7 +26,7 @@ from autonmt.core.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends import AutonmtTranslator
-from autonmt.backends.base.config import FitConfig, PredictConfig
+from autonmt.backends._base.config import FitConfig, PredictConfig
 
 
 def normalize(x):
@@ -95,8 +95,8 @@ def main():
             run_prefix="mymodel",
         )
 
-        # `strategy` and the loggers (wandb/comet) are not part of FitConfig — they
-        # are toolkit-specific extras and pass through `**kwargs` untouched.
+        # `strategy` and `wandb_params` are not part of FitConfig — they are
+        # toolkit-specific extras and pass through `**kwargs` untouched.
         trainer.fit(train_ds, config=fit_cfg, strategy="ddp", save_best=True, save_last=True)
         scores.append(trainer.predict(ts_datasets, config=pred_cfg))
 

@@ -33,7 +33,7 @@ python examples/0_quickstart_hf.py
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
-from autonmt.backends.base.config import FitConfig, PredictConfig
+from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.models import Transformer
 from autonmt.vocabularies import Vocabulary
 
@@ -95,7 +95,6 @@ docker exec -it autonmt_container bash
 | ------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `datasets`, `evaluate`   | `pip install -e '.[hf]'`      | `hf_loader.download_hf_dataset()`                                                                    |
 | `wandb`                  | `pip install -e '.[wandb]'`   | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
-| `comet_ml`               | `pip install -e '.[comet]'`   | Training logger (`comet_params=` kwarg on `fit()`)                                                   |
 | `fairseq` _(deprecated)_ | `pip install -e '.[fairseq]'` | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
 | _(everything above)_     | `pip install -e '.[all]'`     | One-shot install of every extra                                                                      |
 
@@ -114,7 +113,7 @@ DatasetBuilder  ───►  BaseTranslator  ───►  generate_report
 ```
 
 - **`DatasetBuilder`** ([`datasets/dataset_builder.py`](autonmt/datasets/dataset_builder.py)) unrolls the declared cross-product of datasets × language pairs × sizes × subword models × vocab sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk. Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable SentencePiece byte fallback for that model - declare separate entries to compare `bpe` with and without it. The flag is orthogonal to `subword_models`. As a shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is equivalent to setting `byte_fallback=True` for that model.
-- **`BaseTranslator`** ([`backends/base/translator.py`](autonmt/backends/base/translator.py)) defines the shared `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
+- **`BaseTranslator`** ([`backends/_base/translation_engine.py`](autonmt/backends/_base/translation_engine.py)) defines the shared `fit()` / `predict()` pipeline. Subclasses implement `_preprocess`, `_train`, `_translate`.
 - **`generate_report`** ([`reporting/report.py`](autonmt/reporting/report.py)) flattens the per-run score dicts into a single CSV + comparison plots.
 
 ### Typed configuration (optional)
@@ -122,7 +121,7 @@ DatasetBuilder  ───►  BaseTranslator  ───►  generate_report
 `fit()` and `predict()` accept either keyword arguments or a typed config object:
 
 ```python
-from autonmt.backends.base.config import FitConfig, PredictConfig
+from autonmt.backends._base.config import FitConfig, PredictConfig
 
 # Equivalent forms
 trainer.fit(train_ds, batch_size=64, max_epochs=10)
@@ -152,7 +151,7 @@ multi30k/de-en/original/
 └── models/<toolkit>/runs/<run>/
     ├── checkpoints/                 *.pt
     ├── eval/<eval_ds>/              decoded src/ref/hyp + per-metric scores
-    └── logs/                        config_train.json, config_predict.json, TB / wandb / comet
+    └── logs/                        config_train.json, config_predict.json, TB / wandb
 ```
 
 When `byte_fallback=True`, the `<subword>` segment becomes `<model>+bytes` (e.g. `bpe+bytes/8000`), so runs with and without fallback never collide on disk.
@@ -199,7 +198,7 @@ Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
 `FairseqTranslator` shells out to the Fairseq CLI. AutoNMT translates kwargs (`max_epochs`, `batch_size`, …) to Fairseq flags via an internal table.
 
 ```python
-from autonmt.backends.fairseq.translator import FairseqTranslator  # DeprecationWarning here
+from autonmt.backends.fairseq.translation_engine import FairseqTranslator  # DeprecationWarning here
 from autonmt.vocabularies import Vocabulary
 
 # Vocabs are needed so the base translator can encode eval splits with the

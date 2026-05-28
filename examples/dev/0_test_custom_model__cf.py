@@ -303,9 +303,9 @@ def main():
                 run_name = default_ds.get_run_name(run_prefix=run_prefix)  # + f"__{int(time.time())}"
                 trainer = AutonmtTranslator(model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
                                             runs_dir=runs_dir, run_name=run_name,
-                                            filter_tr_data_fn=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=None),
-                                            filter_vl_data_fn=[_gen_filter_data_fn("val", valid_pairs=p) for p in filter_ts_pairs],
-                                            filter_ts_data_fn=[_gen_filter_data_fn("test", valid_pairs=p) for p in filter_ts_pairs],
+                                            train_subset=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=None),
+                                            val_subsets=[_gen_filter_data_fn("val", valid_pairs=p) for p in filter_ts_pairs],
+                                            test_subsets=[_gen_filter_data_fn("test", valid_pairs=p) for p in filter_ts_pairs],
                                             )
 
                 ############################################################

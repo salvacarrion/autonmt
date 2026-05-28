@@ -96,10 +96,9 @@ def main():
 
         # Train model
         wandb_params = None  #dict(project="continual-learning", entity="salvacarrion", reinit=True)
-        comet_params = None  #dict(api_key="SPbJIBtSiGmnWI9Pc7ZuDJ4Wc", project_name="continual-learning", workspace="salvacarrion")
         trainer.fit(train_ds, max_epochs=10, learning_rate=0.001, optimizer="adam", batch_size=128, seed=1234,
                     patience=10, num_workers=0, accelerator="auto", strategy="auto", save_best=True, save_last=True, print_samples=1,
-                    wandb_params=wandb_params, comet_params=comet_params)
+                    wandb_params=wandb_params)
 
         # Test model
         m_scores = trainer.predict(ts_datasets, metrics={"bleu"}, beams=[1], load_checkpoint="best",

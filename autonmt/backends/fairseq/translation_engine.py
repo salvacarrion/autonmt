@@ -2,7 +2,7 @@
 
 .. deprecated::
     Fairseq was archived by Meta on 2026-03-20 and is no longer maintained.
-    New code should prefer :class:`~autonmt.backends.autonmt.translator.AutonmtTranslator`.
+    New code should prefer :class:`~autonmt.backends.autonmt.translation_engine.AutonmtTranslator`.
 """
 import os
 import shutil
@@ -10,7 +10,9 @@ import warnings
 
 from autonmt.utils import fileio as utils
 from autonmt.utils.logger import get_logger
-from autonmt.backends.base.translator import BaseTranslator
+from autonmt.backends._base.translation_engine import BaseTranslator
+from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
+from autonmt.reporting.report import RunMetadata
 
 log = get_logger(__name__)
 
@@ -158,7 +160,7 @@ class FairseqTranslator(BaseTranslator):
 
     .. deprecated::
         Fairseq was archived on 2026-03-20 and is no longer maintained.
-        New code should prefer :class:`~autonmt.backends.autonmt.translator.AutonmtTranslator`.
+        New code should prefer :class:`~autonmt.backends.autonmt.translation_engine.AutonmtTranslator`.
     """
 
     ENGINE = "fairseq"
@@ -179,11 +181,77 @@ class FairseqTranslator(BaseTranslator):
         self.wandb_params = wandb_params
         self.data_bin_name = "data-bin"
 
-    # --- preprocess -----------------------------------------------------
+        # Fairseq uses SPM vocabs (reformatted to fairseq dict), so wire the
+        # standard SPM round-trip — _translate writes hyp.tok and the
+        # pipeline handles decode + src/ref materialization.
+        self._spm = SPMTranslatePipeline(
+            layout=self._layout, src_vocab=self.src_vocab,
+            trg_vocab=self.trg_vocab, test_subsets=self.test_subsets,
+        )
 
-    def _preprocess(self, ds, output_path, src_lang, trg_lang, train_path, val_path, test_path,
-                    src_vocab_path, trg_vocab_path,
-                    apply2train, apply2val, apply2test, force_overwrite, **kwargs):
+    # --- Backend hooks --------------------------------------------------
+
+    def _get_lang_pair(self):
+        return self.src_vocab.lang, self.trg_vocab.lang
+
+    def _get_run_metadata(self) -> RunMetadata:
+        """Fairseq doesn't expose a Python model object on ``self`` (it
+        shells out to the CLI), so we report what we can derive from the
+        vocabs and leave the model fields empty."""
+        src_vocab, trg_vocab = self.src_vocab, self.trg_vocab
+        if src_vocab is None or trg_vocab is None:
+            return RunMetadata()
+
+        assert src_vocab.subword_model == trg_vocab.subword_model
+        if len(src_vocab) != len(trg_vocab):
+            vocab_size = f"{len(src_vocab)}/{len(trg_vocab)}"
+        else:
+            vocab_size = len(src_vocab)
+
+        merge_src = self.trained_ds[-1] if self.trained_ds else None
+        vocab_merged = bool(getattr(merge_src, "merge_vocabs", False)) if merge_src else False
+
+        return RunMetadata(
+            model__architecture="fairseq",
+            vocab__subword_model=src_vocab.subword_model,
+            vocab__size=vocab_size,
+            vocab__merged=vocab_merged,
+            vocab__lang_pair=f"{src_vocab.lang}-{trg_vocab.lang}",
+        )
+
+    # --- preprocess (train-side) ---------------------------------------
+
+    def _prepare_train_data(self, ds):
+        """Build the train-side data-bin. Called at the start of ``_train``."""
+        self._build_data_bin(
+            ds=ds, output_path=None,
+            src_lang=ds.src_lang, trg_lang=ds.trg_lang,
+            src_vocab_path=ds.get_vocab_file(lang=ds.src_lang),
+            trg_vocab_path=ds.get_vocab_file(lang=ds.trg_lang),
+            train_path=ds.get_encoded_path(fname=ds.train_name),
+            val_path=ds.get_encoded_path(fname=ds.val_name),
+            test_path=ds.get_encoded_path(fname=ds.test_name),
+            apply2test=False,
+            force_overwrite=True,  # gated by caller via skip-if-exists
+        )
+
+    def _prepare_eval_data(self, *, ds, src_lang, trg_lang,
+                           src_vocab_path, trg_vocab_path,
+                           test_path, output_path, force_overwrite, **_):
+        """Build the eval-side data-bin. Called by SPMTranslatePipeline."""
+        self._build_data_bin(
+            ds=ds, output_path=output_path,
+            src_lang=src_lang, trg_lang=trg_lang,
+            src_vocab_path=src_vocab_path, trg_vocab_path=trg_vocab_path,
+            train_path=None, val_path=None, test_path=test_path,
+            apply2test=True,
+            force_overwrite=force_overwrite,
+        )
+
+    def _build_data_bin(self, ds, output_path, src_lang, trg_lang,
+                        src_vocab_path, trg_vocab_path,
+                        train_path, val_path, test_path,
+                        apply2test, force_overwrite):
         # Build data-bin output path.
         if not output_path:  # Train
             output_path = ds.get_bin_data(self.engine, self.data_bin_name)
@@ -243,7 +311,6 @@ class FairseqTranslator(BaseTranslator):
     def _train(self, train_ds, checkpoints_dir, logs_path, max_tokens, batch_size,
                force_overwrite, **kwargs):
         wandb_params = kwargs.get("wandb_params")
-        data_bin_path = train_ds.get_bin_data(self.engine, self.data_bin_name)
 
         # Gate on live ``.pt`` files only — ``.pt.bak`` from previous runs is ignored
         # so cumulative backups don't block re-training. Matches AutonmtTranslator.
@@ -258,6 +325,9 @@ class FairseqTranslator(BaseTranslator):
                 log.info("\t- [Train]: Skipped. The checkpoint directory already contains checkpoints "
                          "(pass force_overwrite=True to back them up and retrain).")
                 return
+
+        self._prepare_train_data(train_ds)
+        data_bin_path = train_ds.get_bin_data(self.engine, self.data_bin_name)
 
         input_args = [data_bin_path]
         if checkpoints_dir:
@@ -287,7 +357,7 @@ class FairseqTranslator(BaseTranslator):
 
     # --- translate ------------------------------------------------------
 
-    def _translate(self, model_ds, data_path, output_path, src_lang, trg_lang, beam_width,
+    def _translate(self, ds, data_path, output_path, src_lang, trg_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
                    **kwargs):
@@ -297,7 +367,7 @@ class FairseqTranslator(BaseTranslator):
             log.warning("\t\t- 'decoder' will be ignored when using Fairseq "
                         "(custom decoders are only supported by AutonmtTranslator)")
 
-        data_bin_path = os.path.join(data_path, model_ds.data_path, self.data_bin_name)
+        data_bin_path = os.path.join(data_path, ds.data_path, self.data_bin_name)
         input_args = [data_bin_path]
         input_args += [
             "--source-lang", src_lang,

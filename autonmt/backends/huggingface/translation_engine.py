@@ -1,18 +1,17 @@
 """HuggingFace backend — load any pretrained seq2seq model and evaluate it.
 
-Phase 1: **inference only**. Wraps :class:`transformers.AutoModelForSeq2SeqLM`
-and :class:`transformers.AutoTokenizer` so the user can point at any model id
-(or local checkpoint) and reuse the existing ``predict()`` pipeline. Fine-tuning
-via ``fit()`` is not implemented yet and raises :class:`NotImplementedError`.
+Wraps :class:`transformers.AutoModelForSeq2SeqLM` and
+:class:`transformers.AutoTokenizer` so the user can point at any model id
+(or local checkpoint) and reuse the existing ``predict()`` pipeline.
+Fine-tuning via ``fit()`` is supported through :class:`Seq2SeqTrainer`.
 
-Why we override :meth:`translate` instead of just implementing ``_translate``:
-the parent flow encodes test text with the AutoNMT SentencePiece pipeline and
-then decodes hypotheses back, which doesn't apply to HuggingFace models — they
-bring their own tokenizer and vocabulary. We bypass the SPM round-trip and
-write the standard ``src.txt`` / ``ref.txt`` / ``hyp.txt`` artifacts directly,
-which :meth:`score_translations` and :meth:`parse_metrics` consume unchanged.
+The backend leaves :attr:`_spm` as ``None`` (no SPM round-trip), so
+:meth:`BaseTranslator.translate` runs in *direct mode* — looping over
+(subset, beam) and calling :meth:`_translate`, which writes the standard
+``src.txt`` / ``ref.txt`` / ``hyp.txt`` artifacts straight from the HF
+tokenizer/model. :meth:`score_translations` and :meth:`parse_metrics` then
+consume those artifacts unchanged.
 """
-import datetime
 import os
 import time
 from typing import Optional
@@ -34,16 +33,16 @@ except ImportError:
     torch = None
     _TORCH_AVAILABLE = False
 
-from autonmt.utils.enums import EvalMode
-from autonmt.utils.fileio import make_dir, read_file_lines, write_file_lines
+from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
-from autonmt.backends.base.translator import BaseTranslator, _check_datasets
+from autonmt.backends._base.translation_engine import BaseTranslator
+from autonmt.reporting.report import RunMetadata
 
 log = get_logger(__name__)
 
 
 class HuggingFaceTranslator(BaseTranslator):
-    """Inference-only HuggingFace backend.
+    """Inference + fine-tuning HuggingFace backend.
 
     Parameters
     ----------
@@ -55,8 +54,8 @@ class HuggingFaceTranslator(BaseTranslator):
         Defaults to ``model_id``. Override when the tokenizer lives elsewhere.
     src_lang, trg_lang : str, optional
         Source / target language codes. Auto-filled by :meth:`from_dataset` from
-        the dataset. Used by :meth:`filter_eval_datasets` and the metric backends
-        that need a target language (e.g. BERTScore).
+        the dataset. Used by :meth:`filter_eval_datasets` (via
+        ``_get_lang_pair``) and metric backends that need a target language.
     device : str
         ``"auto"`` (default), ``"cuda"``, ``"mps"``, or ``"cpu"``.
     generation_kwargs : dict, optional
@@ -95,6 +94,9 @@ class HuggingFaceTranslator(BaseTranslator):
         self._tokenizer = None
         self._resolved_device: Optional[str] = None
 
+        # No SPM round-trip — HF owns its own tokenizer. BaseTranslator.translate
+        # falls into direct mode and calls _translate() with eval_ds + filter.
+
     # --- from_dataset: auto-fill src_lang/trg_lang ---------------------------
 
     @classmethod
@@ -102,6 +104,56 @@ class HuggingFaceTranslator(BaseTranslator):
         kwargs.setdefault("src_lang", train_ds.src_lang)
         kwargs.setdefault("trg_lang", train_ds.trg_lang)
         return super().from_dataset(train_ds, run_prefix=run_prefix, **kwargs)
+
+    # --- Backend hooks (replace the old vocab-based overrides) -------------
+
+    def _get_lang_pair(self):
+        if self.src_lang is None or self.trg_lang is None:
+            raise ValueError(
+                "HuggingFaceTranslator needs src_lang / trg_lang. Pass them "
+                "to the constructor or use HuggingFaceTranslator.from_dataset(...)."
+            )
+        return self.src_lang, self.trg_lang
+
+    def _get_run_metadata(self) -> RunMetadata:
+        """HF analogue of the AutoNMT run metadata, sourced from the HF
+        model + tokenizer when loaded, falling back to ``model_id`` when not.
+
+        Robust to ``_model`` / ``_tokenizer`` being ``None`` (e.g. predict-time
+        report before any translate call has triggered :meth:`_ensure_loaded`).
+        """
+        model, tokenizer = self._model, self._tokenizer
+
+        if model is not None:
+            params = list(model.parameters())
+            total_params = sum(p.numel() for p in params)
+            trainable_params = sum(p.numel() for p in params if p.requires_grad)
+            no_trainable_params = total_params - trainable_params
+            dtype = str(next(iter(params)).dtype) if params else "unknown"
+        else:
+            total_params = trainable_params = no_trainable_params = 0
+            dtype = "unknown"
+
+        vocab_size = getattr(tokenizer, "vocab_size", None) if tokenizer is not None else None
+        if vocab_size is None and tokenizer is not None:
+            vocab_size = len(tokenizer)
+
+        src_lang = self.src_lang
+        trg_lang = self.trg_lang
+        lang_pair = f"{src_lang}-{trg_lang}" if src_lang and trg_lang else None
+
+        return RunMetadata(
+            model__architecture=f"huggingface:{self.model_id}",
+            model__total_params=total_params,
+            model__trainable_params=trainable_params,
+            model__no_trainable_params=no_trainable_params,
+            model__dtype=dtype,
+            vocab__subword_model="hf_tokenizer",
+            vocab__size=vocab_size,
+            # HF tokenizers are inherently shared by source & target.
+            vocab__merged=True,
+            vocab__lang_pair=lang_pair,
+        )
 
     # --- Lazy model / tokenizer loading --------------------------------------
 
@@ -130,12 +182,7 @@ class HuggingFaceTranslator(BaseTranslator):
             return "mps"
         return "cpu"
 
-    # --- BaseTranslator abstract hooks --------------------------------------
-
-    def _preprocess(self, **kwargs):
-        # HuggingFace tokenizes on the fly inside translate(); no file-based
-        # preprocessing step.
-        return
+    # --- _train ---------------------------------------------------------
 
     def _train(self, train_ds, checkpoints_dir, logs_path, force_overwrite, **kwargs):
         """Fine-tune via :class:`transformers.Seq2SeqTrainer`.
@@ -226,8 +273,6 @@ class HuggingFaceTranslator(BaseTranslator):
 
         self.model_id = checkpoints_dir
         self.tokenizer_id = checkpoints_dir
-
-    # --- Train summary (skip the vocab-based parent version) ----------------
 
     def _log_train_summary(self, train_ds, kwargs):
         """HF analogue of the parent summary; sourced from model_id + tokenizer."""
@@ -344,48 +389,24 @@ class HuggingFaceTranslator(BaseTranslator):
         )
         return Seq2SeqTrainingArguments(**mapped)
 
-    def _translate(self, *args, **kwargs):
-        # Unreachable: translate() is overridden below and never delegates.
-        raise RuntimeError(
-            "HuggingFaceTranslator overrides translate() entirely; "
-            "_translate() should never be called."
-        )
+    # --- _translate (direct mode: writes src/ref/hyp itself) ------------
 
-    # --- Override translate(): skip the SPM encode/decode round-trip --------
+    def _translate(self, *, eval_ds, output_path, beam_width,
+                   filter_idx, fn_name, filter_fn, preprocess_fn,
+                   force_overwrite, batch_size=None,
+                   max_len_a=None, max_len_b=None, **kwargs):
+        """Tokenize → generate → decode for one (subset, beam) pass.
 
-    def translate(self, eval_ds, beams, preprocess_fn, force_overwrite, **kwargs):
-        log.info(f"=> [Translate]: Started. (Model: {self.run_name} | Test: {str(eval_ds)})")
-        _check_datasets(eval_ds=eval_ds)
+        Writes ``src.txt`` / ``ref.txt`` / ``hyp.txt`` directly — the parent's
+        SPM encode/decode round-trip doesn't apply to HF models.
+        """
+        del kwargs  # consume the rest of the PredictConfig kwargs we don't use
         self._ensure_loaded()
-
-        model_eval_path = self.get_model_eval_path(eval_name=str(eval_ds))
-        make_dir([model_eval_path])
-
-        batch_size = kwargs.get("batch_size") or 8
-        max_len_a = kwargs.get("max_len_a")
-        max_len_b = kwargs.get("max_len_b")
-
-        for filter_idx, (fn_name, filter_fn) in enumerate(self.test_subsets):
-            for beam in beams:
-                self._translate_one_beam(
-                    eval_ds=eval_ds, beam=beam, fn_name=fn_name, filter_fn=filter_fn,
-                    preprocess_fn=preprocess_fn, force_overwrite=force_overwrite,
-                    batch_size=batch_size, max_len_a=max_len_a, max_len_b=max_len_b,
-                )
-
-    def _translate_one_beam(self, eval_ds, beam, fn_name, filter_fn, preprocess_fn,
-                            force_overwrite, batch_size, max_len_a, max_len_b):
-        output_path = self.get_model_eval_translations_beam_path(
-            eval_name=str(eval_ds), split_name=fn_name, beam=beam)
-        make_dir(output_path)
-
-        hyp_output_file = os.path.join(output_path, "hyp.txt")
-        if not force_overwrite and os.path.exists(hyp_output_file):
-            log.info(f"\t- [Translate]: Skipped (cached) beam={beam}")
-            return
+        batch_size = batch_size or 8
 
         src_output_file = os.path.join(output_path, "src.txt")
         ref_output_file = os.path.join(output_path, "ref.txt")
+        hyp_output_file = os.path.join(output_path, "hyp.txt")
 
         # 1. Load source / reference text (post user preprocess_splits_fn, pre-SPM).
         src_lines, ref_lines = self._load_eval_text(eval_ds, filter_fn, fn_name)
@@ -401,11 +422,10 @@ class HuggingFaceTranslator(BaseTranslator):
 
         # 3. Tokenize → generate → decode.
         start = time.time()
-        hyp_lines = self._generate(src_lines, beam=beam, batch_size=batch_size,
+        hyp_lines = self._generate(src_lines, beam=beam_width, batch_size=batch_size,
                                     max_len_a=max_len_a, max_len_b=max_len_b)
-        extra_str = f" | split='{fn_name}'" if fn_name else ""
-        log.info(f"\t- Translating time (beam={beam}{extra_str}): "
-                 f"{datetime.timedelta(seconds=time.time() - start)}")
+        log.info(f"\t- HF generate ({len(src_lines)} lines): "
+                 f"{time.time() - start:.2f}s")
 
         # 4. Write artifacts. score_translations() reads src/ref/hyp from here.
         write_file_lines(filename=src_output_file, lines=src_lines,
@@ -452,152 +472,6 @@ class HuggingFaceTranslator(BaseTranslator):
                 out_ids = self._model.generate(**inputs, **gen_kwargs)
             hyp_lines.extend(self._tokenizer.batch_decode(out_ids, skip_special_tokens=True))
         return hyp_lines
-
-    # --- Report shape (override of the default vocab+model report) ----------
-
-    def _build_run_report(self, eval_ds, translations):
-        """HF-specific report dict matching the AutoNMT schema.
-
-        We replicate the keys ``build_run_report`` emits so downstream CSV /
-        plot / leaderboard code keeps working, but source the values from the
-        HF model + tokenizer instead of AutoNMT's ``Vocabulary`` / ``LitSeq2Seq``.
-        """
-        model = self._model
-        tokenizer = self._tokenizer
-
-        # Param counts: HF models don't have count_parameters(), compute inline.
-        if model is not None:
-            params = list(model.parameters())
-            total_params = sum(p.numel() for p in params)
-            trainable_params = sum(p.numel() for p in params if p.requires_grad)
-            no_trainable_params = total_params - trainable_params
-            dtype = str(next(iter(params)).dtype) if params else "unknown"
-        else:
-            total_params = trainable_params = no_trainable_params = 0
-            dtype = "unknown"
-
-        vocab_size = getattr(tokenizer, "vocab_size", None)
-        if vocab_size is None and tokenizer is not None:
-            vocab_size = len(tokenizer)
-
-        src_lang = self.src_lang or eval_ds.src_lang
-        trg_lang = self.trg_lang or eval_ds.trg_lang
-        lang_pair = f"{src_lang}-{trg_lang}"
-
-        return {
-            "engine": self.engine,
-            "run_name": self.run_name,
-            "eval_datetime": str(datetime.datetime.now()),
-
-            "model__architecture": f"huggingface:{self.model_id}",
-            "model__trainable_params": trainable_params,
-            "model__no_trainable_params": no_trainable_params,
-            "model__total_params": total_params,
-            "model__dtype": dtype,
-
-            "vocab__subword_model": "hf_tokenizer",
-            "vocab__size": vocab_size,
-            # HF tokenizers are inherently shared by source & target.
-            "vocab__merged": True,
-            "vocab__lang_pair": lang_pair,
-
-            "train__lang_pair": lang_pair,
-            "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",
-
-            "train_dataset": None,
-            "test_dataset": eval_ds.dataset_name,
-            "test_dataset_full": f"{eval_ds.dataset_name}__{eval_ds.src_lang}-{eval_ds.trg_lang}",
-
-            "translations": translations,
-            "config": self.config,
-        }
-
-    # --- Bypass the vocab-based filter --------------------------------------
-
-    def filter_eval_datasets(self, ts_datasets, eval_mode):
-        """Filter using ``self.src_lang`` / ``self.trg_lang`` instead of vocabs.
-
-        :class:`BaseTranslator` reads ``self.src_vocab.lang`` / ``self.trg_vocab.lang``
-        to decide compatibility. HuggingFace models don't expose AutoNMT vocabs,
-        so we hold the language pair directly on ``self`` and use it here.
-        """
-        eval_mode = EvalMode.coerce(eval_mode)
-        if eval_mode is EvalMode.ALL:
-            return list(ts_datasets)
-        if eval_mode is EvalMode.SAME:
-            trained = {str(ds.id()) for ds in self.trained_ds}
-            return [ds for ds in ts_datasets if str(ds.id()) in trained]
-        if eval_mode is EvalMode.COMPATIBLE:
-            if self.src_lang is None or self.trg_lang is None:
-                raise ValueError(
-                    "eval_mode='compatible' on HuggingFaceTranslator requires "
-                    "src_lang / trg_lang. Pass them in the constructor or use "
-                    "HuggingFaceTranslator.from_dataset(train_ds, ...)."
-                )
-            langs = {self.src_lang, self.trg_lang}
-            return [ds for ds in ts_datasets if set(ds.langs).issubset(langs)]
-        raise ValueError(f"Unknown 'eval_mode' ({eval_mode!r})")
-
-    # --- Bypass self.trg_vocab.lang in score_translations -------------------
-
-    def score_translations(self, eval_ds, beams, metrics, force_overwrite, **kwargs):
-        """Same as the parent, but pass ``trg_lang`` from ``self`` (no trg_vocab).
-
-        The parent reads ``self.trg_vocab.lang`` to hand off to metric backends
-        (COMET, BERTScore). For HF we hold the language pair directly.
-        """
-        from autonmt.backends.base.translator import (
-            _all_supported_metric_names, _check_supported_metrics,
-        )
-        from autonmt.evaluation.metrics import resolve_backends
-        from autonmt.utils.fileio import make_dir as _make_dir
-
-        log.info(f"=> [Scoring translations]: Started. "
-                 f"(Model: {self.run_name} | Test: {str(eval_ds)})")
-        _check_datasets(eval_ds=eval_ds)
-
-        valid = _check_supported_metrics(metrics, _all_supported_metric_names())
-        if not valid:
-            return
-        grouped = resolve_backends(metrics)
-        if not grouped:
-            return
-
-        trg_lang = self.trg_lang or eval_ds.trg_lang
-
-        for fn_name, _ in self.test_subsets:
-            extra_str = f" | split='{fn_name}'" if fn_name else ""
-            for beam in beams:
-                start = time.time()
-                beam_path = self.get_model_eval_translations_beam_path(
-                    eval_name=str(eval_ds), split_name=fn_name, beam=beam)
-                scores_path = self.get_model_eval_translations_beam_scores_path(
-                    eval_name=str(eval_ds), split_name=fn_name, beam=beam)
-                _make_dir([scores_path])
-
-                files = {
-                    "src_file": os.path.join(beam_path, "src.txt"),
-                    "ref_file": os.path.join(beam_path, "ref.txt"),
-                    "hyp_file": os.path.join(beam_path, "hyp.txt"),
-                }
-                required = {"ref_file": files["ref_file"], "hyp_file": files["hyp_file"]}
-                if any(b.needs_src for b in grouped):
-                    required["src_file"] = files["src_file"]
-                missing = [p for p in required.values() if not os.path.exists(p)]
-                if missing:
-                    raise IOError(f"Missing files required to compute scores: {missing}")
-
-                for backend, backend_metrics in grouped.items():
-                    output_file = os.path.join(scores_path, backend.output_filename)
-                    if not force_overwrite and os.path.exists(output_file):
-                        continue
-                    backend.compute_fn(
-                        **files, output_file=output_file, metrics=backend_metrics,
-                        trg_lang=trg_lang,
-                    )
-
-                log.info(f"\t- Scoring time (beam={beam}{extra_str}): "
-                         f"{datetime.timedelta(seconds=time.time() - start)}")
 
 
 class _Seq2SeqTextDataset:

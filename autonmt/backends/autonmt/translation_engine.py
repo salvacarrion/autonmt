@@ -1,20 +1,16 @@
 """Pytorch-Lightning backed translator.
 
-Concrete :class:`~autonmt.backends.base.translator.BaseTranslator` that owns the
+Concrete :class:`~autonmt.backends._base.translation_engine.BaseTranslator` that owns the
 DataLoaders, callbacks, loggers and checkpoint management for a
 :class:`~autonmt.core.seq2seq.LitSeq2Seq` model.
+
+The SPM encode/decode round-trip lives in
+:class:`~autonmt.backends._base.spm_pipeline.SPMTranslatePipeline`; this class
+plugs into it by exposing ``_translate`` (produces ``hyp.tok``) and
+``_prepare_eval_data`` (builds the test :class:`TranslationDataset`).
 """
 import inspect
 import os.path
-
-# IMPORTANT: comet_ml must be imported before torch/pytorch_lightning so its auto-logging
-# patches take effect. Do not reorder. It is an optional dependency — guarded so the
-# module still imports cleanly when the user doesn't need Comet logging.
-try:
-    import comet_ml  # noqa: F401
-    _COMET_AVAILABLE = True
-except ImportError:
-    _COMET_AVAILABLE = False
 
 import torch
 import pytorch_lightning as pl
@@ -29,7 +25,7 @@ except ImportError:
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from pytorch_lightning.loggers import CometLogger, TensorBoardLogger, WandbLogger
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from torch.utils.data import DataLoader
 
 from autonmt.utils.logger import get_logger
@@ -37,7 +33,9 @@ from autonmt.utils.fileio import rename_file, write_file_lines
 from autonmt.core.data.translation_dataset import TranslationDataset
 from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSampler
 from autonmt.core.decoding import BeamSearch, GreedySearch
-from autonmt.backends.base.translator import BaseTranslator
+from autonmt.backends._base.translation_engine import BaseTranslator
+from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
+from autonmt.reporting.report import RunMetadata
 
 log = get_logger(__name__)
 
@@ -76,31 +74,98 @@ class AutonmtTranslator(BaseTranslator):
         super().__init__(engine="autonmt", **kwargs)
         self.model = model
 
-        # Translation preprocessing tensors (set in _preprocess).
+        # Translation tensors (built by _prepare_train_data / _prepare_eval_data).
         self.train_tds = None
         self.val_tds = None
         self.test_tds = None
 
-    # --- preprocess -----------------------------------------------------
+        # Wire the SPM round-trip so BaseTranslator.translate() delegates.
+        self._spm = SPMTranslatePipeline(
+            layout=self._layout, src_vocab=self.src_vocab,
+            trg_vocab=self.trg_vocab, test_subsets=self.test_subsets,
+        )
 
-    def _preprocess(self, train_path, val_path, test_path,
-                    apply2train, apply2val, apply2test,
-                    src_lang, trg_lang, src_vocab_path, trg_vocab_path,
-                    output_path, force_overwrite, **kwargs):
-        params = dict(src_lang=src_lang, trg_lang=trg_lang,
+    # --- Backend hooks --------------------------------------------------
+
+    def _get_lang_pair(self):
+        return self.src_vocab.lang, self.trg_vocab.lang
+
+    def _get_run_metadata(self) -> RunMetadata:
+        model = self.model
+        src_vocab, trg_vocab = self.src_vocab, self.trg_vocab
+
+        assert src_vocab.subword_model == trg_vocab.subword_model
+        if len(src_vocab) != len(trg_vocab):
+            vocab_size = f"{len(src_vocab)}/{len(trg_vocab)}"
+        else:
+            vocab_size = len(src_vocab)
+
+        total_params, trainable_params, no_trainable_params = model.count_parameters()
+        merge_src = self.trained_ds[-1] if self.trained_ds else None
+        vocab_merged = bool(getattr(merge_src, "merge_vocabs", False)) if merge_src else False
+
+        return RunMetadata(
+            model__architecture=model.architecture,
+            model__trainable_params=trainable_params,
+            model__no_trainable_params=no_trainable_params,
+            model__total_params=total_params,
+            model__dtype=str(model.dtype),
+            vocab__subword_model=src_vocab.subword_model,
+            vocab__size=vocab_size,
+            vocab__merged=vocab_merged,
+            vocab__lang_pair=f"{src_vocab.lang}-{trg_vocab.lang}",
+        )
+
+    def _log_train_summary(self, train_ds, kwargs):
+        sw = self.src_vocab.subword_model
+        v_src, v_trg = len(self.src_vocab), len(self.trg_vocab)
+        vocab_line = f"src={v_src}, trg={v_trg}, subword={sw}"
+        if getattr(train_ds, "merge_vocabs", False):
+            vocab_line += ", merged=True"
+        log.info("\t- Config:")
+        log.info(f"\t\t- vocab: {vocab_line}")
+
+        def _kv(k, default="-"):
+            v = kwargs.get(k)
+            return default if v is None else v
+
+        log.info(f"\t\t- training: epochs={_kv('max_epochs')}, "
+                 f"batch_size={_kv('batch_size')}, max_tokens={_kv('max_tokens')}, "
+                 f"lr={_kv('learning_rate')}, optimizer={_kv('optimizer')}")
+        log.info(f"\t\t- monitor: {_kv('monitor')} "
+                 f"(patience={_kv('patience')}, save_best={_kv('save_best')}, save_last={_kv('save_last')})")
+        log.info(f"\t\t- device: accelerator={_kv('accelerator')}, devices={_kv('devices')}, "
+                 f"num_workers={_kv('num_workers')}, seed={_kv('seed')}")
+
+    # --- Train/eval data preparation ------------------------------------
+
+    def _prepare_train_data(self, train_ds):
+        """Build train + val TranslationDatasets. Called at the start of _train."""
+        train_path = train_ds.get_encoded_path(fname=train_ds.train_name)
+        val_path = train_ds.get_encoded_path(fname=train_ds.val_name)
+        params = dict(src_lang=train_ds.src_lang, trg_lang=train_ds.trg_lang,
                       src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
 
-        if apply2train:
-            _, filter_fn = self.train_subset
-            self.train_tds = TranslationDataset(file_prefix=train_path, filter_fn=filter_fn, **params)
+        _, filter_fn = self.train_subset
+        self.train_tds = TranslationDataset(
+            file_prefix=train_path, filter_fn=filter_fn, **params)
+        self.val_tds = [TranslationDataset(file_prefix=val_path, filter_fn=fn, **params)
+                        for _, fn in self.val_subsets]
 
-        if apply2val:
-            self.val_tds = [TranslationDataset(file_prefix=val_path, filter_fn=fn, **params)
-                            for _, fn in self.val_subsets]
+    def _prepare_eval_data(self, *, test_path, **_):
+        """Build the per-subset test TranslationDatasets. Called by
+        :class:`SPMTranslatePipeline` before the (subset, beam) loop.
 
-        if apply2test:
-            self.test_tds = [TranslationDataset(file_prefix=test_path, filter_fn=fn, **params)
-                             for _, fn in self.test_subsets]
+        The extra args (``ds``, ``src_lang``, ``trg_lang``, vocab paths,
+        ``output_path``, ``apply2*``, ``force_overwrite``...) are received via
+        ``**_`` because we don't need them here — the encoded test files have
+        already been written to ``test_path`` by the pipeline's
+        ``_encode_eval_text`` step, and the vocabs are on ``self``.
+        """
+        params = dict(src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
+                      src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
+        self.test_tds = [TranslationDataset(file_prefix=test_path, filter_fn=fn, **params)
+                         for _, fn in self.test_subsets]
 
     # --- train ----------------------------------------------------------
 
@@ -120,6 +185,8 @@ class AutonmtTranslator(BaseTranslator):
                 log.info("\t- [Train]: Skipped. The checkpoint directory already contains checkpoints "
                          "(pass force_overwrite=True to back them up and retrain).")
                 return
+
+        self._prepare_train_data(train_ds)
 
         monitor = kwargs.get("monitor")
         mode_str = "min" if "loss" in monitor.lower() else "max"
@@ -145,22 +212,16 @@ class AutonmtTranslator(BaseTranslator):
         ]
 
         callbacks = self._build_callbacks(monitor, mode_str, checkpoints_dir, kwargs)
-        loggers, comet_logger = self._build_loggers(logs_path, kwargs)
+        loggers = self._build_loggers(logs_path, kwargs)
 
         pl_whitelist = set(inspect.signature(pl.Trainer.__init__).parameters)
         pl_params = {k: v for k, v in kwargs.items() if k in pl_whitelist}
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 
-        closed = []
         if kwargs.get("wandb_params"):
             wandb.finish()
-            closed.append("wandb")
-        if comet_logger is not None:
-            comet_logger.experiment.end()
-            closed.append("comet")
-        if closed:
-            log.info(f"\t- Closed external loggers: {', '.join(closed)}")
+            log.info("\t- Closed external loggers: wandb")
 
     def _configure_model(self, kwargs):
         self.model.strategy = kwargs.get("strategy")
@@ -244,7 +305,6 @@ class AutonmtTranslator(BaseTranslator):
 
     def _build_loggers(self, logs_path, kwargs):
         loggers = []
-        comet_logger = None
 
         if logs_path:
             loggers.append(TensorBoardLogger(save_dir=logs_path))
@@ -258,17 +318,7 @@ class AutonmtTranslator(BaseTranslator):
                 )
             loggers.append(WandbLogger(save_dir=logs_path, name=self.run_name, **wandb_params))
 
-        comet_params = kwargs.get("comet_params")
-        if comet_params:
-            if not _COMET_AVAILABLE:
-                raise ImportError(
-                    "comet_params was provided but the 'comet_ml' package is not installed. "
-                    "Install with: pip install 'autonmt[comet]'  (or: pip install comet_ml)"
-                )
-            comet_logger = CometLogger(save_dir=logs_path, experiment_name=self.run_name, **comet_params)
-            loggers.append(comet_logger)
-
-        return loggers, comet_logger
+        return loggers
 
     # --- translate ------------------------------------------------------
 
@@ -303,8 +353,9 @@ class AutonmtTranslator(BaseTranslator):
     def _write_hypothesis(self, predictions, output_path):
         """Decode token ids to text and dump to ``hyp.tok``.
 
-        ``src`` / ``ref`` are filled in by the base translator from the original
-        preprocessed files (avoids biasing scores with model-emitted ``<unk>``).
+        ``src`` / ``ref`` are filled in by SPMTranslatePipeline from the
+        original preprocessed files (avoids biasing scores with model-emitted
+        ``<unk>``).
         """
         hyp_tok = [self.trg_vocab.decode(tokens) for tokens in predictions]
         write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"),

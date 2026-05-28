@@ -23,8 +23,8 @@ from autonmt.reporting.figures import plot_model_comparison
 from autonmt.reporting.report import generate_report
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.backends.base.config import FitConfig, PredictConfig
-from autonmt.backends.fairseq.translator import FairseqTranslator
+from autonmt.backends._base.config import FitConfig, PredictConfig
+from autonmt.backends.fairseq.translation_engine import FairseqTranslator
 from autonmt.vocabularies import Vocabulary
 
 

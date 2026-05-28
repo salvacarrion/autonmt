@@ -234,9 +234,9 @@ def main():
 
                 # Set toolkit
                 trainer = AutonmtTranslator(model=t_model, src_vocab=src_vocab, trg_vocab=trg_vocab,
-                                           filter_tr_data_fn=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=ratio_past_data),
-                                           filter_vl_data_fn=[_gen_filter_data_fn("val", valid_pairs=p) for p in ts_pairs],
-                                           filter_ts_data_fn=[_gen_filter_data_fn("test", valid_pairs=p) for p in ts_pairs],
+                                           train_subset=_gen_filter_data_fn("train", valid_pairs=new_tr_pairs, past_pairs=past_pairs, ratio_past_data=ratio_past_data),
+                                           val_subsets=[_gen_filter_data_fn("val", valid_pairs=p) for p in ts_pairs],
+                                           test_subsets=[_gen_filter_data_fn("test", valid_pairs=p) for p in ts_pairs],
                                            )
 
                 # Train model

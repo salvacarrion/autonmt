@@ -48,7 +48,6 @@ hf = ["datasets", "evaluate"]
 # `accelerate` is required by transformers.Trainer for any PyTorch flow.
 hf-models = ["transformers", "accelerate>=1.1"]
 wandb = ["wandb"]
-comet = ["comet_ml"]
 # Deprecated: fairseq was archived on 2026-03-20. Kept for users with existing flows.
 fairseq = ["fairseq"]
 dev = ["pytest", "flake8"]
@@ -56,7 +55,6 @@ all = [
     "datasets", "evaluate",
     "transformers", "accelerate>=1.1",
     "wandb",
-    "comet_ml",
     "pytest", "flake8",
 ]
 

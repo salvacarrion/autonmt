@@ -19,7 +19,7 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends import AutonmtTranslator
-from autonmt.backends.base.config import FitConfig, PredictConfig
+from autonmt.backends._base.config import FitConfig, PredictConfig
 
 BASE_PATH = "datasets/quickstart"
 DATASET = "multi30k"
@@ -78,7 +78,7 @@ def main():
 
         trainer.fit(
             train_ds,
-            config=FitConfig(max_epochs=3, batch_size=128, learning_rate=1e-3, seed=42),
+            config=FitConfig(max_epochs=1, batch_size=128, learning_rate=1e-3, seed=42),
         )
 
         scores.append(trainer.predict(

@@ -14,9 +14,9 @@ import pytest
 
 
 def _reload_hf_module():
-    sys.modules.pop("autonmt.backends.huggingface.translator", None)
+    sys.modules.pop("autonmt.backends.huggingface.translation_engine", None)
     sys.modules.pop("autonmt.backends.huggingface", None)
-    return importlib.import_module("autonmt.backends.huggingface.translator")
+    return importlib.import_module("autonmt.backends.huggingface.translation_engine")
 
 
 def test_lazy_export_from_backends():
@@ -55,7 +55,7 @@ class TestInstantiationWithoutTransformers:
 class TestInstantiationWithTransformers:
     def test_constructor_does_not_download(self):
         """Constructor must be lazy — instantiating shouldn't hit the Hub."""
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         # If the constructor tried to download anything, this would fail on
         # offline CI. The model is bogus on purpose.
         trans = HuggingFaceTranslator(
@@ -70,7 +70,7 @@ class TestInstantiationWithTransformers:
     def test_checkpoint_gate_skips_when_finetuned_exists(self, tmp_path):
         """If a HF checkpoint (config.json) already lives at the path and
         force_overwrite is False, _train must skip and repoint model_id."""
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         # Simulate a previous fine-tune: just drop a config.json there.
         ckpt = tmp_path / "checkpoints"
         ckpt.mkdir()
@@ -88,7 +88,7 @@ class TestInstantiationWithTransformers:
         assert trans.tokenizer_id == str(ckpt)
 
     def test_from_dataset_autofills_langs(self):
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         # Stub a Dataset-like object with just the attributes from_dataset needs.
         fake_ds = SimpleNamespace(
             src_lang="de", trg_lang="en",
@@ -105,7 +105,7 @@ class TestInstantiationWithTransformers:
 
     def test_from_dataset_explicit_lang_wins(self):
         """If the user passes src_lang / trg_lang explicitly, they override the dataset."""
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         fake_ds = SimpleNamespace(
             src_lang="de", trg_lang="en",
             get_runs_path=lambda toolkit: f"/tmp/runs/{toolkit}",
@@ -120,7 +120,7 @@ class TestInstantiationWithTransformers:
 
     def test_training_args_mapping(self, tmp_path):
         """FitConfig fields map to the Seq2SeqTrainingArguments kwargs dict."""
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
             model_id="any/model", src_lang="de", trg_lang="en",
             runs_dir=str(tmp_path), run_name="test_args",
@@ -155,7 +155,7 @@ class TestInstantiationWithTransformers:
         propagate=False and its handler captures stderr at configure time,
         before pytest's capsys hooks in). We assert on the behaviour instead.
         """
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
             model_id="any/model", src_lang="de", trg_lang="en",
             runs_dir=str(tmp_path), run_name="test_overrides",
@@ -181,7 +181,7 @@ class TestInstantiationWithTransformers:
         and ``self.src_vocab`` for HF runs. The override on HF builds the same
         schema sourced from the HF tokenizer + model id.
         """
-        from autonmt.backends.huggingface.translator import HuggingFaceTranslator
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
             model_id="dummy/model", src_lang="de", trg_lang="en",
             runs_dir="/tmp/hf_test", run_name="rep_test",

@@ -5,8 +5,8 @@
 # import autonmt as al
 #
 # from autonmt.core.models.transformer import Transformer
-# from autonmt.backends.autonmt.translator import AutonmtTranslator
-# from autonmt.backends.fairseq.translator import FairseqTranslator
+# from autonmt.backends.autonmt.translation_engine import AutonmtTranslator
+# from autonmt.backends.fairseq.translation_engine import FairseqTranslator
 # from autonmt.datasets.dataset_builder import DatasetBuilder
 # from autonmt.reporting.report import generate_report, summarize_scores
 #

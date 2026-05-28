@@ -20,7 +20,7 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.backends import HuggingFaceTranslator
-from autonmt.backends.base.config import PredictConfig
+from autonmt.backends._base.config import PredictConfig
 
 BASE_PATH = "datasets/quickstart"
 DATASET = "multi30k"
