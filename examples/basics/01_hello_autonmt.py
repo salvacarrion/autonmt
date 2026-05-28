@@ -18,7 +18,7 @@ This is the first one — no prior context assumed.
 Run
 ---
     pip install -e '.[hf]'                  # for `datasets`
-    python examples/01_hello_autonmt.py
+    python examples/basics/01_hello_autonmt.py
 
 Expected output
 ---------------

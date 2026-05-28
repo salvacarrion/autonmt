@@ -1,14 +1,14 @@
 """
 ============================================================================
- Tutorial 07 — Under the hood: full manual control
+ Advanced 01 — Under the hood: full manual control
 ============================================================================
 
 What you'll learn
 -----------------
-Every shortcut you've used in tutorials 01–06 has a manual equivalent. This
-script does the same end-to-end run as tutorial 01 (multi30k de→en, one
-Transformer, BLEU + chrF on the test split) but EXPANDS every shortcut into
-its lower-level form. Use it as a reference when you need to:
+Every shortcut you've used in the `basics/` tutorials has a manual equivalent.
+This script does the same end-to-end run as `basics/01_hello_autonmt.py`
+(multi30k de→en, one Transformer, BLEU + chrF on the test split) but EXPANDS
+every shortcut into its lower-level form. Use it as a reference when you need to:
 
     - Sanity-check your splits for train/test leakage before training.
     - Swap a piece (custom decoder, custom Transformer dims, custom callbacks).
@@ -20,8 +20,8 @@ its lower-level form. Use it as a reference when you need to:
     - Run multi-seed experiments and aggregate variance for publication-grade
       comparisons.
 
-What's new vs tutorial 06
--------------------------
+What's new vs the basics/ tutorials
+-----------------------------------
 No new pipeline features — this script *exposes* the same pipeline you've
 already used. Where earlier tutorials called one-liner helpers like
 `AutonmtTranslator.from_dataset(...)`, `ds.build_vocabs(...)`,
@@ -33,7 +33,7 @@ that you'd want before publishing results.
 Run
 ---
     pip install -e '.[hf]'
-    python examples/07_under_the_hood.py
+    python examples/advanced/01_under_the_hood.py
 """
 import datetime
 import os

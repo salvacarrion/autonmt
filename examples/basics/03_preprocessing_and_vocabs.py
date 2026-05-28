@@ -32,7 +32,7 @@ files), apply non-trivial preprocessing, and switch the subword model to
 Run
 ---
     pip install -e '.[hf]'
-    python examples/03_preprocessing_and_vocabs.py
+    python examples/basics/03_preprocessing_and_vocabs.py
 """
 import datetime
 import os

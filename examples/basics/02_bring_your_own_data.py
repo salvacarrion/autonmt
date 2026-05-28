@@ -36,7 +36,7 @@ you would replace that helper with your own data.
 
 Run
 ---
-    python examples/02_bring_your_own_data.py
+    python examples/basics/02_bring_your_own_data.py
 """
 import datetime
 import os
