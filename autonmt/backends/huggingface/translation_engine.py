@@ -460,9 +460,18 @@ class HuggingFaceTranslator(BaseTranslator):
         # set" warning from transformers — we manage length via max_new_tokens.
         gen_kwargs.setdefault("max_length", None)
 
-        hyp_lines = []
-        for i in range(0, len(src_lines), batch_size):
-            batch = src_lines[i:i + batch_size]
+        # Sort inputs by length so each batch pads to a tight bound instead of
+        # to the longest sentence in the dataset. Generation cost is dominated
+        # by ``num_beams * batch * padded_len`` decoder steps, so eliminating
+        # mixed-length batches typically saves 2–3× FLOPs on natural test
+        # distributions. We restore the original order before returning so
+        # callers see hyp[i] aligned with src[i].
+        order = sorted(range(len(src_lines)), key=lambda j: len(src_lines[j]))
+        sorted_src = [src_lines[j] for j in order]
+
+        sorted_hyps: list = [None] * len(src_lines)
+        for i in range(0, len(sorted_src), batch_size):
+            batch = sorted_src[i:i + batch_size]
             inputs = self._tokenizer(batch, return_tensors="pt",
                                       padding=True, truncation=True).to(device)
             if max_len_a is not None and max_len_b is not None:
@@ -470,8 +479,10 @@ class HuggingFaceTranslator(BaseTranslator):
                 gen_kwargs["max_new_tokens"] = int(max_len_a * input_len + max_len_b)
             with torch.no_grad():
                 out_ids = self._model.generate(**inputs, **gen_kwargs)
-            hyp_lines.extend(self._tokenizer.batch_decode(out_ids, skip_special_tokens=True))
-        return hyp_lines
+            decoded = self._tokenizer.batch_decode(out_ids, skip_special_tokens=True)
+            for k, hyp in enumerate(decoded):
+                sorted_hyps[order[i + k]] = hyp
+        return sorted_hyps
 
 
 class _Seq2SeqTextDataset:

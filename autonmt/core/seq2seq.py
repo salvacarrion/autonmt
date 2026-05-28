@@ -1,5 +1,4 @@
 from abc import abstractmethod
-import math
 from collections import defaultdict
 
 import pytorch_lightning as pl
@@ -126,6 +125,40 @@ class LitSeq2Seq(pl.LightningModule):
         return loss, outputs
 
     def on_validation_epoch_end(self):
+        # Aggregate hyp/ref across batches and compute corpus-BLEU **once**.
+        # Per-batch BLEU is both expensive (Moses + sacrebleu + CUDA syncs per
+        # batch) and statistically wrong: corpus-BLEU is non-linear in the
+        # underlying n-gram counts so averaging batch scores is not the corpus
+        # score.
+        sync_dist = (self.strategy == "ddp")
+        for dl_idx, outputs in self.validation_step_outputs.items():
+            if not outputs:
+                continue
+            hyp_lines, ref_lines = [], []
+            for batch_out in outputs:
+                hyp_lines.extend(batch_out["hyp"])
+                ref_lines.extend(batch_out["ref"])
+            if not hyp_lines:
+                continue
+
+            prefix = "val"
+            if dl_idx is not None and self._filter_eval is not None:
+                fn_name, _ = self._filter_eval[dl_idx]
+                if fn_name:
+                    prefix += "_" + fn_name
+
+            scores = score_sacrebleu(hyp_lines=hyp_lines, ref_lines=ref_lines,
+                                     metrics={"bleu"})
+            for score in scores:
+                metric_name = score['name'].lower()
+                metric_key = f"{prefix}_{metric_name}"
+                metric_key_best = f"{metric_key}_best"
+                self.best_scores[metric_key] = max(score['score'], self.best_scores[metric_key])
+                self.log(metric_key, score['score'],
+                         on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+                self.log(metric_key_best, self.best_scores[metric_key],
+                         on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
+
         if self._print_samples:
             self._print_validation_samples()
         self.validation_step_outputs.clear()
@@ -168,20 +201,20 @@ class LitSeq2Seq(pl.LightningModule):
         if self.regularization_fn:
             self.regularization_fn(self, loss)
 
-        # Metrics: Accuracy
+        # Metrics: accuracy as a GPU tensor (Lightning defers the host sync
+        # until log flush). Calling ``.item()`` here would block the stream
+        # every training step and stall the next batch's prefetch.
         predictions = output.detach().argmax(1)
-        batch_errors = (predictions != y).sum().item()
-        accuracy = 1 - (batch_errors / predictions.numel())
+        correct = (predictions == y).sum().float()
+        accuracy = correct / predictions.numel()
 
         outputs = None
         if log_prefix:
             sync_dist = (self.strategy == "ddp")
 
-            try:
-                ppl = math.exp(loss.item())
-            except OverflowError:
-                ppl = float("inf")
-                log.warning("=> Overflow detected when computing perplexity. Set to 'inf'")
+            # Clamp before exp so PPL stays finite on the device — matches the
+            # spirit of the old OverflowError fallback without the sync.
+            ppl = torch.exp(loss.detach().clamp(max=20.0))
 
             self.log(f"{log_prefix}_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
             self.log(f"{log_prefix}_ppl", ppl, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
@@ -192,7 +225,9 @@ class LitSeq2Seq(pl.LightningModule):
         return loss, outputs
 
     def _compute_metrics(self, y_hat, y, x, log_prefix):
-        # Decode lines (only during training)
+        # Decode hyp/ref/src to text and return for epoch-end aggregation.
+        # Scoring (sacrebleu) is deferred to ``on_validation_epoch_end`` so
+        # we compute corpus-BLEU once per epoch instead of once per batch.
         # Since ref lines are encoded, unknowns can appear. Therefore, for small vocabularies the scores could be strongly biased
         src_vocab, trg_vocab = self._src_vocab, self._trg_vocab
         hyp_lines = [trg_vocab.decode(list(row)) for row in y_hat.detach().cpu().numpy()]
@@ -202,17 +237,5 @@ class LitSeq2Seq(pl.LightningModule):
         hyp_lines = decode_lines(hyp_lines, trg_vocab.lang, trg_vocab.subword_model, trg_vocab.pretok_flag, trg_vocab.spm_model)
         ref_lines = decode_lines(ref_lines, trg_vocab.lang, trg_vocab.subword_model, trg_vocab.pretok_flag, trg_vocab.spm_model)
         src_lines = decode_lines(src_lines, src_vocab.lang, src_vocab.subword_model, src_vocab.pretok_flag, src_vocab.spm_model)
-
-        scores = score_sacrebleu(hyp_lines=hyp_lines, ref_lines=ref_lines, metrics={"bleu"})
-
-        sync_dist = (self.strategy == "ddp")
-        for score in scores:
-            metric_name = score['name'].lower()
-            metric_key = f"{log_prefix}_{metric_name}"
-            metric_key_best = f"{metric_key}_best"
-            self.best_scores[metric_key] = max(score['score'], self.best_scores[metric_key])
-
-            self.log(metric_key, score['score'], on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
-            self.log(metric_key_best, self.best_scores[metric_key], on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=sync_dist)
 
         return {"hyp": hyp_lines, "ref": ref_lines, "src": src_lines}

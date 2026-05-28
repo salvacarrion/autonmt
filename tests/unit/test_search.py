@@ -76,8 +76,11 @@ class _StepModel(nn.Module):
 
 
 def test_greedy_search_breaks_on_eos_and_keeps_eos_token():
-    """When every sequence emits EOS the loop short-circuits; the EOS token
-    itself must remain in the output so downstream decode() can strip it."""
+    """When every sequence emits EOS the first generated token must be EOS so
+    downstream ``Vocabulary._strip_special_tokens`` can truncate the sequence
+    at the first EOS. The loop probes early-stop only every ``EARLY_STOP_EVERY``
+    steps to avoid a per-step CUDA sync — so trailing tokens after EOS are
+    expected and harmless (they're stripped on decode)."""
     sos_id, eos_id, pad_id = 1, 2, 0
     src = torch.tensor([[3, 4, 5]])  # B=1, L=3
     model = _ConstPredModel(vocab_size=10, const_id=eos_id)
@@ -88,8 +91,9 @@ def test_greedy_search_breaks_on_eos_and_keeps_eos_token():
         batch_size=1, max_tokens=None, max_len_a=0, max_len_b=8, num_workers=0,
     )
 
-    # i=1 predicts EOS → break with max_iter=1 → slice y_pred[:, :2]
-    assert out == [[sos_id, eos_id]]
+    assert len(out) == 1
+    assert out[0][0] == sos_id
+    assert out[0][1] == eos_id
 
 
 def test_greedy_search_includes_final_token_at_length_cap():

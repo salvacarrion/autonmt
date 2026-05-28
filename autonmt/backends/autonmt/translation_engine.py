@@ -328,7 +328,14 @@ class AutonmtTranslator(BaseTranslator):
                    checkpoints_dir=None, filter_idx=0,
                    decoder=None, **kwargs):
         if checkpoint:  # "best", "last", filename, or absolute path
-            self.from_checkpoint = self.load_checkpoint(checkpoint)
+            # Avoid reloading the same checkpoint on every (subset, beam) pass.
+            # ``translate()`` iterates that cross-product, and torch.load on a
+            # multi-hundred-MB Lightning checkpoint adds seconds per pass plus
+            # gratuitous I/O. Compare against the previously-loaded request so
+            # aliases like "best" / "last" also hit the cache.
+            if getattr(self, "_loaded_checkpoint_request", None) != checkpoint:
+                self.from_checkpoint = self.load_checkpoint(checkpoint)
+                self._loaded_checkpoint_request = checkpoint
 
         self.model = set_model_device(self.model, accelerator=accelerator)
 

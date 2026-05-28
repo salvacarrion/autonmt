@@ -40,6 +40,34 @@ def _reorder_states(states, new_order):
     return states
 
 
+# Keys in the KV cache whose value is constant across the K beams of a sentence
+# (cross-attention K/V derived from the encoder memory, which itself is
+# replicated K times via repeat_interleave). Reordering them by ``gather_idx``
+# permutes identical rows — a semantic no-op that wastes GPU memory bandwidth.
+_INVARIANT_CACHE_KEYS = frozenset({"cross_k", "cross_v"})
+
+
+def _reorder_incremental_state(incremental_state, new_order):
+    """In-place reorder of the per-layer KV cache by parent-beam index.
+
+    Skips :data:`_INVARIANT_CACHE_KEYS` — those tensors are constant across
+    the K beams of each sentence, so permuting them is wasted work.
+    """
+    if incremental_state is None:
+        return
+    for v in incremental_state.values():
+        if not isinstance(v, dict):
+            continue
+        for sub_k, sub_v in v.items():
+            if sub_k in _INVARIANT_CACHE_KEYS or not isinstance(sub_v, torch.Tensor):
+                continue
+            bk = new_order.shape[0]
+            for dim in range(sub_v.dim()):
+                if sub_v.size(dim) == bk:
+                    v[sub_k] = sub_v.index_select(dim, new_order)
+                    break
+
+
 class BeamSearch(BaseSearch):
     """Batched beam search aligned with the same model API as :class:`GreedySearch`.
 
@@ -121,7 +149,19 @@ class BeamSearch(BaseSearch):
                 # one token per step. None opts out → legacy full-prefix path.
                 incremental_state = {} if incremental else None
 
-                for _ in range(1, max_gen_length):
+                # Pre-build the "frozen" log-prob row: 0 at <pad>, -inf elsewhere.
+                # Applied unconditionally via ``torch.where(finished, ...)`` so
+                # we don't need ``if finished.any()`` (which forces a CUDA sync).
+                frozen_logits = torch.full((V,), float("-inf"), device=device)
+                frozen_logits[pad_id] = 0.0
+
+                # Probe the early-stop condition only every ``EARLY_STOP_EVERY``
+                # steps. Each ``.all()`` would otherwise bring a bool to host,
+                # blocking the stream and preventing overlap with the next
+                # decoder forward.
+                EARLY_STOP_EVERY = 8
+
+                for step in range(1, max_gen_length):
                     # Next-token log-probabilities for every live hypothesis.
                     # Incremental: feed only the last token; cache provides the rest.
                     y_in = dec_idxs[:, -1:] if incremental else dec_idxs
@@ -133,9 +173,8 @@ class BeamSearch(BaseSearch):
                     # Freeze finished hypotheses: force <pad> with log_prob 0 so
                     # their cumulative score is preserved and they cannot spawn
                     # new branches that would push live hypotheses out of top-K.
-                    if finished.any():
-                        log_probs[finished] = float("-inf")
-                        log_probs[finished, pad_id] = 0.0
+                    log_probs = torch.where(finished.unsqueeze(-1),
+                                            frozen_logits.unsqueeze(0), log_probs)
 
                     # Add log-prob to running score, then flatten the (beam,
                     # vocab) axis to a single (K*V,) per sentence so top-K
@@ -173,10 +212,14 @@ class BeamSearch(BaseSearch):
                     # decoders like RNN whose hidden state evolves per token —
                     # and for the KV cache when running incrementally.
                     states = _reorder_states(states, gather_idx)
-                    if incremental_state is not None:
-                        incremental_state = _reorder_states(incremental_state, gather_idx)
+                    # Reorder only the parts of the cache that actually depend
+                    # on beam history (self_k/self_v); cross_k/cross_v are
+                    # invariant across the K beams of each sentence — skipping
+                    # them saves O(n_layers · L_src · BK · D) memory traffic
+                    # per step.
+                    _reorder_incremental_state(incremental_state, gather_idx)
 
-                    if finished.all():
+                    if step % EARLY_STOP_EVERY == 0 and bool(finished.all()):
                         break
 
                 # Pick the best beam per sentence using length-normalized score

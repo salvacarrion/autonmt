@@ -12,6 +12,7 @@ without them.
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -102,7 +103,10 @@ def _score_bertscore(hyp_lines, ref_lines, lang):
              "f1": float(f1.mean())}]
 
 
-def _score_comet(src_lines, hyp_lines, ref_lines):
+@functools.lru_cache(maxsize=2)
+def _load_comet_model(checkpoint_name: str):
+    # Cached so consecutive (subset, beam) eval passes reuse the same
+    # ~2 GB model instead of re-downloading + reloading it from disk.
     try:
         import comet
     except ImportError as e:
@@ -110,7 +114,11 @@ def _score_comet(src_lines, hyp_lines, ref_lines):
             "'unbabel-comet' is required to compute COMET scores. "
             "Install with: pip install unbabel-comet"
         ) from e
-    model = comet.load_from_checkpoint(comet.download_model("wmt20-comet-da"))
+    return comet.load_from_checkpoint(comet.download_model(checkpoint_name))
+
+
+def _score_comet(src_lines, hyp_lines, ref_lines):
+    model = _load_comet_model("wmt20-comet-da")
     data = [{"src": s, "mt": h, "ref": r} for s, h, r in zip(src_lines, hyp_lines, ref_lines)]
     _, sys_score = model.predict(data)
     return [{"name": "comet", "score": sys_score}]

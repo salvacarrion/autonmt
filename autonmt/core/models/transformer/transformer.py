@@ -79,13 +79,28 @@ class Transformer(LitSeq2Seq):
     def forward_encoder(self, x, x_len, **kwargs):
         assert x.shape[1] <= self.max_src_positions
 
-        # Encode src
+        # Build the source padding mask once and propagate it via the state
+        # tuple. Without it both encoder self-attention and decoder cross-
+        # attention compute over <pad> positions — 30–50% of attention work
+        # on typical batches, and a quiet quality bug (representations get
+        # contaminated by padding).
+        src_key_padding_mask = (x == self.padding_idx)  # (B, L_src), True=pad
+
         x_pos = self.src_pos_embeddings(x)
         x_emb = self.src_embeddings(x)
         x_emb = (x_emb + x_pos).transpose(0, 1)
 
-        state = self.transformer.encoder(src=x_emb, mask=None, src_key_padding_mask=None)
-        return None, state
+        memory = self.transformer.encoder(src=x_emb, mask=None,
+                                          src_key_padding_mask=src_key_padding_mask)
+        return None, (memory, src_key_padding_mask)
+
+    @staticmethod
+    def _unpack_state(states):
+        # Tolerate older callers (e.g. checkpoints / external code) that still
+        # pass a bare memory tensor as state.
+        if isinstance(states, tuple) and len(states) == 2:
+            return states
+        return states, None
 
     def forward_decoder(self, y, y_len, states, incremental_state=None, **kwargs):
         if incremental_state is None:
@@ -94,6 +109,7 @@ class Transformer(LitSeq2Seq):
 
     def _forward_decoder_parallel(self, y, states):
         assert y.shape[1] <= self.max_trg_positions
+        memory, src_key_padding_mask = self._unpack_state(states)
 
         y_pos = self.trg_pos_embeddings(y)
         y_emb = self.trg_embeddings(y)
@@ -101,8 +117,9 @@ class Transformer(LitSeq2Seq):
 
         tgt_mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
 
-        output = self.transformer.decoder(tgt=y_emb, memory=states, tgt_mask=tgt_mask, memory_mask=None,
-                                          tgt_key_padding_mask=None, memory_key_padding_mask=None)
+        output = self.transformer.decoder(tgt=y_emb, memory=memory, tgt_mask=tgt_mask, memory_mask=None,
+                                          tgt_key_padding_mask=None,
+                                          memory_key_padding_mask=src_key_padding_mask)
 
         output = output.transpose(0, 1)
         output = self.output_layer(output)
@@ -111,6 +128,7 @@ class Transformer(LitSeq2Seq):
     def _forward_decoder_incremental(self, y, states, incremental_state):
         """One-token-per-step decoding with KV cache. ``y`` is (B, 1)."""
         assert y.shape[1] == 1, "incremental mode expects a single new token per call"
+        memory, src_key_padding_mask = self._unpack_state(states)
 
         # ``step`` is the absolute position of the new token (0 = first after <sos>
         # if the search seeds the cache with <sos> at call 1).
@@ -123,7 +141,8 @@ class Transformer(LitSeq2Seq):
         y_emb = y_emb.unsqueeze(0)                                          # (1, B, D)
 
         # No causal tgt_mask: Q is just the new position, K/V from the cache.
-        output = self.transformer.decoder(tgt=y_emb, memory=states,
+        output = self.transformer.decoder(tgt=y_emb, memory=memory,
+                                          memory_key_padding_mask=src_key_padding_mask,
                                           incremental_state=incremental_state)
         output = output.transpose(0, 1)                                     # (B, 1, D)
         output = self.output_layer(output)                                  # (B, 1, V)

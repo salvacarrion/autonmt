@@ -63,6 +63,11 @@ class BaseStepSearch(BaseSearch):
                 # token per step. ``None`` opts out and falls back to the
                 # legacy full-prefix path.
                 incremental_state = {} if incremental else None
+                # Probe ``eos_mask.all()`` only every ``EARLY_STOP_EVERY``
+                # steps. A per-step ``.all()`` forces a CUDA sync, blocking
+                # the stream and preventing overlap with the next decoder
+                # forward — for short forward passes this dominates.
+                EARLY_STOP_EVERY = 8
                 max_iter = 0
                 for i in range(1, max_gen_length):
                     max_iter = i
@@ -76,7 +81,7 @@ class BaseStepSearch(BaseSearch):
                     y_pred[:, i] = next_tok
 
                     eos_mask |= (next_tok == eos_id)
-                    if eos_mask.all():
+                    if i % EARLY_STOP_EVERY == 0 and bool(eos_mask.all()):
                         break
 
                 # Include position ``max_iter`` — that's the token written at the final
