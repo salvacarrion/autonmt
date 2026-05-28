@@ -40,6 +40,7 @@ class Transformer(LitSeq2Seq):
                  max_trg_positions=1024,
                  padding_idx=None,
                  learned=False,
+                 tie_embeddings=False,
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="transformer", **kwargs)
         self.max_src_positions = max_src_positions
@@ -75,6 +76,11 @@ class Transformer(LitSeq2Seq):
         assert encoder_embed_dim == decoder_embed_dim
         assert encoder_attention_heads == decoder_attention_heads
         assert encoder_ffn_embed_dim == decoder_ffn_embed_dim
+
+        # Weight tying (Press & Wolf 2017): share the decoder input embedding
+        # with the output projection. Cuts parameters and is standard in NMT.
+        if tie_embeddings:
+            self.output_layer.weight = self.trg_embeddings.weight
 
     def forward_encoder(self, x, x_len, **kwargs):
         assert x.shape[1] <= self.max_src_positions

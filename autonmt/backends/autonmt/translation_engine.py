@@ -131,7 +131,8 @@ class AutonmtTranslator(BaseTranslator):
 
         log.info(f"\t\t- training: epochs={_kv('max_epochs')}, "
                  f"batch_size={_kv('batch_size')}, max_tokens={_kv('max_tokens')}, "
-                 f"lr={_kv('learning_rate')}, optimizer={_kv('optimizer')}")
+                 f"lr={_kv('learning_rate')}, optimizer={_kv('optimizer')}, "
+                 f"scheduler={_kv('scheduler')}, warmup={_kv('warmup_steps')}")
         log.info(f"\t\t- monitor: {_kv('monitor')} "
                  f"(patience={_kv('patience')}, save_best={_kv('save_best')}, save_last={_kv('save_last')})")
         log.info(f"\t\t- device: accelerator={_kv('accelerator')}, devices={_kv('devices')}, "
@@ -228,6 +229,8 @@ class AutonmtTranslator(BaseTranslator):
         self.model.optimizer = kwargs.get("optimizer")
         self.model.learning_rate = kwargs.get("learning_rate")
         self.model.weight_decay = kwargs.get("weight_decay")
+        self.model.scheduler = kwargs.get("scheduler")
+        self.model.warmup_steps = kwargs.get("warmup_steps")
         self.model.configure_criterion(kwargs.get("criterion"))
 
         # Per-step metric context that the LightningModule introspects.

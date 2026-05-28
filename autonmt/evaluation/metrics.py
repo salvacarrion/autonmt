@@ -103,6 +103,12 @@ def _score_bertscore(hyp_lines, ref_lines, lang):
              "f1": float(f1.mean())}]
 
 
+# Override with AUTONMT_COMET_MODEL=<checkpoint> to use a different one
+# (e.g. "Unbabel/wmt22-cometkiwi-da" for reference-free scoring — note that
+# the current pipeline still passes ref, so swap only with a ref-based model).
+COMET_CHECKPOINT = os.environ.get("AUTONMT_COMET_MODEL", "Unbabel/wmt22-comet-da")
+
+
 @functools.lru_cache(maxsize=2)
 def _load_comet_model(checkpoint_name: str):
     # Cached so consecutive (subset, beam) eval passes reuse the same
@@ -118,7 +124,7 @@ def _load_comet_model(checkpoint_name: str):
 
 
 def _score_comet(src_lines, hyp_lines, ref_lines):
-    model = _load_comet_model("wmt20-comet-da")
+    model = _load_comet_model(COMET_CHECKPOINT)
     data = [{"src": s, "mt": h, "ref": r} for s, h, r in zip(src_lines, hyp_lines, ref_lines)]
     _, sys_score = model.predict(data)
     return [{"name": "comet", "score": sys_score}]

@@ -10,20 +10,25 @@ script does the same end-to-end run as tutorial 01 (multi30k de→en, one
 Transformer, BLEU + chrF on the test split) but EXPANDS every shortcut into
 its lower-level form. Use it as a reference when you need to:
 
+    - Sanity-check your splits for train/test leakage before training.
     - Swap a piece (custom decoder, custom Transformer dims, custom callbacks).
     - Resume from a saved checkpoint instead of re-training.
     - Run translate / score / parse on their own (e.g. re-score with a new
       metric without re-translating).
     - Assemble the report manually from the score dicts (e.g. before adding
       your own columns or merging with another experiment).
+    - Run multi-seed experiments and aggregate variance for publication-grade
+      comparisons.
 
 What's new vs tutorial 06
 -------------------------
-Nothing in terms of features — this script *exposes* the same pipeline you've
+No new pipeline features — this script *exposes* the same pipeline you've
 already used. Where earlier tutorials called one-liner helpers like
 `AutonmtTranslator.from_dataset(...)`, `ds.build_vocabs(...)`,
 `Transformer.from_vocabs(...)`, `FitConfig(...)`, `trainer.predict(...)`, and
-`generate_report(...)`, this script unpacks each of them.
+`generate_report(...)`, this script unpacks each of them. Sections (3) and
+(11) add research-grade best practices (leakage check, multi-seed variance)
+that you'd want before publishing results.
 
 Run
 ---
@@ -32,6 +37,7 @@ Run
 """
 import datetime
 import os
+import statistics
 
 from tokenizers.normalizers import NFKC, Strip
 
@@ -40,6 +46,7 @@ from autonmt.core.decoding import BeamSearch
 from autonmt.core.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.leakage import warn_on_leakage
 from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.figures import plot_model_comparison
 from autonmt.reporting.report import (
@@ -104,7 +111,44 @@ def main():
     test_datasets = builder.get_test_ds()
 
     # -----------------------------------------------------------------------
-    # (3) Manual vocab construction
+    # (3) Sanity check: train/test leakage
+    # -----------------------------------------------------------------------
+    # Identical sentences appearing in both splits silently inflate scores —
+    # it happens more often than you'd think with web-scraped corpora or
+    # accidentally-overlapping HuggingFace dumps. Worth a few ms before you
+    # spend GPU hours.
+    #
+    # `key_fn` controls the matching policy. Here we use a tiny lowercase+strip
+    # so "Hello world" and "hello world\n" match. Real options:
+    #
+    #     key_fn=None                               # exact string match
+    #     key_fn=str.lower                          # case-insensitive
+    #     key_fn=lambda s: re.sub(r"\W+","",s.lower())   # ignore punctuation
+    #     key_fn=lambda s: hash(tuple(s.split()))   # bag-of-tokens hash
+    #
+    # `warn_on_leakage` only logs and returns the list of leaks. You decide
+    # what to do (filter the test set, abort, ignore).
+    norm = lambda s: s.lower().strip()
+
+    train_trg = fileio.read_file_lines(
+        train_ds.get_split_path(f"{train_ds.train_name}.{train_ds.trg_lang}"))
+    test_trg = fileio.read_file_lines(
+        train_ds.get_split_path(f"{train_ds.test_name}.{train_ds.trg_lang}"))
+    warn_on_leakage(train_trg, test_trg, key_fn=norm, label="multi30k trg")
+    # For paired (src+trg) leakage, join the two sides with a separator and
+    # pass that as the lines — same call, no new API.
+
+    # Demo: plant a duplicate so you can see the warning format even when the
+    # real corpus is clean (multi30k usually is). Real runs would skip this.
+    print("\n[leakage] Synthetic example — what the warning looks like:")
+    warn_on_leakage(
+        train_lines=["Two dogs are playing.", "Ein Mann liest ein Buch."],
+        test_lines=["TWO DOGS ARE PLAYING.", "A new sentence."],
+        key_fn=norm, label="demo",
+    )
+
+    # -----------------------------------------------------------------------
+    # (4) Manual vocab construction
     # -----------------------------------------------------------------------
     # Shortcut:  src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
     # Manual:    build each vocab yourself, e.g. so you can use different
@@ -116,7 +160,7 @@ def main():
     print(f"[vocab] src={len(src_vocab)} tokens, trg={len(trg_vocab)} tokens")
 
     # -----------------------------------------------------------------------
-    # (4) Manual model construction
+    # (5) Manual model construction
     # -----------------------------------------------------------------------
     # Shortcut:  model = Transformer.from_vocabs(src_vocab, trg_vocab)
     # Manual:    explicit dims so you can override anything (depth, width,
@@ -135,7 +179,7 @@ def main():
     )
 
     # -----------------------------------------------------------------------
-    # (5) Manual translator construction
+    # (6) Manual translator construction
     # -----------------------------------------------------------------------
     # Shortcut:  AutonmtTranslator.from_dataset(train_ds, ..., run_prefix="manual")
     # Manual:    compute runs_dir / run_name yourself. This is where you'd
@@ -153,7 +197,7 @@ def main():
     )
 
     # -----------------------------------------------------------------------
-    # (6) fit() with raw kwargs instead of FitConfig
+    # (7) fit() with raw kwargs instead of FitConfig
     # -----------------------------------------------------------------------
     # Both call styles are equivalent. Explicit kwargs are handy when you're
     # iterating in a notebook and don't want to instantiate a dataclass each
@@ -172,7 +216,7 @@ def main():
     )
 
     # -----------------------------------------------------------------------
-    # (7) translate() → score_translations() → parse_metrics(), separately
+    # (8) translate() → score_translations() → parse_metrics(), separately
     # -----------------------------------------------------------------------
     # Shortcut:  scores = trainer.predict(test_datasets, config=PredictConfig(...))
     # Manual:    the three stages predict() runs in sequence. Splitting them is
@@ -218,7 +262,7 @@ def main():
         scores.append(run_scores)
 
     # -----------------------------------------------------------------------
-    # (8) Build the report manually
+    # (9) Build the report manually
     # -----------------------------------------------------------------------
     # Shortcut:  df_report, df_summary = generate_report(scores=[scores], output_path=out)
     # Manual:    transform → save → plot, step by step. Useful when you want to
@@ -243,7 +287,7 @@ def main():
     )
 
     # -----------------------------------------------------------------------
-    # (9) Inspect the checkpoint we just trained (handy for follow-ups)
+    # (10) Inspect the checkpoint we just trained (handy for follow-ups)
     # -----------------------------------------------------------------------
     # `load_checkpoint(...)` accepts "best" / "last" / filename / absolute path.
     # `get_checkpoint_path("best")` returns the on-disk path without loading.
@@ -252,6 +296,63 @@ def main():
 
     print(f"\nReport + plots saved to: {os.path.abspath(out)}\n")
     print(format_summary_table(df_summary))
+
+    # -----------------------------------------------------------------------
+    # (11) Multi-seed for variance estimation (publication-grade)
+    # -----------------------------------------------------------------------
+    # Neural training is stochastic: random init, dataloader shuffling,
+    # dropout and GPU non-determinism all jitter the result. Two runs of the
+    # SAME config on standard NMT benchmarks typically differ by 0.5-1.5 BLEU
+    # — bigger than many "improvements" claimed in papers. Reviewers in ACL /
+    # EMNLP / WMT increasingly demand multi-seed (3-5 runs) with mean ± std.
+    #
+    # AutoNMT deliberately doesn't bake this into the grid — it would force
+    # layout decisions on you. Instead the pattern is just a `for` loop in
+    # user code: each seed gets its own `run_name` so checkpoints / reports
+    # land in separate directories and don't collide.
+    #
+    # We use SEEDS = [42, 43] here so the tutorial finishes quickly. For real
+    # publication, use 3-5 seeds and report mean ± std (and ideally a paired
+    # bootstrap test — see autonmt.evaluation.significance.paired_bootstrap_bleu
+    # — when comparing two systems on the same test set).
+    SEEDS = [42, 43]
+    seed_bleu = []
+    for seed in SEEDS:
+        print(f"\n[seed={seed}] training a fresh model...")
+        # Fresh weights for each seed — otherwise you'd be measuring "same
+        # init, different data order", which underestimates variance.
+        seed_model = Transformer.from_vocabs(src_vocab, trg_vocab)
+        seed_trainer = AutonmtTranslator(
+            model=seed_model,
+            src_vocab=src_vocab, trg_vocab=trg_vocab,
+            runs_dir=runs_dir,
+            run_name=train_ds.get_run_name(run_prefix=f"manual_s{seed}"),
+        )
+        seed_trainer.fit(
+            train_ds,
+            max_epochs=1, batch_size=128, learning_rate=1e-3,
+            optimizer="adam", monitor="val_loss", save_best=True,
+            num_workers=0, devices="auto", accelerator="auto",
+            seed=seed, force_overwrite=False,
+        )
+        seed_scores = seed_trainer.predict(
+            test_datasets, beams=[5], metrics={"bleu"},
+            eval_mode="compatible", load_checkpoint="best",
+        )
+        # seed_scores is a list (one entry per eval_ds). Multi30k has one
+        # test set, so we index [0]. The nested key is `translations` →
+        # `beam<N>` → `<tool>_<metric>_<field>` (see section 8 / 9).
+        seed_bleu.append(seed_scores[0]["translations"]["beam5"]["sacrebleu_bleu_score"])
+
+    mean_b = statistics.mean(seed_bleu)
+    std_b = statistics.stdev(seed_bleu) if len(seed_bleu) > 1 else 0.0
+    print(f"\n[multi-seed] BLEU across {len(SEEDS)} seed(s): "
+          f"mean={mean_b:.2f}, std={std_b:.2f}")
+    print(f"[multi-seed] individual: {[round(b, 2) for b in seed_bleu]}")
+    # Next step for paper-grade comparison: take the hyp.txt of two systems
+    # (e.g. baseline vs. yours) at the same seed and run
+    #     paired_bootstrap_bleu(hyp_baseline, hyp_yours, ref, n_samples=1000)
+    # to get a p-value on the difference.
 
 
 if __name__ == "__main__":

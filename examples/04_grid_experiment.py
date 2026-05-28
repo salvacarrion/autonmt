@@ -94,7 +94,7 @@ def main():
 
     fit_cfg = FitConfig(max_epochs=2, batch_size=128, learning_rate=1e-3, seed=42)
     pred_cfg = PredictConfig(
-        metrics={"bleu", "chrf"}, beams=[5],
+        metrics={"bleu", "chrf"}, beams=[1, 5],
         load_checkpoint="best",
         preprocess_fn=preprocess_predict,
         eval_mode="compatible",

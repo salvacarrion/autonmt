@@ -43,6 +43,10 @@ class FitConfig:
     optimizer: str = "adam"
     learning_rate: float = 0.001
     weight_decay: float = 0
+    # Optional LR scheduler: "noam", "inverse_sqrt", a callable
+    # (optimizer)->scheduler, or a torch lr_scheduler instance. None disables.
+    scheduler: Optional[Any] = None
+    warmup_steps: Optional[int] = None
     gradient_clip_val: float = 0.0
     accumulate_grad_batches: int = 1
     criterion: str = "cross_entropy"

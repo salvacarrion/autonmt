@@ -27,7 +27,10 @@ with their own tokenizer (huggingface) leave ``self._spm = None`` and write
 ``src.txt`` / ``ref.txt`` / ``hyp.txt`` directly from ``_translate``.
 """
 import datetime
+import importlib
 import os.path
+import platform
+import subprocess
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -74,6 +77,35 @@ def _check_datasets(train_ds: Optional[Dataset] = None, eval_ds: Optional[Datase
         raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
                          f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
                          f"\t- test_lang_pair=({eval_ds.dataset_lang_pair})\n")
+
+
+def _collect_environment() -> Dict[str, Any]:
+    """Snapshot what a future researcher would need to reproduce this run:
+    python/package versions, working dir, argv, and git SHA + dirty flag of
+    the cwd when it's a repo. Failures are silent — env capture is best-effort
+    and must never break a training run."""
+    env: Dict[str, Any] = {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "argv": list(sys.argv),
+        "cwd": os.getcwd(),
+    }
+    for mod_name in ("torch", "pytorch_lightning", "transformers", "sentencepiece",
+                     "sacrebleu", "autonmt"):
+        try:
+            env[mod_name] = getattr(importlib.import_module(mod_name), "__version__", "unknown")
+        except Exception:
+            pass
+    try:
+        sha = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                      stderr=subprocess.DEVNULL, timeout=2).decode().strip()
+        dirty = subprocess.check_output(["git", "status", "--porcelain"],
+                                        stderr=subprocess.DEVNULL, timeout=2).decode().strip()
+        env["git_sha"] = sha
+        env["git_dirty"] = bool(dirty)
+    except Exception:
+        pass
+    return env
 
 
 def _check_supported_metrics(metrics: Iterable[str], metrics_supported: Iterable[str]) -> Set[str]:
@@ -126,7 +158,10 @@ class BaseTranslator(ABC):
     def __init__(self, engine, runs_dir="runs", run_name=None, src_vocab=None, trg_vocab=None,
                  train_subset=None, val_subsets=None, test_subsets=None,
                  safe_seconds=3, **kwargs):
-        self.config: Dict[str, Dict] = {}
+        # Seed config with an environment snapshot so config_*.json captures
+        # the python/package/git state at construction time — without this
+        # every saved config is silently ambiguous about what code produced it.
+        self.config: Dict[str, Dict] = {"environment": _collect_environment()}
         self.engine = engine
         self.runs_dir = runs_dir or "runs/"
         self.run_name = run_name or f"{datetime.datetime.now().strftime('%Y.%m.%d_%H.%M.%S')}"
@@ -155,21 +190,24 @@ class BaseTranslator(ABC):
     # --- Config persistence ---------------------------------------------
 
     def _add_config(self, key: str, values: dict, reset: bool = False) -> None:
-        primitive_types = (str, bool, int, float, dict, set, list)
-
-        def is_valid(k, v):
-            return (not (k.startswith("_") or k == "kwargs")
-                    and (isinstance(v, primitive_types) or v is None))
-
+        # Previously this silently dropped anything non-primitive (callables,
+        # objects), which hid reproducibility-relevant info like which
+        # preprocess_fn or decoder a run used. Now we keep everything and
+        # render callables as ``module.qualname`` so the JSON stays readable.
         def parse_value(x):
-            if isinstance(x, (list, set)):
-                return [str(_x) for _x in x]
+            if isinstance(x, (list, set, tuple)):
+                return [parse_value(_x) for _x in x]
+            if callable(x):
+                mod = getattr(x, "__module__", "?")
+                name = getattr(x, "__qualname__", None) or getattr(x, "__name__", None) or repr(x)
+                return f"{mod}.{name}"
             return str(x)
 
         if reset or key not in self.config:
             self.config[key] = {}
         self.config[key].update(
-            {k: parse_value(v) for k, v in values.items() if is_valid(k, v)})
+            {k: parse_value(v) for k, v in values.items()
+             if not (k.startswith("_") or k == "kwargs")})
 
     def _save_config(self, fname: str = "config.json") -> None:
         # Config files mirror *this* run's params; always overwrite so the

@@ -45,6 +45,8 @@ class LitSeq2Seq(pl.LightningModule):
         self.optimizer = None
         self.learning_rate = None
         self.weight_decay = None
+        self.scheduler = None
+        self.warmup_steps = None
         self.criterion_fn = None
         self.regularization_fn = None
 
@@ -95,12 +97,52 @@ class LitSeq2Seq(pl.LightningModule):
         return total_params, trainable_params, no_trainable_params
 
     def configure_optimizers(self):
-        if not isinstance(self.optimizer, str):
-            return self.optimizer
-        key = self.optimizer.lower().strip()
-        if key not in _OPTIMIZERS:
-            raise ValueError(f"Unknown value '{self.optimizer}' for optimizer")
-        return _OPTIMIZERS[key](self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        if isinstance(self.optimizer, str):
+            key = self.optimizer.lower().strip()
+            if key not in _OPTIMIZERS:
+                raise ValueError(f"Unknown value '{self.optimizer}' for optimizer")
+            optimizer = _OPTIMIZERS[key](self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        else:
+            optimizer = self.optimizer
+
+        scheduler = self._build_scheduler(optimizer)
+        if scheduler is None:
+            return optimizer
+        return {
+            "optimizer": optimizer,
+            # interval="step" so noam/inverse_sqrt update LR per optimizer step,
+            # not per epoch — they're step-based by definition.
+            "lr_scheduler": {"scheduler": scheduler, "interval": "step", "frequency": 1},
+        }
+
+    def _build_scheduler(self, optimizer):
+        s = self.scheduler
+        if s is None:
+            return None
+        if isinstance(s, str):
+            key = s.lower().strip()
+            warmup = max(self.warmup_steps or 4000, 1)
+            if key == "noam":
+                # Vaswani et al. (2017) §5.3: factor peaks at 1.0 at step=warmup,
+                # decays as step^-0.5 afterwards. Multiplies the optimizer's base lr.
+                def lr_lambda(step):
+                    step = max(step, 1)
+                    return (warmup ** 0.5) * min(step ** -0.5, step * warmup ** -1.5)
+                return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+            if key == "inverse_sqrt":
+                # Fairseq default: linear warmup to 1.0, then 1/sqrt decay.
+                def lr_lambda(step):
+                    if step < warmup:
+                        return step / warmup
+                    return (warmup / step) ** 0.5
+                return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+            raise ValueError(
+                f"Unknown scheduler '{s}'. Use 'noam', 'inverse_sqrt', or pass a callable "
+                f"that takes (optimizer) and returns a torch.optim.lr_scheduler."
+            )
+        if callable(s):
+            return s(optimizer)
+        return s  # assume already a torch lr_scheduler instance
 
     def configure_criterion(self, criterion):
         if isinstance(criterion, str):
