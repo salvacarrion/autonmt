@@ -17,7 +17,7 @@
 
 AutoNMT automates the boring half of seq2seq research (i.e., tokenization, training, scoring, logging, plotting, file management) so you can focus on the model. Define a grid of datasets × language pairs × subword models × vocab sizes, and AutoNMT runs the cross product, stores every intermediate artifact on disk, and produces a single comparable report at the end.
 
-The same script can train AutoNMT's own PyTorch Lightning models or shell out to Fairseq - switch backends by changing one class.
+The same script can train AutoNMT's own PyTorch Lightning models, fine-tune (or just evaluate) HuggingFace seq2seq checkpoints, or shell out to Fairseq - switch backends by changing one class.
 
 ## Quickstart
 
@@ -26,7 +26,7 @@ Fetch a dataset from HuggingFace, train a small Transformer, and print the BLEU 
 ```bash
 pip install -e .
 pip install -e '.[hf]'             # optional, for the HuggingFace loader
-python examples/0_quickstart_hf.py
+python examples/01_hello_autonmt.py
 ```
 
 ```python
@@ -35,7 +35,6 @@ from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.models import Transformer
-from autonmt.vocabularies import Vocabulary
 
 # 1. Pull multi30k from HuggingFace into AutoNMT's on-disk layout
 download_hf_dataset(
@@ -52,20 +51,19 @@ builder = DatasetBuilder(
 
 # 3. Train + score
 train_ds = builder.get_train_ds()[0]
-src_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.src_lang)
-trg_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
+src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
 
-trainer = AutonmtTranslator(
-    model=Transformer(len(src_vocab), len(trg_vocab), padding_idx=src_vocab.pad_id),
+trainer = AutonmtTranslator.from_dataset(
+    train_ds,
+    model=Transformer.from_vocabs(src_vocab, trg_vocab),
     src_vocab=src_vocab, trg_vocab=trg_vocab,
-    runs_dir=train_ds.get_runs_path("autonmt"),
-    run_name=train_ds.get_run_name("quickstart"),
+    run_prefix="quickstart",
 )
 trainer.fit(train_ds, config=FitConfig(max_epochs=3, batch_size=128))
 scores = trainer.predict(builder.get_test_ds(), config=PredictConfig(metrics={"bleu"}))
 ```
 
-See [`examples/`](examples) for a custom-model grid, a Fairseq variant, and a plotting recipe.
+The [`examples/`](examples) folder is a six-step tutorial that builds up from this snippet to a full multi-axis grid and a HuggingFace backend swap - see the [Examples](#examples) table below.
 
 ## Installation
 
@@ -91,12 +89,13 @@ docker exec -it autonmt_container bash
 
 ### Optional dependencies
 
-| Package                  | Install                       | Used for                                                                                             |
-| ------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `datasets`, `evaluate`   | `pip install -e '.[hf]'`      | `hf_loader.download_hf_dataset()`                                                                    |
-| `wandb`                  | `pip install -e '.[wandb]'`   | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
-| `fairseq` _(deprecated)_ | `pip install -e '.[fairseq]'` | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
-| _(everything above)_     | `pip install -e '.[all]'`     | One-shot install of every extra                                                                      |
+| Package                       | Install                          | Used for                                                                                             |
+| ----------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `datasets`, `evaluate`        | `pip install -e '.[hf]'`         | `hf_loader.download_hf_dataset()`                                                                    |
+| `transformers`, `accelerate`  | `pip install -e '.[hf-models]'`  | `HuggingFaceTranslator` (pretrained baselines + fine-tuning)                                         |
+| `wandb`                       | `pip install -e '.[wandb]'`      | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
+| `fairseq` _(deprecated)_      | `pip install -e '.[fairseq]'`    | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
+| _(everything above)_          | `pip install -e '.[all]'`        | One-shot install of every extra                                                                      |
 
 ## Architecture
 
@@ -106,10 +105,10 @@ The pipeline is three composable layers: **dataset variants → translator → r
 DatasetBuilder  ───►  BaseTranslator  ───►  generate_report
    (grid)              (fit / predict)         (json + csv + plots)
                             │
-                ┌───────────┴───────────┐
-                ▼                       ▼
-        AutonmtTranslator       FairseqTranslator
-       (Lightning models)         (fairseq CLI)
+            ┌───────────────┼────────────────────┐
+            ▼               ▼                    ▼
+    AutonmtTranslator   HuggingFaceTranslator   FairseqTranslator
+   (Lightning models)   (transformers seq2seq)   (fairseq CLI, deprecated)
 ```
 
 - **`DatasetBuilder`** ([`datasets/dataset_builder.py`](autonmt/datasets/dataset_builder.py)) unrolls the declared cross-product of datasets × language pairs × sizes × subword models × vocab sizes, runs cleanup, trains SentencePiece, and materialises every variant on disk. Each encoding entry also accepts `byte_fallback: bool` (default `False`) to enable SentencePiece byte fallback for that model - declare separate entries to compare `bpe` with and without it. The flag is orthogonal to `subword_models`. As a shorthand, suffixing the model name with `+bytes` (e.g. `"bpe+bytes"`) is equivalent to setting `byte_fallback=True` for that model.
@@ -162,12 +161,19 @@ See [`docs/data/tree.txt`](docs/data/tree.txt) for a full example tree.
 
 ## Examples
 
-| File                                                         | What it does                                                                                                    |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [`examples/0_quickstart_hf.py`](examples/0_quickstart_hf.py) | HF dataset → train → BLEU. The smallest end-to-end script.                                                      |
-| [`examples/1_custom_model.py`](examples/1_custom_model.py)   | Grid: europarl × {es,fr,de}-en × {bpe, unigram (byte-fallback), char (±byte-fallback), bytes} × {8k, 16k, 32k}. |
-| [`examples/2_fairseq_model.py`](examples/2_fairseq_model.py) | Same shape via the Fairseq backend _(deprecated - fairseq is archived)_.                                        |
-| [`examples/3_plot_results.py`](examples/3_plot_results.py)   | Read stats from disk and produce multi-variable plots.                                                          |
+The `examples/` folder is a step-by-step tutorial. Each script is self-contained and introduces ONE new concept on top of the previous one - read them in order or jump straight to the topic you care about.
+
+| File                                                                                                                 | New concept                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [`examples/01_hello_autonmt.py`](examples/01_hello_autonmt.py)                                                       | The minimal loop: `DatasetBuilder` → `AutonmtTranslator` → `generate_report` on multi30k.                    |
+| [`examples/02_bring_your_own_data.py`](examples/02_bring_your_own_data.py)                                           | The on-disk layout. Point the builder at your own `train/val/test.<lang>` files instead of downloading.      |
+| [`examples/03_preprocessing_and_vocabs.py`](examples/03_preprocessing_and_vocabs.py)                                 | `preprocess_raw_fn` / `preprocess_splits_fn`, length-and-ratio filters, picking a subword model.             |
+| [`examples/04_grid_experiment.py`](examples/04_grid_experiment.py)                                                   | The grid: sweep one axis (vocab size) and compare cells with `plot_model_comparison`.                        |
+| [`examples/05_full_grid.py`](examples/05_full_grid.py)                                                               | Multi-axis grid (`sizes × subword_models × vocab_sizes`) and the `eval_mode` flag.                           |
+| [`examples/06_huggingface_baseline_and_finetune.py`](examples/06_huggingface_baseline_and_finetune.py)               | Swap the backend: evaluate a pretrained HF seq2seq model and fine-tune it on your splits.                    |
+| [`examples/07_under_the_hood.py`](examples/07_under_the_hood.py)                                                     | Under the hood: every shortcut above expanded into manual vocab/model/translator/translate/score/report.     |
+
+Legacy scripts that targeted older API shapes live under [`examples/legacy/`](examples/legacy) for reference.
 
 ## Custom models
 
@@ -185,7 +191,17 @@ class MyModel(LitSeq2Seq):
     def forward_enc_dec(self, x, x_len, y, y_len, **kwargs): ...
 ```
 
-Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
+Then plug it in exactly like the built-in `Transformer`:
+
+```python
+src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+trainer = AutonmtTranslator.from_dataset(
+    train_ds,
+    model=MyModel.from_vocabs(src_vocab, trg_vocab),
+    src_vocab=src_vocab, trg_vocab=trg_vocab,
+    run_prefix="mymodel",
+)
+```
 
 ## External toolkits (Fairseq) - _deprecated_
 
@@ -199,16 +215,13 @@ Then pass it to `AutonmtTranslator(model=MyModel(...), ...)`.
 
 ```python
 from autonmt.backends.fairseq.translation_engine import FairseqTranslator  # DeprecationWarning here
-from autonmt.vocabularies import Vocabulary
 
 # Vocabs are needed so the base translator can encode eval splits with the
 # same subword model the training run used.
-src_vocab = Vocabulary().build_from_ds(ds=train_ds, lang=train_ds.src_lang)
-trg_vocab = Vocabulary().build_from_ds(ds=train_ds, lang=train_ds.trg_lang)
+src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
 
-trainer = FairseqTranslator(
-    src_vocab=src_vocab, trg_vocab=trg_vocab,
-    runs_dir=..., run_name=...,
+trainer = FairseqTranslator.from_dataset(
+    train_ds, src_vocab=src_vocab, trg_vocab=trg_vocab, run_prefix="fairseq",
 )
 trainer.fit(
     train_ds,
