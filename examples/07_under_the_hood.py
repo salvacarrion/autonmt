@@ -43,7 +43,7 @@ from tokenizers.normalizers import NFKC, Strip
 
 from autonmt.backends import AutonmtTranslator
 from autonmt.core.decoding import BeamSearch
-from autonmt.core.models import Transformer
+from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.leakage import warn_on_leakage

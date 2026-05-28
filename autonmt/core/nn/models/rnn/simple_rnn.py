@@ -3,7 +3,7 @@ import random
 import torch
 import torch.nn as nn
 
-from autonmt.core.seq2seq import LitSeq2Seq
+from autonmt.core.nn.seq2seq import LitSeq2Seq
 
 
 class SimpleRNN(LitSeq2Seq):

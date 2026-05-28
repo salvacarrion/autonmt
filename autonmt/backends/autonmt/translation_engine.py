@@ -2,7 +2,7 @@
 
 Concrete :class:`~autonmt.backends._base.translation_engine.BaseTranslator` that owns the
 DataLoaders, callbacks, loggers and checkpoint management for a
-:class:`~autonmt.core.seq2seq.LitSeq2Seq` model.
+:class:`~autonmt.core.nn.seq2seq.LitSeq2Seq` model.
 
 The SPM encode/decode round-trip lives in
 :class:`~autonmt.backends._base.spm_pipeline.SPMTranslatePipeline`; this class

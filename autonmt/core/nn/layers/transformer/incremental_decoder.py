@@ -14,8 +14,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from autonmt.core.layers.learned_pos_emb import LearnedPositionalEmbedding
-from autonmt.core.layers.sinusoidal_pos_emb import SinusoidalPositionalEmbedding
+from autonmt.core.nn.layers.positional.learned import LearnedPositionalEmbedding
+from autonmt.core.nn.layers.positional.sinusoidal import SinusoidalPositionalEmbedding
 
 
 def _resolve_activation(name):
@@ -34,8 +34,6 @@ def pos_embedding_at(pos_emb_module, step, device):
     """
     backend = pos_emb_module.pos_emb
     if isinstance(backend, SinusoidalPositionalEmbedding):
-        # ``.emb`` is a regular tensor, not a buffer — ensure device.
-        backend.emb = backend.emb.to(device)
         return backend.emb[step]
     if isinstance(backend, LearnedPositionalEmbedding):
         # Learned embeddings reserve index 0 for <pad>; first real position is 1.
@@ -47,7 +45,7 @@ class IncrementalTransformerDecoderLayer(nn.Module):
     """One decoder layer with optional KV-cache support."""
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
-                 activation="relu"):
+                 activation="relu", norm_first=False):
         super().__init__()
         # Submodule names match nn.TransformerDecoderLayer for state_dict parity.
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout, batch_first=False)
@@ -62,6 +60,7 @@ class IncrementalTransformerDecoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
         self.activation = _resolve_activation(activation)
+        self.norm_first = norm_first
 
         self.d_model = d_model
         self.nhead = nhead
@@ -71,21 +70,27 @@ class IncrementalTransformerDecoderLayer(nn.Module):
                 tgt_key_padding_mask=None, memory_key_padding_mask=None,
                 tgt_is_causal=None, memory_is_causal=False,
                 incremental_state=None):
+        # Pick block fns (parallel vs incremental) and run with the chosen
+        # norm ordering. Post-LN is identical to nn.TransformerDecoderLayer.
         if incremental_state is None:
-            # Parallel: post-LN, identical to nn.TransformerDecoderLayer.
-            x = tgt
-            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_key_padding_mask))
-            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_key_padding_mask))
-            x = self.norm3(x + self._ff_block(x))
-            return x
+            sa = lambda h: self._sa_block(h, tgt_mask, tgt_key_padding_mask)  # noqa: E731
+            mha = lambda h: self._mha_block(h, memory, memory_mask, memory_key_padding_mask)  # noqa: E731
+        else:
+            # Each layer owns its slice of the cache, keyed by id(self) so
+            # multiple layers don't collide.
+            layer_cache = incremental_state.setdefault(id(self), {})
+            sa = lambda h: self._sa_block_incremental(h, layer_cache)  # noqa: E731
+            mha = lambda h: self._mha_block_cached(h, memory, layer_cache, memory_key_padding_mask)  # noqa: E731
 
-        # Incremental: tgt is (1, B, D). Each layer owns its slice of the cache,
-        # keyed by id(self) so multiple layers don't collide.
-        layer_cache = incremental_state.setdefault(id(self), {})
         x = tgt
-        x = self.norm1(x + self._sa_block_incremental(x, layer_cache))
-        x = self.norm2(x + self._mha_block_cached(x, memory, layer_cache, memory_key_padding_mask))
-        x = self.norm3(x + self._ff_block(x))
+        if self.norm_first:
+            x = x + sa(self.norm1(x))
+            x = x + mha(self.norm2(x))
+            x = x + self._ff_block(self.norm3(x))
+        else:
+            x = self.norm1(x + sa(x))
+            x = self.norm2(x + mha(x))
+            x = self.norm3(x + self._ff_block(x))
         return x
 
     # ---- parallel-mode blocks (delegated to nn.MultiheadAttention) ----------

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from autonmt.core.models.rnn.simple_rnn import SimpleRNN
+from autonmt.core.nn.models.rnn.simple_rnn import SimpleRNN
 
 
 class BahdanauRNN(SimpleRNN):

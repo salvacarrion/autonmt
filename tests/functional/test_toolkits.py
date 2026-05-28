@@ -4,7 +4,7 @@
 #
 # import autonmt as al
 #
-# from autonmt.core.models.transformer import Transformer
+# from autonmt.core.nn.models.transformer import Transformer
 # from autonmt.backends.autonmt.translation_engine import AutonmtTranslator
 # from autonmt.backends.fairseq.translation_engine import FairseqTranslator
 # from autonmt.datasets.dataset_builder import DatasetBuilder

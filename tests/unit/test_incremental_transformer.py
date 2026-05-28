@@ -8,7 +8,7 @@ Two invariants:
 import torch
 import torch.nn as nn
 
-from autonmt.core.layers.incremental_transformer import (
+from autonmt.core.nn.layers.transformer.incremental_decoder import (
     IncrementalTransformerDecoder,
     IncrementalTransformerDecoderLayer,
 )
@@ -86,7 +86,7 @@ def test_transformer_model_incremental_matches_parallel():
     """End-to-end through ``Transformer.forward_decoder``: feeding the prefix
     one token at a time with ``incremental_state`` must reproduce the logits
     of the parallel pass at the same final position."""
-    from autonmt.core.models.transformer import Transformer
+    from autonmt.core.nn.models.transformer import Transformer
 
     torch.manual_seed(0)
     src_v, trg_v = 20, 20
@@ -127,7 +127,7 @@ def test_transformer_model_incremental_matches_parallel():
 
 def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, trg_v=20):
     """Returns (model, dataset) seeded so the search loop has something to chew."""
-    from autonmt.core.models.transformer import Transformer
+    from autonmt.core.nn.models.transformer import Transformer
 
     torch.manual_seed(0)
     model = Transformer(

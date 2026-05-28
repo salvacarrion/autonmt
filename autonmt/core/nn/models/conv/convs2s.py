@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from autonmt.core.seq2seq import LitSeq2Seq
+from autonmt.core.nn.seq2seq import LitSeq2Seq
 
 
 class ConvS2S(LitSeq2Seq):

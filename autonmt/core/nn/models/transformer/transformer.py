@@ -1,12 +1,14 @@
+import math
+
 import torch.nn as nn
 
-from autonmt.core.layers import (
+from autonmt.core.nn.layers import (
     IncrementalTransformerDecoder,
     IncrementalTransformerDecoderLayer,
     PositionalEmbedding,
     pos_embedding_at,
 )
-from autonmt.core.seq2seq import LitSeq2Seq
+from autonmt.core.nn.seq2seq import LitSeq2Seq
 
 
 class Transformer(LitSeq2Seq):
@@ -41,6 +43,7 @@ class Transformer(LitSeq2Seq):
                  padding_idx=None,
                  learned=False,
                  tie_embeddings=False,
+                 norm_first=False,
                  **kwargs):
         super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="transformer", **kwargs)
         self.max_src_positions = max_src_positions
@@ -49,6 +52,10 @@ class Transformer(LitSeq2Seq):
         # Model
         self.src_embeddings = nn.Embedding(src_vocab_size, encoder_embed_dim)
         self.trg_embeddings = nn.Embedding(trg_vocab_size, decoder_embed_dim)
+        # Vaswani et al. §3.4: token embeddings are scaled by sqrt(d_model) before
+        # adding positional encodings so the two have comparable magnitudes.
+        self.src_embed_scale = math.sqrt(encoder_embed_dim)
+        self.trg_embed_scale = math.sqrt(decoder_embed_dim)
         self.src_pos_embeddings = PositionalEmbedding(num_embeddings=max_src_positions, embedding_dim=encoder_embed_dim, padding_idx=padding_idx, learned=learned)
         self.trg_pos_embeddings = PositionalEmbedding(num_embeddings=max_trg_positions, embedding_dim=decoder_embed_dim, padding_idx=padding_idx, learned=learned)
         # Swap PyTorch's nn.TransformerDecoder for our KV-cache-aware one.
@@ -59,8 +66,16 @@ class Transformer(LitSeq2Seq):
             dim_feedforward=decoder_ffn_embed_dim,
             dropout=dropout,
             activation=activation_fn,
+            norm_first=norm_first,
         )
-        custom_decoder = IncrementalTransformerDecoder(decoder_layer, num_layers=decoder_layers)
+        # Pre-LN convention: add a final LayerNorm at the end of the decoder stack
+        # (mirrors nn.Transformer's own pre-LN handling for its built-in decoder).
+        decoder_norm = nn.LayerNorm(decoder_embed_dim) if norm_first else None
+        custom_decoder = IncrementalTransformerDecoder(decoder_layer, num_layers=decoder_layers, norm=decoder_norm)
+        # nn.Transformer's norm_first only configures its built-in encoder (we pass
+        # custom_decoder, so its decoder code path is skipped) — that's exactly
+        # what we need: the encoder gets Pre/Post-LN automatically, and we control
+        # the decoder ourselves above.
         self.transformer = nn.Transformer(d_model=encoder_embed_dim,
                                           nhead=encoder_attention_heads,
                                           num_encoder_layers=encoder_layers,
@@ -68,6 +83,7 @@ class Transformer(LitSeq2Seq):
                                           dim_feedforward=encoder_ffn_embed_dim,
                                           dropout=dropout,
                                           activation=activation_fn,
+                                          norm_first=norm_first,
                                           custom_decoder=custom_decoder)
         self.output_layer = nn.Linear(encoder_embed_dim, trg_vocab_size)
         self.input_dropout = nn.Dropout(dropout)
@@ -93,7 +109,7 @@ class Transformer(LitSeq2Seq):
         src_key_padding_mask = (x == self.padding_idx)  # (B, L_src), True=pad
 
         x_pos = self.src_pos_embeddings(x)
-        x_emb = self.src_embeddings(x)
+        x_emb = self.src_embeddings(x) * self.src_embed_scale
         x_emb = (x_emb + x_pos).transpose(0, 1)
 
         memory = self.transformer.encoder(src=x_emb, mask=None,
@@ -118,7 +134,7 @@ class Transformer(LitSeq2Seq):
         memory, src_key_padding_mask = self._unpack_state(states)
 
         y_pos = self.trg_pos_embeddings(y)
-        y_emb = self.trg_embeddings(y)
+        y_emb = self.trg_embeddings(y) * self.trg_embed_scale
         y_emb = (y_emb + y_pos).transpose(0, 1)
 
         tgt_mask = self.transformer.generate_square_subsequent_mask(y_emb.shape[0]).to(y_emb.device)
@@ -143,7 +159,8 @@ class Transformer(LitSeq2Seq):
         # Hand-roll the positional embedding for this absolute position: the
         # standard forward() expects a sequence and applies padding masking.
         y_pos = pos_embedding_at(self.trg_pos_embeddings, step, y.device)   # (D,)
-        y_emb = self.trg_embeddings(y).squeeze(1) + y_pos.unsqueeze(0)      # (B, D)
+        y_emb = self.trg_embeddings(y).squeeze(1) * self.trg_embed_scale    # (B, D)
+        y_emb = y_emb + y_pos.unsqueeze(0)
         y_emb = y_emb.unsqueeze(0)                                          # (1, B, D)
 
         # No causal tgt_mask: Q is just the new position, K/V from the cache.

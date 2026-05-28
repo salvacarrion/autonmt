@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from autonmt.core.seq2seq import LitSeq2Seq
+from autonmt.core.nn.seq2seq import LitSeq2Seq
 
 
 _ACTIVATIONS = {"relu": nn.ReLU, "gelu": nn.GELU, "tanh": nn.Tanh}

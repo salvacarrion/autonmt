@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from autonmt.core.models.rnn.simple_rnn import SimpleRNN
+from autonmt.core.nn.models.rnn.simple_rnn import SimpleRNN
 
 
 class ContextRNN(SimpleRNN):
