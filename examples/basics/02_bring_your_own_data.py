@@ -47,7 +47,7 @@ from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import format_summary_table, generate_report
 
 BASE_PATH = "datasets/02_byo"

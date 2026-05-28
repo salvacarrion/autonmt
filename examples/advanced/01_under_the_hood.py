@@ -47,7 +47,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.leakage import warn_on_leakage
-from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.figures import plot_model_comparison
 from autonmt.reporting.report import (
     format_summary_table,

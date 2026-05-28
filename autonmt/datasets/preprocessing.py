@@ -1,34 +1,26 @@
-"""Text-level processors invoked by the builder and at predict time.
+"""Subword-agnostic text preparation: filter, normalize, dedupe, shuffle.
 
-Two layers:
-
-  * ``preprocess_pairs`` / ``preprocess_lines`` — opinionated cleaning pipelines
-    composed from small filters (length, dedupe, length-ratio, shuffle).
-  * ``pretokenize_file`` / ``encode_file`` / ``decode_file`` — file-level
-    wrappers that delegate to :mod:`autonmt.datasets.tokenizers`.
+These functions produce the contents of ``2_preprocessed/`` and are independent
+of the subword model choice (same output whether the run uses ``word``, ``bpe``,
+``unigram``, etc.). Subword-dependent file ops live in
+:mod:`autonmt.datasets.encoding`.
 """
 import collections
 import os
 import random
-import shutil
 
 import numpy as np
 
 from tokenizers import normalizers
 from tokenizers.normalizers import NFKC, Strip
 
-from autonmt.utils.enums import has_vocab, is_bytes_only
-from autonmt.utils.fileio import read_file_lines, write_file_lines, text2hex
+from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 from autonmt.datasets.stats import shuffle_in_order
 from autonmt.datasets import tokenizers
 
 log = get_logger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Cleaning pipelines
-# ---------------------------------------------------------------------------
 
 def _log_removed(label, before, after):
     pct = (1 - after / before) * 100 if before else 0
@@ -152,10 +144,6 @@ def normalize_lines(lines, seq=None):
     return [normalizer.normalize_str(line) for line in lines]
 
 
-# ---------------------------------------------------------------------------
-# File-level wrappers used during the build / predict pipeline
-# ---------------------------------------------------------------------------
-
 def preprocess_predict_file(input_file, output_file, preprocess_fn, pretokenize,
                             input_lang, vocab_lang, ds, force_overwrite):
     if not force_overwrite and os.path.exists(output_file):
@@ -168,54 +156,3 @@ def preprocess_predict_file(input_file, output_file, preprocess_fn, pretokenize,
         lines = tokenizers.moses_tokenize(lines, lang=vocab_lang)
     write_file_lines(lines=lines, filename=output_file, insert_break_line=True, encoding="utf-8")
     assert os.path.exists(output_file)
-
-
-def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):
-    if force_overwrite or not os.path.exists(output_file):
-        tokenizers.moses_tokenizer_file(input_file=input_file, output_file=output_file, lang=lang)
-        assert os.path.exists(output_file)
-
-
-def encode_file(input_file, output_file, model_vocab_path, subword_model,
-                force_overwrite, **kwargs):
-    if not force_overwrite and os.path.exists(output_file):
-        return
-
-    if not has_vocab(subword_model) and not is_bytes_only(subword_model):
-        shutil.copyfile(input_file, output_file)
-    elif is_bytes_only(subword_model):
-        # Save file as UTF8 and make sure everything uses NFKC
-        lines = read_file_lines(input_file, autoclean=True)
-        lines = [NFKC().normalize_str(line) for line in lines]
-        lines = [text2hex(line, return_str=True) for line in lines]
-        write_file_lines(lines=lines, filename=output_file, insert_break_line=True)
-    else:
-        tokenizers.spm_encode_file(spm_model_path=model_vocab_path,
-                                   input_file=input_file, output_file=output_file)
-
-    assert os.path.exists(output_file)
-
-
-def decode_file(input_file, output_file, lang, subword_model, pretok_flag,
-                model_vocab_path, force_overwrite, remove_unk_hyphen=False, **kwargs):
-    if not force_overwrite and os.path.exists(output_file):
-        return
-
-    if not has_vocab(subword_model):
-        # Rename or copy files (tok==txt) — applies to None and bytes alike.
-        shutil.copyfile(input_file, output_file)
-    else:
-        tokenizers.spm_decode_file(model_vocab_path, input_file=input_file, output_file=output_file)
-
-    if pretok_flag:
-        tokenizers.moses_detokenizer_file(input_file=output_file, output_file=output_file, lang=lang)
-
-    assert os.path.exists(output_file)
-
-
-def decode_lines(lines, lang, subword_model, pretok_flag, spm_model=None):
-    if has_vocab(subword_model):
-        lines = tokenizers.spm_decode(lines, spm_model)
-    if pretok_flag:
-        lines = tokenizers.moses_detokenize(lines, lang=lang)
-    return lines

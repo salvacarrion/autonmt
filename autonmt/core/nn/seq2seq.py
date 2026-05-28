@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from autonmt.evaluation.metrics import score_sacrebleu
-from autonmt.datasets.processors import decode_lines
+from autonmt.datasets.encoding import decode_lines
 
 from autonmt.utils.logger import get_logger
 

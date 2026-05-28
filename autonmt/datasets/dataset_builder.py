@@ -24,7 +24,7 @@ from autonmt.utils.fileio import (
 from autonmt.utils.logger import get_logger
 from autonmt.datasets.stats import parse_split_size, shuffle_in_order
 from autonmt.datasets.dataset import Dataset
-from autonmt.datasets.processors import encode_file, pretokenize_file
+from autonmt.datasets.encoding import encode_file, pretokenize_file
 from autonmt.vocabularies import vocab_builder
 
 log = get_logger(__name__)

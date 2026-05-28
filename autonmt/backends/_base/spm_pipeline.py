@@ -28,7 +28,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from autonmt.backends._base.run_layout import RunLayout
 from autonmt.datasets.dataset import Dataset
-from autonmt.datasets.processors import decode_file, encode_file, preprocess_predict_file
+from autonmt.datasets.encoding import decode_file, encode_file
+from autonmt.datasets.preprocessing import preprocess_predict_file
 from autonmt.utils.fileio import count_file_lines, make_dir, read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 

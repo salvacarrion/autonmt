@@ -65,7 +65,7 @@ from autonmt.core.data.translation_dataset import TranslationDataset
 from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
-from autonmt.datasets.processors import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import format_summary_table, generate_report
 
 BASE_PATH = "datasets/adv_03_cf"
