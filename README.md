@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo.png" alt="AutoNMT" width="300"/>
+<img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo3.png" alt="AutoNMT" width="300"/>
 
 **A framework for automating grid experimentation in neural machine translation.**
 
@@ -89,13 +89,13 @@ docker exec -it autonmt_container bash
 
 ### Optional dependencies
 
-| Package                       | Install                          | Used for                                                                                             |
-| ----------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `datasets`, `evaluate`        | `pip install -e '.[hf]'`         | `hf_loader.download_hf_dataset()`                                                                    |
-| `transformers`, `accelerate`  | `pip install -e '.[hf-models]'`  | `HuggingFaceTranslator` (pretrained baselines + fine-tuning)                                         |
-| `wandb`                       | `pip install -e '.[wandb]'`      | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
-| `fairseq` _(deprecated)_      | `pip install -e '.[fairseq]'`    | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
-| _(everything above)_          | `pip install -e '.[all]'`        | One-shot install of every extra                                                                      |
+| Package                      | Install                         | Used for                                                                                             |
+| ---------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `datasets`, `evaluate`       | `pip install -e '.[hf]'`        | `hf_loader.download_hf_dataset()`                                                                    |
+| `transformers`, `accelerate` | `pip install -e '.[hf-models]'` | `HuggingFaceTranslator` (pretrained baselines + fine-tuning)                                         |
+| `wandb`                      | `pip install -e '.[wandb]'`     | Training logger (`wandb_params=` kwarg on `fit()`)                                                   |
+| `fairseq` _(deprecated)_     | `pip install -e '.[fairseq]'`   | `FairseqTranslator` backend - fairseq was archived 2026-03-20, kept for backwards compatibility only |
+| _(everything above)_         | `pip install -e '.[all]'`       | One-shot install of every extra                                                                      |
 
 ## Architecture
 
@@ -163,15 +163,15 @@ See [`docs/data/tree.txt`](docs/data/tree.txt) for a full example tree.
 
 The `examples/` folder is a step-by-step tutorial. Each script is self-contained and introduces ONE new concept on top of the previous one - read them in order or jump straight to the topic you care about.
 
-| File                                                                                                                 | New concept                                                                                                  |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| [`examples/01_hello_autonmt.py`](examples/01_hello_autonmt.py)                                                       | The minimal loop: `DatasetBuilder` → `AutonmtTranslator` → `generate_report` on multi30k.                    |
-| [`examples/02_bring_your_own_data.py`](examples/02_bring_your_own_data.py)                                           | The on-disk layout. Point the builder at your own `train/val/test.<lang>` files instead of downloading.      |
-| [`examples/03_preprocessing_and_vocabs.py`](examples/03_preprocessing_and_vocabs.py)                                 | `preprocess_raw_fn` / `preprocess_splits_fn`, length-and-ratio filters, picking a subword model.             |
-| [`examples/04_grid_experiment.py`](examples/04_grid_experiment.py)                                                   | The grid: sweep one axis (vocab size) and compare cells with `plot_model_comparison`.                        |
-| [`examples/05_full_grid.py`](examples/05_full_grid.py)                                                               | Multi-axis grid (`sizes × subword_models × vocab_sizes`) and the `eval_mode` flag.                           |
-| [`examples/06_huggingface_baseline_and_finetune.py`](examples/06_huggingface_baseline_and_finetune.py)               | Swap the backend: evaluate a pretrained HF seq2seq model and fine-tune it on your splits.                    |
-| [`examples/07_under_the_hood.py`](examples/07_under_the_hood.py)                                                     | Under the hood: every shortcut above expanded into manual vocab/model/translator/translate/score/report.     |
+| File                                                                                                   | New concept                                                                                              |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| [`examples/01_hello_autonmt.py`](examples/01_hello_autonmt.py)                                         | The minimal loop: `DatasetBuilder` → `AutonmtTranslator` → `generate_report` on multi30k.                |
+| [`examples/02_bring_your_own_data.py`](examples/02_bring_your_own_data.py)                             | The on-disk layout. Point the builder at your own `train/val/test.<lang>` files instead of downloading.  |
+| [`examples/03_preprocessing_and_vocabs.py`](examples/03_preprocessing_and_vocabs.py)                   | `preprocess_raw_fn` / `preprocess_splits_fn`, length-and-ratio filters, picking a subword model.         |
+| [`examples/04_grid_experiment.py`](examples/04_grid_experiment.py)                                     | The grid: sweep one axis (vocab size) and compare cells with `plot_model_comparison`.                    |
+| [`examples/05_full_grid.py`](examples/05_full_grid.py)                                                 | Multi-axis grid (`sizes × subword_models × vocab_sizes`) and the `eval_mode` flag.                       |
+| [`examples/06_huggingface_baseline_and_finetune.py`](examples/06_huggingface_baseline_and_finetune.py) | Swap the backend: evaluate a pretrained HF seq2seq model and fine-tune it on your splits.                |
+| [`examples/07_under_the_hood.py`](examples/07_under_the_hood.py)                                       | Under the hood: every shortcut above expanded into manual vocab/model/translator/translate/score/report. |
 
 Legacy scripts that targeted older API shapes live under [`examples/legacy/`](examples/legacy) for reference.
 
