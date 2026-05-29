@@ -34,7 +34,7 @@ class RunMetadata:
     All fields are optional — a backend can return ``RunMetadata()`` if it
     has nothing to report (the keys will be omitted from the final dict).
     ``vocab__size`` is ``Any`` because some backends report a single int
-    (shared vocab) and others a tuple/string (asymmetric src/trg sizes).
+    (shared vocab) and others a tuple/string (asymmetric src/tgt sizes).
     """
     model__architecture: Optional[str] = None
     model__total_params: Optional[int] = None
@@ -193,11 +193,11 @@ def build_run_report(engine: str, run_name: str, eval_ds, config: Dict,
         # language pair seen by the model. The bare vocab lang_pair is only
         # correct when no subset filter rewrites the pair.
         "train__lang_pair": train_lang_pair,
-        "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.trg_lang}",
+        "test__lang_pair": f"{eval_ds.src_lang}-{eval_ds.tgt_lang}",
 
         "train_dataset": train_dataset,
         "test_dataset": eval_ds.dataset_name,
-        "test_dataset_full": f"{eval_ds.dataset_name}__{eval_ds.src_lang}-{eval_ds.trg_lang}",
+        "test_dataset_full": f"{eval_ds.dataset_name}__{eval_ds.src_lang}-{eval_ds.tgt_lang}",
 
         "translations": translations,
         "config": config,

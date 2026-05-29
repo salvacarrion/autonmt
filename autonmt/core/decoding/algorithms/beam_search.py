@@ -109,7 +109,7 @@ class BeamSearch(BaseSearch):
             batch_size=batch_size, shuffle=False,
         )
 
-        V = len(dataset.trg_vocab)
+        V = len(dataset.tgt_vocab)
         K = beam_width
         all_idxs = []
         all_scores = []

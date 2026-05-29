@@ -28,7 +28,7 @@ class SimpleRNN(LitSeq2Seq):
     supports_incremental_decoding = True
 
     def __init__(self,
-                 src_vocab_size, trg_vocab_size,
+                 src_vocab_size, tgt_vocab_size,
                  encoder_embed_dim=256,
                  decoder_embed_dim=256,
                  encoder_hidden_dim=512,
@@ -44,7 +44,7 @@ class SimpleRNN(LitSeq2Seq):
                  packed_sequence=False,
                  base_rnn="rnn",
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=packed_sequence,
+        super().__init__(src_vocab_size, tgt_vocab_size, padding_idx, packed_sequence=packed_sequence,
                          base_rnn=base_rnn, architecture=f"{self.__class__.__name__}-{base_rnn.upper()}", **kwargs)
         self.base_rnn = base_rnn
         self.encoder_embed_dim = encoder_embed_dim
@@ -61,10 +61,10 @@ class SimpleRNN(LitSeq2Seq):
 
         # Model
         self.src_embeddings = nn.Embedding(src_vocab_size, encoder_embed_dim)
-        self.trg_embeddings = nn.Embedding(trg_vocab_size, decoder_embed_dim)
+        self.tgt_embeddings = nn.Embedding(tgt_vocab_size, decoder_embed_dim)
         self.enc_dropout = nn.Dropout(encoder_dropout)
         self.dec_dropout = nn.Dropout(decoder_dropout)
-        self.output_layer = nn.Linear(decoder_hidden_dim, trg_vocab_size)
+        self.output_layer = nn.Linear(decoder_hidden_dim, tgt_vocab_size)
 
         # RNN
         base_rnn_cls = self.resolve_base_rnn(self.base_rnn)
@@ -111,7 +111,7 @@ class SimpleRNN(LitSeq2Seq):
         return y
 
     def forward_encoder(self, x, x_len, **kwargs):
-        # Encode trg: (batch, length) => (batch, length, emb_dim)
+        # Encode tgt: (batch, length) => (batch, length, emb_dim)
         x_emb = self.src_embeddings(x)
         x_emb = self.enc_dropout(x_emb)
 
@@ -133,8 +133,8 @@ class SimpleRNN(LitSeq2Seq):
     def forward_decoder(self, y, y_len, states, **kwargs):
         y = self.last_token(y)
 
-        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
-        y_emb = self.trg_embeddings(y)
+        # Decode tgt: (batch, 1-length) => (batch, length, emb_dim)
+        y_emb = self.tgt_embeddings(y)
         y_emb = self.dec_dropout(y_emb)
 
         # intput: (batch, 1-length, emb_dim), (n_layers * n_directions, batch, hidden_dim) =>
@@ -143,7 +143,7 @@ class SimpleRNN(LitSeq2Seq):
         # cell*: (n_layers * n_directions, batch, hidden_dim)
         output, states = self.decoder_rnn(y_emb, states)
 
-        # Get output: (batch, 1-length, hidden_dim * n_directions) => (batch, 1-length, trg_vocab_size)
+        # Get output: (batch, 1-length, hidden_dim * n_directions) => (batch, 1-length, tgt_vocab_size)
         output = self.output_layer(output)
         return output, states
 
@@ -154,10 +154,10 @@ class SimpleRNN(LitSeq2Seq):
         y_pred = y[:, 0]  # <sos>
         outputs = []  # Doesn't contain <sos> token
 
-        # Iterate over trg tokens
+        # Iterate over tgt tokens
         x_pad_mask = (x != self.padding_idx) if self.packed_sequence else None  # Mask padding
-        trg_length = y.shape[1]
-        for t in range(trg_length):
+        tgt_length = y.shape[1]
+        for t in range(tgt_length):
             outputs_t, states = self.forward_decoder(y=y_pred, y_len=y_len, states=states, x_pad_mask=x_pad_mask, **kwargs)  # (B, L, E)
             outputs.append(outputs_t)  # (B, L, V)
 

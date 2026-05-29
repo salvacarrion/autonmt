@@ -46,7 +46,7 @@ class MLP(LitSeq2Seq):
     supports_incremental_decoding = True
 
     def __init__(self,
-                 src_vocab_size, trg_vocab_size,
+                 src_vocab_size, tgt_vocab_size,
                  encoder_embed_dim=256,
                  decoder_embed_dim=256,
                  encoder_hidden_dim=512,
@@ -57,13 +57,13 @@ class MLP(LitSeq2Seq):
                  activation_fn="relu",
                  padding_idx=None,
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="mlp", **kwargs)
+        super().__init__(src_vocab_size, tgt_vocab_size, padding_idx, architecture="mlp", **kwargs)
 
         assert encoder_embed_dim == decoder_embed_dim
         activation_cls = _ACTIVATIONS[activation_fn.lower()]
 
         self.src_embeddings = nn.Embedding(src_vocab_size, encoder_embed_dim)
-        self.trg_embeddings = nn.Embedding(trg_vocab_size, decoder_embed_dim)
+        self.tgt_embeddings = nn.Embedding(tgt_vocab_size, decoder_embed_dim)
         self.input_dropout = nn.Dropout(dropout)
 
         # Encoder MLP: pooled (B, E) -> (B, E)  [context lives in embedding space]
@@ -78,7 +78,7 @@ class MLP(LitSeq2Seq):
             out_dim=decoder_hidden_dim, num_layers=decoder_layers,
             activation_cls=activation_cls, dropout=dropout,
         )
-        self.output_layer = nn.Linear(decoder_hidden_dim, trg_vocab_size)
+        self.output_layer = nn.Linear(decoder_hidden_dim, tgt_vocab_size)
 
     def forward_encoder(self, x, x_len, **kwargs):
         x_emb = self.input_dropout(self.src_embeddings(x))  # (B, L, E)
@@ -96,7 +96,7 @@ class MLP(LitSeq2Seq):
     def forward_decoder(self, y, y_len, states, **kwargs):
         context = states  # (B, E)
 
-        y_emb = self.input_dropout(self.trg_embeddings(y))                   # (B, L, E)
+        y_emb = self.input_dropout(self.tgt_embeddings(y))                   # (B, L, E)
         ctx = context.unsqueeze(1).expand(-1, y_emb.shape[1], -1)            # (B, L, E)
 
         h = self.decoder_mlp(torch.cat([y_emb, ctx], dim=2))                 # (B, L, H)

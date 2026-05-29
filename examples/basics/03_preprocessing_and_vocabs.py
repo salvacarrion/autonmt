@@ -61,12 +61,12 @@ def normalize(lines):
 def preprocess_raw(data, ds):
     # Aggressive cleaning we ONLY want applied to the raw corpus, once.
     return preprocess_pairs(
-        data["src"]["lines"], data["trg"]["lines"],
+        data["src"]["lines"], data["tgt"]["lines"],
         normalize_fn=normalize,
         min_len=1,                       # drop empty lines
         max_len_percentile=99,           # drop the longest 1% (likely noise)
         remove_duplicates=True,          # drop exact-duplicate pairs
-        max_len_ratio_percentile=99,     # drop pairs whose src/trg length ratio is extreme
+        max_len_ratio_percentile=99,     # drop pairs whose src/tgt length ratio is extreme
         shuffle_lines=True,              # shuffle once so the order of the raw file doesn't bias splits
     )
 
@@ -74,7 +74,7 @@ def preprocess_raw(data, ds):
 def preprocess_splits(data, ds):
     # Per-split normalization. Same treatment for train/val/test — DO NOT dedupe
     # or shuffle here, those decisions belong to `preprocess_raw_fn`.
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -87,7 +87,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     builder = DatasetBuilder(
@@ -121,12 +121,12 @@ def main():
     print(f"\n[info] Vocab artifacts at: {train_ds.get_vocab_path()}")
     print(f"[info] Encoded splits at:   {train_ds.get_encoded_path()}\n")
 
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
-    model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
+    model = Transformer.from_vocabs(src_vocab, tgt_vocab)
 
     trainer = AutonmtTranslator.from_dataset(
         train_ds, model=model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         run_prefix="preproc",
     )
 

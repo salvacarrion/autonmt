@@ -89,9 +89,9 @@ def test_transformer_model_incremental_matches_parallel():
     from autonmt.core.nn.models.transformer import Transformer
 
     torch.manual_seed(0)
-    src_v, trg_v = 20, 20
+    src_v, tgt_v = 20, 20
     model = Transformer(
-        src_vocab_size=src_v, trg_vocab_size=trg_v,
+        src_vocab_size=src_v, tgt_vocab_size=tgt_v,
         encoder_embed_dim=16, decoder_embed_dim=16,
         encoder_layers=2, decoder_layers=2,
         encoder_attention_heads=2, decoder_attention_heads=2,
@@ -103,7 +103,7 @@ def test_transformer_model_incremental_matches_parallel():
     B, L_src, T = 2, 5, 4
     x = torch.randint(1, src_v, (B, L_src))
     x_len = torch.tensor([L_src] * B)
-    y = torch.randint(1, trg_v, (B, T))
+    y = torch.randint(1, tgt_v, (B, T))
 
     with torch.no_grad():
         _, states = model.forward_encoder(x=x, x_len=x_len)
@@ -125,13 +125,13 @@ def test_transformer_model_incremental_matches_parallel():
         f"model parallel vs incremental diverged: max diff = {diff}"
 
 
-def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, trg_v=20):
+def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, tgt_v=20):
     """Returns (model, dataset) seeded so the search loop has something to chew."""
     from autonmt.core.nn.models.transformer import Transformer
 
     torch.manual_seed(0)
     model = Transformer(
-        src_vocab_size=src_v, trg_vocab_size=trg_v,
+        src_vocab_size=src_v, tgt_vocab_size=tgt_v,
         encoder_embed_dim=16, decoder_embed_dim=16,
         encoder_layers=2, decoder_layers=2,
         encoder_attention_heads=2, decoder_attention_heads=2,
@@ -146,7 +146,7 @@ def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, trg_v=20):
         def __init__(self, src, vocab_size):
             self.src = src
             self.src_len = torch.tensor([src.shape[1]] * src.shape[0])
-            self.trg_vocab = list(range(vocab_size))
+            self.tgt_vocab = list(range(vocab_size))
 
         def __len__(self):
             return self.src.shape[0]
@@ -159,7 +159,7 @@ def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, trg_v=20):
                 return (self.src, None), (self.src_len, None)
             return collate
 
-    return model, _DS(src, trg_v)
+    return model, _DS(src, tgt_v)
 
 
 def test_greedy_search_incremental_matches_parallel():

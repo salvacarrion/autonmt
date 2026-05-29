@@ -52,9 +52,6 @@ class RunLayout:
     def eval_path(self, eval_name: str, fname: str = "") -> str:
         return self._run(self.EVAL, eval_name, fname)
 
-    def eval_data_bin_path(self, eval_name: str, data_bin_name: str, fname: str = "") -> str:
-        return os.path.join(self.eval_path(eval_name), data_bin_name, fname)
-
     # --- Per-eval-dataset translation sub-tree --------------------------
 
     def translations_path(self, eval_name: str, split_name: Optional[str] = "") -> str:

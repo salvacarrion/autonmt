@@ -12,10 +12,10 @@ round-trip in :class:`~autonmt.backends._base.spm_pipeline.SPMTranslatePipeline`
 and the report schema in :mod:`autonmt.reporting.report` — keeping this class
 focused on orchestration.
 
-Backends supply two hooks instead of touching ``self.src_vocab`` / ``self.trg_vocab``
+Backends supply two hooks instead of touching ``self.src_vocab`` / ``self.tgt_vocab``
 directly:
 
-  * ``_get_lang_pair() -> (src_lang, trg_lang)`` — drives evaluation filtering
+  * ``_get_lang_pair() -> (src_lang, tgt_lang)`` — drives evaluation filtering
     and the target-language argument handed to metric backends.
   * ``_get_run_metadata() -> RunMetadata`` — backend-specific keys for the
     per-run report (model arch, param counts, vocab info).
@@ -73,7 +73,7 @@ def _check_datasets(train_ds: Optional[Dataset] = None, eval_ds: Optional[Datase
                         "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
 
     if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang)
-                                  or (train_ds.trg_lang != eval_ds.trg_lang)):
+                                  or (train_ds.tgt_lang != eval_ds.tgt_lang)):
         raise ValueError(f"The languages from the train and test datasets are not compatible:\n"
                          f"\t- train_lang_pair=({train_ds.dataset_lang_pair})\n"
                          f"\t- test_lang_pair=({eval_ds.dataset_lang_pair})\n")
@@ -155,18 +155,20 @@ class BaseTranslator(ABC):
             **kwargs,
         )
 
-    def __init__(self, engine, runs_dir="runs", run_name=None, src_vocab=None, trg_vocab=None,
+    def __init__(self, engine=None, runs_dir="runs", run_name=None, src_vocab=None, tgt_vocab=None,
                  train_subset=None, val_subsets=None, test_subsets=None,
                  safe_seconds=3, **kwargs):
         # Seed config with an environment snapshot so config_*.json captures
         # the python/package/git state at construction time — without this
         # every saved config is silently ambiguous about what code produced it.
         self.config: Dict[str, Dict] = {"environment": _collect_environment()}
-        self.engine = engine
+        # ``engine`` defaults to the subclass's ENGINE classvar (used for the
+        # on-disk runs path); only override when constructing a bare base.
+        self.engine = engine or type(self).ENGINE
         self.runs_dir = runs_dir or "runs/"
         self.run_name = run_name or f"{datetime.datetime.now().strftime('%Y.%m.%d_%H.%M.%S')}"
         self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
+        self.tgt_vocab = tgt_vocab
         self.from_checkpoint = None
         self.safe_seconds = safe_seconds
         self.trained_ds: List[Dataset] = []
@@ -223,9 +225,9 @@ class BaseTranslator(ABC):
 
     @abstractmethod
     def _get_lang_pair(self) -> Tuple[str, str]:
-        """Return ``(src_lang, trg_lang)``.
+        """Return ``(src_lang, tgt_lang)``.
 
-        Drives :meth:`filter_eval_datasets`, the ``trg_lang`` argument handed
+        Drives :meth:`filter_eval_datasets`, the ``tgt_lang`` argument handed
         to metric backends in :meth:`score_translations`, and the language
         pair recorded in the report.
         """
@@ -242,7 +244,7 @@ class BaseTranslator(ABC):
 
     def fit(self, train_ds: Dataset, config: Optional[FitConfig] = None, **kwargs) -> None:
         log.info("=" * 70)
-        log.info(f"=> [Fit]: {train_ds.id2(as_path=True)}  (run={self.run_name})")
+        log.info(f"=> [Fit]: {train_ds.variant_id(as_path=True)}  (run={self.run_name})")
         log.info("=" * 70)
         cfg, extra = merge_config(config, FitConfig, kwargs)
 
@@ -316,7 +318,7 @@ class BaseTranslator(ABC):
                  f"num_workers={_kv('num_workers')}, seed={_kv('seed')}")
 
     def train(self, train_ds, force_overwrite, **kwargs):
-        log.info(f"=> [Train]: Started. ({train_ds.id2(as_path=True)})")
+        log.info(f"=> [Train]: Started. ({train_ds.variant_id(as_path=True)})")
         _check_datasets(train_ds=train_ds)
 
         if _is_debug_enabled():
@@ -411,7 +413,7 @@ class BaseTranslator(ABC):
         if not grouped:
             return
 
-        _, trg_lang = self._get_lang_pair()
+        _, tgt_lang = self._get_lang_pair()
 
         for fn_name, _ in self.test_subsets:
             extra_str = f" | split='{fn_name}'" if fn_name else ""
@@ -443,7 +445,7 @@ class BaseTranslator(ABC):
                         continue
                     backend.compute_fn(
                         **files, output_file=output_file, metrics=backend_metrics,
-                        trg_lang=trg_lang,
+                        tgt_lang=tgt_lang,
                     )
 
                 log.info(f"\t- Scoring time (beam={beam}{extra_str}): "
@@ -518,24 +520,15 @@ class BaseTranslator(ABC):
         if eval_mode is EvalMode.ALL:
             return list(ts_datasets)
         if eval_mode is EvalMode.SAME:
-            trained_ds = {str(ds.id()) for ds in self.trained_ds}
-            return [ds for ds in ts_datasets if str(ds.id()) in trained_ds]
+            trained_ds = {str(ds.base_id()) for ds in self.trained_ds}
+            return [ds for ds in ts_datasets if str(ds.base_id()) in trained_ds]
         if eval_mode is EvalMode.COMPATIBLE:
-            src_lang, trg_lang = self._get_lang_pair()
-            langs = {src_lang, trg_lang}
+            src_lang, tgt_lang = self._get_lang_pair()
+            langs = {src_lang, tgt_lang}
             return [ds for ds in ts_datasets if set(ds.langs).issubset(langs)]
         raise ValueError(f"Unknown 'eval_mode' ({str(eval_mode)})")
 
     # --- Path accessors (delegate to RunLayout) -------------------------
-
-    def get_model_eval_path(self, eval_name, fname=""):
-        return self._layout.eval_path(eval_name, fname)
-
-    def get_model_eval_data_bin_path(self, eval_name, data_bin_name, fname=""):
-        return self._layout.eval_data_bin_path(eval_name, data_bin_name, fname)
-
-    def get_model_eval_translations_path(self, eval_name, split_name=""):
-        return self._layout.translations_path(eval_name, split_name)
 
     def get_model_eval_translations_beam_path(self, eval_name, split_name, beam, fname=""):
         return self._layout.beam_path(eval_name, split_name, beam, fname)

@@ -68,7 +68,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -91,7 +91,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     builder = DatasetBuilder(
@@ -130,12 +130,12 @@ def main():
     # what to do (filter the test set, abort, ignore).
     norm = lambda s: s.lower().strip()
 
-    train_trg = fileio.read_file_lines(
-        train_ds.get_split_path(f"{train_ds.train_name}.{train_ds.trg_lang}"))
-    test_trg = fileio.read_file_lines(
-        train_ds.get_split_path(f"{train_ds.test_name}.{train_ds.trg_lang}"))
-    warn_on_leakage(train_trg, test_trg, key_fn=norm, label="multi30k trg")
-    # For paired (src+trg) leakage, join the two sides with a separator and
+    train_tgt = fileio.read_file_lines(
+        train_ds.get_split_path(f"{train_ds.train_name}.{train_ds.tgt_lang}"))
+    test_tgt = fileio.read_file_lines(
+        train_ds.get_split_path(f"{train_ds.test_name}.{train_ds.tgt_lang}"))
+    warn_on_leakage(train_tgt, test_tgt, key_fn=norm, label="multi30k tgt")
+    # For paired (src+tgt) leakage, join the two sides with a separator and
     # pass that as the lines — same call, no new API.
 
     # Demo: plant a duplicate so you can see the warning format even when the
@@ -150,32 +150,32 @@ def main():
     # -----------------------------------------------------------------------
     # (4) Manual vocab construction
     # -----------------------------------------------------------------------
-    # Shortcut:  src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+    # Shortcut:  src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
     # Manual:    build each vocab yourself, e.g. so you can use different
     #            max_tokens per side, or swap in a custom Vocabulary subclass.
     src_vocab = Vocabulary(max_tokens=150).build_from_ds(
         ds=train_ds, lang=train_ds.src_lang)
-    trg_vocab = Vocabulary(max_tokens=150).build_from_ds(
-        ds=train_ds, lang=train_ds.trg_lang)
-    print(f"[vocab] src={len(src_vocab)} tokens, trg={len(trg_vocab)} tokens")
+    tgt_vocab = Vocabulary(max_tokens=150).build_from_ds(
+        ds=train_ds, lang=train_ds.tgt_lang)
+    print(f"[vocab] src={len(src_vocab)} tokens, tgt={len(tgt_vocab)} tokens")
 
     # -----------------------------------------------------------------------
     # (5) Manual model construction
     # -----------------------------------------------------------------------
-    # Shortcut:  model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    # Shortcut:  model = Transformer.from_vocabs(src_vocab, tgt_vocab)
     # Manual:    explicit dims so you can override anything (depth, width,
     #            attention heads, dropout, max positions, ...). The defaults
     #            below match the ones `Transformer.from_vocabs` would have used.
     model = Transformer(
         src_vocab_size=len(src_vocab),
-        trg_vocab_size=len(trg_vocab),
+        tgt_vocab_size=len(tgt_vocab),
         padding_idx=src_vocab.pad_id,
         encoder_embed_dim=256, decoder_embed_dim=256,
         encoder_layers=3, decoder_layers=3,
         encoder_attention_heads=8, decoder_attention_heads=8,
         encoder_ffn_embed_dim=512, decoder_ffn_embed_dim=512,
         dropout=0.1,
-        max_src_positions=1024, max_trg_positions=1024,
+        max_src_positions=1024, max_tgt_positions=1024,
     )
 
     # -----------------------------------------------------------------------
@@ -192,7 +192,7 @@ def main():
 
     trainer = AutonmtTranslator(
         model=model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         runs_dir=runs_dir, run_name=run_name,
     )
 
@@ -321,10 +321,10 @@ def main():
         print(f"\n[seed={seed}] training a fresh model...")
         # Fresh weights for each seed — otherwise you'd be measuring "same
         # init, different data order", which underestimates variance.
-        seed_model = Transformer.from_vocabs(src_vocab, trg_vocab)
+        seed_model = Transformer.from_vocabs(src_vocab, tgt_vocab)
         seed_trainer = AutonmtTranslator(
             model=seed_model,
-            src_vocab=src_vocab, trg_vocab=trg_vocab,
+            src_vocab=src_vocab, tgt_vocab=tgt_vocab,
             runs_dir=runs_dir,
             run_name=train_ds.get_run_name(run_prefix=f"manual_s{seed}"),
         )

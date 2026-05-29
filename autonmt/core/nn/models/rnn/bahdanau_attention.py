@@ -42,7 +42,7 @@ class BahdanauRNN(SimpleRNN):
         self.enc_ffn = nn.Linear(self.encoder_hidden_dim * self.encoder_n_layers * 2,
                                  self.decoder_hidden_dim * self.decoder_n_layers)
         self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim + self.encoder_hidden_dim * 2,
-                                      self.trg_vocab_size)
+                                      self.tgt_vocab_size)
 
     def forward_encoder(self, x, x_len, **kwargs):
         # input: (B, L) =>
@@ -70,8 +70,8 @@ class BahdanauRNN(SimpleRNN):
         states, enc_outputs = states
         y = self.last_token(y)
 
-        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
-        y_emb = self.trg_embeddings(y)
+        # Decode tgt: (batch, 1-length) => (batch, length, emb_dim)
+        y_emb = self.tgt_embeddings(y)
         y_emb = self.dec_dropout(y_emb)
 
         # Attention (using only the top layer of hidden state)

@@ -72,13 +72,13 @@ ALPHAS = [0.0, 0.25, 0.5, 0.75, 1.0]
 # Same distribution on each side (so the curve is meaningful), no overlap (so
 # the two models have actually seen different data).
 def _take(parity):
-    def fn(src_lines, trg_lines):
-        pairs = [(s, t) for i, (s, t) in enumerate(zip(src_lines, trg_lines))
+    def fn(src_lines, tgt_lines):
+        pairs = [(s, t) for i, (s, t) in enumerate(zip(src_lines, tgt_lines))
                  if i % 2 == parity]
         if not pairs:
             return [], []
-        src, trg = zip(*pairs)
-        return list(src), list(trg)
+        src, tgt = zip(*pairs)
+        return list(src), list(tgt)
     return fn
 
 
@@ -115,18 +115,18 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
     return preprocess_lines(data["lines"], normalize_fn=normalize)
 
 
-def train_one(train_ds, src_vocab, trg_vocab, subset, run_prefix):
+def train_one(train_ds, src_vocab, tgt_vocab, subset, run_prefix):
     """Train one model from a fixed seed on the given train subset."""
-    model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    model = Transformer.from_vocabs(src_vocab, tgt_vocab)
     trainer = AutonmtTranslator(
-        model=model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+        model=model, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
         run_name=train_ds.get_run_name(run_prefix=run_prefix),
         train_subset=subset,
@@ -142,7 +142,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     builder = DatasetBuilder(
@@ -160,7 +160,7 @@ def main():
 
     train_ds = builder.get_train_ds()[0]
     test_datasets = builder.get_test_ds()
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
     pred_cfg = PredictConfig(
         metrics={"bleu"}, beams=[5],
@@ -173,10 +173,10 @@ def main():
     # (4) Train the two endpoints
     # -----------------------------------------------------------------------
     print("\n=== Training model A on even-indexed pairs ===")
-    trainer_a, model_a = train_one(train_ds, src_vocab, trg_vocab, TASK_A, "merge_A")
+    trainer_a, model_a = train_one(train_ds, src_vocab, tgt_vocab, TASK_A, "merge_A")
 
     print("\n=== Training model B on odd-indexed pairs ===")
-    trainer_b, model_b = train_one(train_ds, src_vocab, trg_vocab, TASK_B, "merge_B")
+    trainer_b, model_b = train_one(train_ds, src_vocab, tgt_vocab, TASK_B, "merge_B")
 
     # Pull state_dicts ONCE; merging is just arithmetic from here.
     state_a = {k: v.detach().clone().cpu()
@@ -202,13 +202,13 @@ def main():
     all_scores = []
     for alpha in ALPHAS:
         merged_state = merge_state_dicts(state_a, state_b, alpha)
-        merged_model = Transformer.from_vocabs(src_vocab, trg_vocab)
+        merged_model = Transformer.from_vocabs(src_vocab, tgt_vocab)
         merged_model.load_state_dict(merged_state)
 
         run_prefix = f"merge_a{alpha:.2f}"
         print(f"\n=== Evaluating merged model α={alpha:.2f} ===")
         trainer = AutonmtTranslator(
-            model=merged_model, src_vocab=src_vocab, trg_vocab=trg_vocab,
+            model=merged_model, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
             runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
             run_name=train_ds.get_run_name(run_prefix=run_prefix),
         )

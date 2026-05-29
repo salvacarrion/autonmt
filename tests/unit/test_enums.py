@@ -3,7 +3,9 @@ import os
 
 import pytest
 
-from autonmt.utils.enums import EvalMode, SourceData, SubwordModel
+from autonmt.utils.enums import (
+    EvalMode, SourceData, SubwordModel, has_vocab, is_bytes_only, is_no_model,
+)
 
 
 class TestStrCompat:
@@ -47,15 +49,25 @@ class TestCoerce:
 
 
 class TestProperties:
-    def test_pretokenization_only_for_word(self):
-        assert SubwordModel.WORD.needs_pretokenization
-        assert not SubwordModel.BPE.needs_pretokenization
+    def test_uses_sentencepiece(self):
+        assert SubwordModel.WORD.uses_sentencepiece
+        assert SubwordModel.BPE.uses_sentencepiece
+        assert not SubwordModel.BYTES.uses_sentencepiece
+        assert not SubwordModel.NONE.uses_sentencepiece
 
     def test_has_vocab_excludes_none_and_bytes(self):
-        assert SubwordModel.BPE.has_vocab
-        assert SubwordModel.UNIGRAM.has_vocab
-        assert not SubwordModel.NONE.has_vocab
-        assert not SubwordModel.BYTES.has_vocab
+        assert has_vocab(SubwordModel.BPE)
+        assert has_vocab(SubwordModel.UNIGRAM)
+        assert not has_vocab(SubwordModel.NONE)
+        assert not has_vocab(SubwordModel.BYTES)
+        assert not has_vocab(None)
+
+    def test_is_no_model_and_bytes_only(self):
+        assert is_no_model(None)
+        assert is_no_model(SubwordModel.NONE)
+        assert not is_no_model(SubwordModel.BPE)
+        assert is_bytes_only(SubwordModel.BYTES)
+        assert not is_bytes_only(SubwordModel.WORD)
 
 
 class TestNoCompoundMembers:

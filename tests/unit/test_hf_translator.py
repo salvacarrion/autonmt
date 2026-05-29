@@ -3,7 +3,7 @@
 These tests verify the contract without actually loading a model from the Hub:
   - import the module without `transformers` raises a clear ImportError
   - the backend exposes the expected ENGINE id + lazy lookup via `autonmt.backends`
-  - `from_dataset` auto-fills src_lang / trg_lang from the dataset
+  - `from_dataset` auto-fills src_lang / tgt_lang from the dataset
   - `fit()` raises NotImplementedError (fine-tuning is Phase 2)
 """
 import importlib
@@ -60,7 +60,7 @@ class TestInstantiationWithTransformers:
         # offline CI. The model is bogus on purpose.
         trans = HuggingFaceTranslator(
             model_id="this-does-not-exist/never-downloaded",
-            src_lang="de", trg_lang="en",
+            src_lang="de", tgt_lang="en",
             runs_dir="/tmp/hf_test", run_name="test_lazy",
         )
         assert trans._model is None
@@ -77,7 +77,7 @@ class TestInstantiationWithTransformers:
         (ckpt / "config.json").write_text("{}")
 
         trans = HuggingFaceTranslator(
-            model_id="any/model", src_lang="de", trg_lang="en",
+            model_id="any/model", src_lang="de", tgt_lang="en",
             runs_dir=str(tmp_path), run_name="test_gate",
         )
         # Should return immediately without loading model or calling HF Trainer.
@@ -91,7 +91,7 @@ class TestInstantiationWithTransformers:
         from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         # Stub a Dataset-like object with just the attributes from_dataset needs.
         fake_ds = SimpleNamespace(
-            src_lang="de", trg_lang="en",
+            src_lang="de", tgt_lang="en",
             get_runs_path=lambda toolkit: f"/tmp/runs/{toolkit}",
             get_run_name=lambda run_prefix: f"{run_prefix}_test",
         )
@@ -99,30 +99,30 @@ class TestInstantiationWithTransformers:
             fake_ds, model_id="any/model", run_prefix="hf-base",
         )
         assert trans.src_lang == "de"
-        assert trans.trg_lang == "en"
+        assert trans.tgt_lang == "en"
         assert trans.runs_dir == "/tmp/runs/huggingface"
         assert trans.run_name == "hf-base_test"
 
     def test_from_dataset_explicit_lang_wins(self):
-        """If the user passes src_lang / trg_lang explicitly, they override the dataset."""
+        """If the user passes src_lang / tgt_lang explicitly, they override the dataset."""
         from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         fake_ds = SimpleNamespace(
-            src_lang="de", trg_lang="en",
+            src_lang="de", tgt_lang="en",
             get_runs_path=lambda toolkit: f"/tmp/runs/{toolkit}",
             get_run_name=lambda run_prefix: f"{run_prefix}_test",
         )
         trans = HuggingFaceTranslator.from_dataset(
             fake_ds, model_id="any/model", run_prefix="hf-base",
-            src_lang="fr", trg_lang="es",
+            src_lang="fr", tgt_lang="es",
         )
         assert trans.src_lang == "fr"
-        assert trans.trg_lang == "es"
+        assert trans.tgt_lang == "es"
 
     def test_training_args_mapping(self, tmp_path):
         """FitConfig fields map to the Seq2SeqTrainingArguments kwargs dict."""
         from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
-            model_id="any/model", src_lang="de", trg_lang="en",
+            model_id="any/model", src_lang="de", tgt_lang="en",
             runs_dir=str(tmp_path), run_name="test_args",
         )
         fit_kwargs = dict(
@@ -157,7 +157,7 @@ class TestInstantiationWithTransformers:
         """
         from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
-            model_id="any/model", src_lang="de", trg_lang="en",
+            model_id="any/model", src_lang="de", tgt_lang="en",
             runs_dir=str(tmp_path), run_name="test_overrides",
         )
         fit_kwargs = dict(
@@ -183,11 +183,11 @@ class TestInstantiationWithTransformers:
         """
         from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
         trans = HuggingFaceTranslator(
-            model_id="dummy/model", src_lang="de", trg_lang="en",
+            model_id="dummy/model", src_lang="de", tgt_lang="en",
             runs_dir="/tmp/hf_test", run_name="rep_test",
         )
         fake_eval = SimpleNamespace(
-            src_lang="de", trg_lang="en", dataset_name="multi30k",
+            src_lang="de", tgt_lang="en", dataset_name="multi30k",
         )
         # No fit / no translate happened — _model / _tokenizer are still None.
         report = trans._build_run_report(eval_ds=fake_eval, translations={"beam1": {}})

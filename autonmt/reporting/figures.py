@@ -122,12 +122,12 @@ def plot_metric_sweep(data: pd.DataFrame, out_dir: str, x: str,
 # ---------------------------------------------------------------------------
 
 def _ds_title(ds) -> str:
-    ds_name, lang_pair, _ = ds.id()
+    ds_name, lang_pair, _ = ds.base_id()
     return f"{ds_name.title()} ({lang_pair}; {ds.subword_model}; {ds.vocab_size})"
 
 
 def _ds_fname_suffix(ds) -> str:
-    ds_name, lang_pair, ds_size_name = ds.id()
+    ds_name, lang_pair, ds_size_name = ds.base_id()
     vocab = f"_{ds.vocab_size}" if ds.vocab_size else ""
     s = f"{ds_name}_{ds_size_name}_{lang_pair}__{ds.subword_model}{vocab}"
     return s.lower().replace('/', '_')
@@ -192,8 +192,8 @@ def _plot_vocab_distribution(ds, merge_vocabs, out_dir, suffix,
     if str(ds.subword_model) in {"None", "none"}:
         return
 
-    src_lang, trg_lang = ds.id()[1].split('-')
-    lang_files = [f"{src_lang}-{trg_lang}"] if merge_vocabs else [src_lang, trg_lang]
+    src_lang, tgt_lang = ds.base_id()[1].split('-')
+    lang_files = [f"{src_lang}-{tgt_lang}"] if merge_vocabs else [src_lang, tgt_lang]
     vocab_path = ds.get_vocab_path()
 
     for lang_file in lang_files:
@@ -230,7 +230,7 @@ def plot_dataset_diagnostics(ds, *, merge_vocabs: bool,
     out_dir = ds.get_plots_path()
     fileio.make_dir(out_dir)
     suffix = _ds_fname_suffix(ds)
-    log.info(f"\t- Creating plots for: {ds.id2(as_path=True)}")
+    log.info(f"\t- Creating plots for: {ds.variant_id(as_path=True)}")
 
     log.info("\t\t- Creating 'Sentence length distribution' plots...")
     rows = _plot_sentence_length_histograms(ds, out_dir, suffix, add_dataset_title, style)

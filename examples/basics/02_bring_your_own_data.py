@@ -11,9 +11,9 @@ that are already materialised.
 
 Expected layout for a dataset variant
 -------------------------------------
-    <base_path>/<dataset_name>/<src-trg>/<size>/
+    <base_path>/<dataset_name>/<src-tgt>/<size>/
     ├── data/
-    │   ├── 0_raw/                    (optional)   <- a parallel corpus pair: data.<src>, data.<trg>
+    │   ├── 0_raw/                    (optional)   <- a parallel corpus pair: data.<src>, data.<tgt>
     │   ├── 1_splits/                              <- train.<lang>, val.<lang>, test.<lang>
     │   ├── 2_preprocessed/                        <- written by preprocess_splits_fn
     │   ├── 3_pretokenized/                        <- only for `word` subword (Moses)
@@ -94,7 +94,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -123,12 +123,12 @@ def main():
     train_ds = builder.get_train_ds()[0]
     test_datasets = builder.get_test_ds()
 
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
-    model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
+    model = Transformer.from_vocabs(src_vocab, tgt_vocab)
 
     trainer = AutonmtTranslator.from_dataset(
         train_ds, model=model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         run_prefix="byo",
     )
 

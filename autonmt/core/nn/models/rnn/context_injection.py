@@ -30,7 +30,7 @@ class ContextRNN(SimpleRNN):
                                         num_layers=self.decoder_n_layers,
                                         dropout=self.decoder_dropout,
                                         bidirectional=self.decoder_bidirectional, batch_first=True)
-        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim * 2, self.trg_vocab_size)
+        self.output_layer = nn.Linear(self.decoder_embed_dim + self.decoder_hidden_dim * 2, self.tgt_vocab_size)
 
     def forward_encoder(self, x, x_len, **kwargs):
         output, states = super().forward_encoder(x, x_len)
@@ -47,8 +47,8 @@ class ContextRNN(SimpleRNN):
         states, context = states
         y = self.last_token(y)
 
-        # Decode trg: (batch, 1-length) => (batch, length, emb_dim)
-        y_emb = self.trg_embeddings(y)
+        # Decode tgt: (batch, 1-length) => (batch, length, emb_dim)
+        y_emb = self.tgt_embeddings(y)
         y_emb = self.dec_dropout(y_emb)
 
         # Add context (reduce to 1 layer)
@@ -66,6 +66,6 @@ class ContextRNN(SimpleRNN):
         tmp_hidden = tmp_hidden.transpose(1, 0).sum(axis=1, keepdims=True)  # The paper has just 1 layer
         output = torch.cat((y_emb, tmp_hidden, tmp_context), dim=2)
 
-        # Get output: (batch, length, hidden_dim * n_directions) => (batch, length, trg_vocab_size)
+        # Get output: (batch, length, hidden_dim * n_directions) => (batch, length, tgt_vocab_size)
         output = self.output_layer(output)
         return output, (states, context)

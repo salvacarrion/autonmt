@@ -71,7 +71,7 @@ class AutonmtTranslator(BaseTranslator):
     ENGINE = "autonmt"
 
     def __init__(self, model, **kwargs):
-        super().__init__(engine="autonmt", **kwargs)
+        super().__init__(**kwargs)
         self.model = model
 
         # Translation tensors (built by _prepare_train_data / _prepare_eval_data).
@@ -82,21 +82,21 @@ class AutonmtTranslator(BaseTranslator):
         # Wire the SPM round-trip so BaseTranslator.translate() delegates.
         self._spm = SPMTranslatePipeline(
             layout=self._layout, src_vocab=self.src_vocab,
-            trg_vocab=self.trg_vocab, test_subsets=self.test_subsets,
+            tgt_vocab=self.tgt_vocab, test_subsets=self.test_subsets,
         )
 
     # --- Backend hooks --------------------------------------------------
 
     def _get_lang_pair(self):
-        return self.src_vocab.lang, self.trg_vocab.lang
+        return self.src_vocab.lang, self.tgt_vocab.lang
 
     def _get_run_metadata(self) -> RunMetadata:
         model = self.model
-        src_vocab, trg_vocab = self.src_vocab, self.trg_vocab
+        src_vocab, tgt_vocab = self.src_vocab, self.tgt_vocab
 
-        assert src_vocab.subword_model == trg_vocab.subword_model
-        if len(src_vocab) != len(trg_vocab):
-            vocab_size = f"{len(src_vocab)}/{len(trg_vocab)}"
+        assert src_vocab.subword_model == tgt_vocab.subword_model
+        if len(src_vocab) != len(tgt_vocab):
+            vocab_size = f"{len(src_vocab)}/{len(tgt_vocab)}"
         else:
             vocab_size = len(src_vocab)
 
@@ -113,13 +113,13 @@ class AutonmtTranslator(BaseTranslator):
             vocab__subword_model=src_vocab.subword_model,
             vocab__size=vocab_size,
             vocab__merged=vocab_merged,
-            vocab__lang_pair=f"{src_vocab.lang}-{trg_vocab.lang}",
+            vocab__lang_pair=f"{src_vocab.lang}-{tgt_vocab.lang}",
         )
 
     def _log_train_summary(self, train_ds, kwargs):
         sw = self.src_vocab.subword_model
-        v_src, v_trg = len(self.src_vocab), len(self.trg_vocab)
-        vocab_line = f"src={v_src}, trg={v_trg}, subword={sw}"
+        v_src, v_tgt = len(self.src_vocab), len(self.tgt_vocab)
+        vocab_line = f"src={v_src}, tgt={v_tgt}, subword={sw}"
         if getattr(train_ds, "merge_vocabs", False):
             vocab_line += ", merged=True"
         log.info("\t- Config:")
@@ -144,8 +144,8 @@ class AutonmtTranslator(BaseTranslator):
         """Build train + val TranslationDatasets. Called at the start of _train."""
         train_path = train_ds.get_encoded_path(fname=train_ds.train_name)
         val_path = train_ds.get_encoded_path(fname=train_ds.val_name)
-        params = dict(src_lang=train_ds.src_lang, trg_lang=train_ds.trg_lang,
-                      src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
+        params = dict(src_lang=train_ds.src_lang, tgt_lang=train_ds.tgt_lang,
+                      src_vocab=self.src_vocab, tgt_vocab=self.tgt_vocab)
 
         _, filter_fn = self.train_subset
         self.train_tds = TranslationDataset(
@@ -157,14 +157,14 @@ class AutonmtTranslator(BaseTranslator):
         """Build the per-subset test TranslationDatasets. Called by
         :class:`SPMTranslatePipeline` before the (subset, beam) loop.
 
-        The extra args (``ds``, ``src_lang``, ``trg_lang``, vocab paths,
+        The extra args (``ds``, ``src_lang``, ``tgt_lang``, vocab paths,
         ``output_path``, ``apply2*``, ``force_overwrite``...) are received via
         ``**_`` because we don't need them here — the encoded test files have
         already been written to ``test_path`` by the pipeline's
         ``_encode_eval_text`` step, and the vocabs are on ``self``.
         """
-        params = dict(src_lang=self.src_vocab.lang, trg_lang=self.trg_vocab.lang,
-                      src_vocab=self.src_vocab, trg_vocab=self.trg_vocab)
+        params = dict(src_lang=self.src_vocab.lang, tgt_lang=self.tgt_vocab.lang,
+                      src_vocab=self.src_vocab, tgt_vocab=self.tgt_vocab)
         self.test_tds = [TranslationDataset(file_prefix=test_path, filter_fn=fn, **params)
                          for _, fn in self.test_subsets]
 
@@ -235,7 +235,7 @@ class AutonmtTranslator(BaseTranslator):
 
         # Per-step metric context that the LightningModule introspects.
         self.model._src_vocab = self.train_tds.src_vocab
-        self.model._trg_vocab = self.train_tds.trg_vocab
+        self.model._tgt_vocab = self.train_tds.tgt_vocab
         self.model._filter_train = self.train_subset
         self.model._filter_eval = self.val_subsets
         self.model._print_samples = kwargs.get("print_samples")
@@ -263,7 +263,7 @@ class AutonmtTranslator(BaseTranslator):
                 tds,
                 sort_key=lambda x, y: (
                     len(self.model._src_vocab.encode(x))
-                    + len(self.model._trg_vocab.encode(y))
+                    + len(self.model._tgt_vocab.encode(y))
                 ),
                 batch_size=None if max_tokens else batch_size,
                 max_tokens=max_tokens,
@@ -325,7 +325,7 @@ class AutonmtTranslator(BaseTranslator):
 
     # --- translate ------------------------------------------------------
 
-    def _translate(self, data_path, output_path, src_lang, trg_lang, beam_width,
+    def _translate(self, data_path, output_path, src_lang, tgt_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
                    checkpoint, num_workers, devices, accelerator,
                    checkpoints_dir=None, filter_idx=0,
@@ -351,9 +351,9 @@ class AutonmtTranslator(BaseTranslator):
         )
         predictions, _ = search_algorithm.decode(
             model=self.model, dataset=self.test_tds[filter_idx],
-            sos_id=self.trg_vocab.sos_id,
-            eos_id=self.trg_vocab.eos_id,
-            pad_id=self.trg_vocab.pad_id,
+            sos_id=self.tgt_vocab.sos_id,
+            eos_id=self.tgt_vocab.eos_id,
+            pad_id=self.tgt_vocab.pad_id,
             batch_size=batch_size, max_tokens=max_tokens,
             beam_width=beam_width, max_len_a=max_len_a, max_len_b=max_len_b,
             num_workers=num_workers,
@@ -367,7 +367,7 @@ class AutonmtTranslator(BaseTranslator):
         original preprocessed files (avoids biasing scores with model-emitted
         ``<unk>``).
         """
-        hyp_tok = [self.trg_vocab.decode(tokens) for tokens in predictions]
+        hyp_tok = [self.tgt_vocab.decode(tokens) for tokens in predictions]
         write_file_lines(lines=hyp_tok, filename=os.path.join(output_path, "hyp.tok"),
                          insert_break_line=True)
 

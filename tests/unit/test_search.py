@@ -18,9 +18,9 @@ class _FixedBatchDataset:
     def __init__(self, src, vocab_size=10):
         self.src = src
         self.src_len = torch.tensor([src.shape[1]] * src.shape[0])
-        # beam_search reads ``len(dataset.trg_vocab)`` for the vocab-size factor
+        # beam_search reads ``len(dataset.tgt_vocab)`` for the vocab-size factor
         # in its topk reshape; greedy doesn't need it, but a shared fixture must.
-        self.trg_vocab = list(range(vocab_size))
+        self.tgt_vocab = list(range(vocab_size))
 
     def __len__(self):
         return self.src.shape[0]

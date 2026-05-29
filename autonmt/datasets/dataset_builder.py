@@ -10,6 +10,7 @@ Plotting is intentionally NOT a builder responsibility: call
 if you want diagnostic plots.
 """
 import os
+import random
 import shutil
 from itertools import islice
 
@@ -43,12 +44,13 @@ class DatasetBuilder:
 
     def __init__(self, base_path, datasets, encoding=None, merge_vocabs=False,
                  preprocess_raw_fn=None, preprocess_splits_fn=None,
-                 randomize_training=False, random_seed=42):
+                 random_seed=42):
         self.base_path = base_path
         self.datasets = datasets
         self.encoding = encoding
         self.merge_vocabs = merge_vocabs
-        self.randomize_training = randomize_training
+        # Seeds the stdlib RNG used by the shuffles inside build() (merge-vocab
+        # SPM concat, optional split shuffling) so builds are reproducible.
         self.random_seed = random_seed
 
         self.preprocess_raw_fn = preprocess_raw_fn
@@ -168,6 +170,10 @@ class DatasetBuilder:
         log.info(f"=> Building datasets...")
         log.info(f"\t- base_path={self.base_path}")
 
+        # Seed the stdlib RNG so the shuffles below (merge-vocab SPM concat,
+        # optional split/line shuffling) are reproducible across runs.
+        random.seed(self.random_seed)
+
         # Classify which source each reference dataset has on disk and validate it.
         self._check_dir_structure(force_overwrite=force_overwrite)
 
@@ -194,7 +200,7 @@ class DatasetBuilder:
         invalid = False
 
         for ds in self.ds_refs.values():
-            log.info(f"\t=> Checking dataset: '{ds.id(as_path=True)}'")
+            log.info(f"\t=> Checking dataset: '{ds.base_id(as_path=True)}'")
             raw_ok, raw_files = ds.has_raw_files(verbose=False)
             splits_ok, split_files = ds.has_split_files()
 
@@ -226,7 +232,7 @@ class DatasetBuilder:
 
     @staticmethod
     def _validate_line_counts_pairwise(files):
-        """Files are stored in (src, trg, src, trg, ...) order; every adjacent pair must match."""
+        """Files are stored in (src, tgt, src, tgt, ...) order; every adjacent pair must match."""
         for i in range(0, len(files), 2):
             if count_file_lines(files[i]) != count_file_lines(files[i + 1]):
                 return False
@@ -239,32 +245,32 @@ class DatasetBuilder:
             log.error(f"\t\t=> [{label}]: '{kind}' at {path}")
         log.warning(f"\t\t=> [ACTION REQUIRED] Add a valid dataset to at least one of:")
         log.info(f"\t\t\t- '{ds.data_raw_path}': parallel corpus "
-                 f"(e.g. 'data.{ds.src_lang}' and 'data.{ds.trg_lang}')")
+                 f"(e.g. 'data.{ds.src_lang}' and 'data.{ds.tgt_lang}')")
         log.info(f"\t\t\t- '{ds.data_splits_path}': pre-split corpus "
-                 f"(e.g. '[train,val,test].[{ds.src_lang},{ds.trg_lang}]')")
+                 f"(e.g. '[train,val,test].[{ds.src_lang},{ds.tgt_lang}]')")
 
     # --- Stage: preprocessing the raw/split files ----------------------
 
     def _preprocess_files(self, ds, input_sets, output_sets, preprocess_fn, force_overwrite):
-        for i, ((src_in, trg_in), (src_out, trg_out)) in enumerate(zip(input_sets, output_sets), 1):
-            if not force_overwrite and all(os.path.exists(f) for f in (src_out, trg_out)):
+        for i, ((src_in, tgt_in), (src_out, tgt_out)) in enumerate(zip(input_sets, output_sets), 1):
+            if not force_overwrite and all(os.path.exists(f) for f in (src_out, tgt_out)):
                 continue
-            log.info(f"\t=> Preprocessing file-pair ({i}/{len(input_sets)}) dataset '{ds.id(as_path=True)}'")
+            log.info(f"\t=> Preprocessing file-pair ({i}/{len(input_sets)}) dataset '{ds.base_id(as_path=True)}'")
             src_lines = read_file_lines(src_in, autoclean=True)
-            tgt_lines = read_file_lines(trg_in, autoclean=True)
+            tgt_lines = read_file_lines(tgt_in, autoclean=True)
 
             if len(src_lines) != len(tgt_lines):
                 log.error(f"=> The source and target files do not have the same number of lines "
                           f"({len(src_lines)} != {len(tgt_lines)})")
                 log.info(f"\t- Source file: {src_in}")
-                log.info(f"\t- Target file: {trg_in}")
+                log.info(f"\t- Target file: {tgt_in}")
 
             data = {"src": {"lang": ds.src_lang, "lines": src_lines},
-                    "trg": {"lang": ds.trg_lang, "lines": tgt_lines}}
+                    "tgt": {"lang": ds.tgt_lang, "lines": tgt_lines}}
             src_lines, tgt_lines = preprocess_fn(data, ds)
 
             write_file_lines(src_lines, filename=src_out, insert_break_line=True)
-            write_file_lines(tgt_lines, filename=trg_out, insert_break_line=True)
+            write_file_lines(tgt_lines, filename=tgt_out, insert_break_line=True)
 
     def _preprocess_raw_files(self, force_overwrite):
         if self.preprocess_raw_fn is None:
@@ -294,7 +300,7 @@ class DatasetBuilder:
 
             in_paths = [ds.get_split_path(f) for f in ds.get_split_fnames()]
             out_paths = [ds.get_splits_preprocessed_path(f) for f in ds.get_split_fnames()]
-            # Pair (src, trg) per split: train, val, test.
+            # Pair (src, tgt) per split: train, val, test.
             input_sets = tuple(in_paths[i:i + 2] for i in range(0, len(in_paths), 2))
             output_sets = tuple(out_paths[i:i + 2] for i in range(0, len(out_paths), 2))
             self._preprocess_files(ds, input_sets, output_sets,
@@ -309,36 +315,36 @@ class DatasetBuilder:
             if ds.source_data == SourceData.SPLITS:
                 # User supplied splits directly; nothing to materialise.
                 if all(os.path.exists(ds.get_split_path(f)) for f in ds.get_split_fnames()):
-                    log.info(f"\t=> Partitions already exist for '{ds.id(as_path=True)}'")
+                    log.info(f"\t=> Partitions already exist for '{ds.base_id(as_path=True)}'")
                     continue
-                raise ValueError(f"\t=> Some partitions are missing for '{ds.id(as_path=True)}'")
+                raise ValueError(f"\t=> Some partitions are missing for '{ds.base_id(as_path=True)}'")
 
-            log.info(f"\t=> Creating dataset partitions for '{ds.id(as_path=True)}'")
+            log.info(f"\t=> Creating dataset partitions for '{ds.base_id(as_path=True)}'")
             self._materialise_splits_from_raw(ds)
 
     def _materialise_splits_from_raw(self, ds):
         if ds.source_data == SourceData.RAW:
-            src_path, trg_path = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
+            src_path, tgt_path = [ds.get_raw_path(f) for f in ds.get_raw_fnames()]
         elif ds.source_data == SourceData.RAW_PREPROCESSED:
-            src_path, trg_path = [ds.get_raw_preprocessed_path(f)
+            src_path, tgt_path = [ds.get_raw_preprocessed_path(f)
                                   for f in ds.get_raw_preprocessed_fnames()]
         else:
             raise ValueError(
                 f"\t=> Invalid value for 'ds.source_data': {ds.source_data} "
                 f"('raw', 'raw_preprocessed', or 'splits')"
             )
-        assert os.path.isfile(src_path) and os.path.isfile(trg_path)
+        assert os.path.isfile(src_path) and os.path.isfile(tgt_path)
 
         log.info(f"\t=> Processing from '{ds.source_data}'...")
         src_lines = read_file_lines(src_path)
-        trg_lines = read_file_lines(trg_path)
-        if len(src_lines) != len(trg_lines):
+        tgt_lines = read_file_lines(tgt_path)
+        if len(src_lines) != len(tgt_lines):
             # zip would silently truncate; raw files must be aligned line-for-line.
             raise ValueError(
-                f"Raw source/target line count mismatch for '{ds.id(as_path=True)}': "
-                f"{len(src_lines)} ({src_path}) vs {len(trg_lines)} ({trg_path})"
+                f"Raw source/target line count mismatch for '{ds.base_id(as_path=True)}': "
+                f"{len(src_lines)} ({src_path}) vs {len(tgt_lines)} ({tgt_path})"
             )
-        lines = list(zip(src_lines, trg_lines))
+        lines = list(zip(src_lines, tgt_lines))
 
         _, val_size, test_size = ds.splits_sizes
         val_size = parse_split_size(val_size, max_ds_size=len(lines))
@@ -365,12 +371,12 @@ class DatasetBuilder:
     def _create_reduced_versions(self, force_overwrite):
         log.info("=> Creating reduced versions...")
         for ds in self.ds_list_parents:
-            if ds.id()[2] == self.REF_SIZE_NAME:
+            if ds.base_id()[2] == self.REF_SIZE_NAME:
                 continue  # The reference dataset itself; nothing to reduce.
 
-            ref_id_parts = ds.id()[0], ds.id()[1], self.REF_SIZE_NAME
+            ref_id_parts = ds.base_id()[0], ds.base_id()[1], self.REF_SIZE_NAME
             make_dir(ds.get_split_path())
-            log.info(f"\t=> Creating reduced version: {ds.id(as_path=True)}")
+            log.info(f"\t=> Creating reduced version: {ds.base_id(as_path=True)}")
 
             for fname in ds.get_split_fnames():
                 ref_filename = os.path.join(self.base_path, *ref_id_parts,
@@ -404,7 +410,7 @@ class DatasetBuilder:
             return
 
         make_dir([ds.get_pretok_path()])
-        log.info(f"\t- Pretokenizing splits: {ds.id(as_path=True)}")
+        log.info(f"\t- Pretokenizing splits: {ds.base_id(as_path=True)}")
         for fname in ds.get_split_fnames():
             log.info(f"\t\t- Pretokenizing split file: {fname}...")
             lang = fname.split(".")[1]
@@ -417,7 +423,7 @@ class DatasetBuilder:
     def _train_tokenizer(self, force_overwrite):
         log.info(f"=> Building vocabularies...")
         for ds in self.ds_list:
-            log.info(f"\t- Building vocabulary: {ds.id2(as_path=True)}")
+            log.info(f"\t- Building vocabulary: {ds.variant_id(as_path=True)}")
             make_dir([ds.get_vocab_path(), ds.get_pretok_path()])
 
             if is_no_model(ds.subword_model):
@@ -448,7 +454,7 @@ class DatasetBuilder:
                 continue
 
             make_dir([ds.get_encoded_path()])
-            log.info(f"\t- Encoding dataset: {ds.id2(as_path=True)}")
+            log.info(f"\t- Encoding dataset: {ds.variant_id(as_path=True)}")
             for fname in ds.get_split_fnames():
                 lang = fname.split('.')[-1]
                 input_file = (ds.get_pretok_path(fname) if ds.pretok_flag
@@ -470,7 +476,7 @@ class DatasetBuilder:
         for ds in self.ds_list:
             if is_no_model(ds.subword_model):
                 continue
-            log.info(f"\t- Exporting frequency vocab: {ds.id2(as_path=True)}")
+            log.info(f"\t- Exporting frequency vocab: {ds.variant_id(as_path=True)}")
             vocab_builder.export_frequencies(
                 ds, force_overwrite=force_overwrite, normalize_freq=normalize_freq,
             )
@@ -482,7 +488,7 @@ class DatasetBuilder:
         log.info(f"=> Computing stats... (base_path={self.base_path})")
 
         for ds in self.ds_list:
-            log.info(f"\t- Computing stats for dataset: {ds.id2(as_path=True)}")
+            log.info(f"\t- Computing stats for dataset: {ds.variant_id(as_path=True)}")
             make_dir(ds.get_stats_path())
 
             savepath = ds.get_stats_path("stats.json")
@@ -494,7 +500,7 @@ class DatasetBuilder:
                 log.info(json.dumps(stats, indent=4))
 
 
-def merge_datasets(builder: DatasetBuilder, name="europarl", language_pair="xx-yy",
+def merge_datasets(builder: DatasetBuilder, name, language_pair="xx-yy",
                    dataset_size_name="original", shuffle_lines=False,
                    use_preprocessed_splits=False, preprocess_fn=None,
                    force_overwrite=False):
@@ -516,49 +522,49 @@ def merge_datasets(builder: DatasetBuilder, name="europarl", language_pair="xx-y
 
     if not force_overwrite and all(os.path.exists(ds.get_split_path(f))
                                    for f in ds.get_split_fnames()):
-        log.info(f"\t=> Merged dataset already exist for '{ds.id(as_path=True)}'")
+        log.info(f"\t=> Merged dataset already exist for '{ds.base_id(as_path=True)}'")
         return
 
-    src_train, trg_train = [], []
-    src_val, trg_val = [], []
-    src_test, trg_test = [], []
+    src_train, tgt_train = [], []
+    src_val, tgt_val = [], []
+    src_test, tgt_test = [], []
 
     for ds_i in builder.get_train_ds():
-        log.info(f"\t- Reading dataset: {ds_i.id2(as_path=True)}")
+        log.info(f"\t- Reading dataset: {ds_i.variant_id(as_path=True)}")
         path_fn = (ds_i.get_splits_preprocessed_path if use_preprocessed_splits
                    else ds_i.get_split_path)
 
         def _read(split, lang):
             return read_file_lines(path_fn(fname=f"{split}.{lang}"), autoclean=False)
 
-        src_tr, trg_tr = _read(ds_i.train_name, ds_i.src_lang), _read(ds_i.train_name, ds_i.trg_lang)
-        src_vl, trg_vl = _read(ds_i.val_name, ds_i.src_lang),   _read(ds_i.val_name, ds_i.trg_lang)
-        src_ts, trg_ts = _read(ds_i.test_name, ds_i.src_lang),  _read(ds_i.test_name, ds_i.trg_lang)
-        assert len(src_tr) == len(trg_tr)
-        assert len(src_vl) == len(trg_vl)
-        assert len(src_ts) == len(trg_ts)
+        src_tr, tgt_tr = _read(ds_i.train_name, ds_i.src_lang), _read(ds_i.train_name, ds_i.tgt_lang)
+        src_vl, tgt_vl = _read(ds_i.val_name, ds_i.src_lang),   _read(ds_i.val_name, ds_i.tgt_lang)
+        src_ts, tgt_ts = _read(ds_i.test_name, ds_i.src_lang),  _read(ds_i.test_name, ds_i.tgt_lang)
+        assert len(src_tr) == len(tgt_tr)
+        assert len(src_vl) == len(tgt_vl)
+        assert len(src_ts) == len(tgt_ts)
 
         if preprocess_fn:
-            src_tr, trg_tr = preprocess_fn(x=src_tr, y=trg_tr, ds=ds_i)
-            src_vl, trg_vl = preprocess_fn(x=src_vl, y=trg_vl, ds=ds_i)
-            src_ts, trg_ts = preprocess_fn(x=src_ts, y=trg_ts, ds=ds_i)
+            src_tr, tgt_tr = preprocess_fn(x=src_tr, y=tgt_tr, ds=ds_i)
+            src_vl, tgt_vl = preprocess_fn(x=src_vl, y=tgt_vl, ds=ds_i)
+            src_ts, tgt_ts = preprocess_fn(x=src_ts, y=tgt_ts, ds=ds_i)
 
-        src_train += src_tr; trg_train += trg_tr
-        src_val += src_vl;   trg_val += trg_vl
-        src_test += src_ts;  trg_test += trg_ts
+        src_train += src_tr; tgt_train += tgt_tr
+        src_val += src_vl;   tgt_val += tgt_vl
+        src_test += src_ts;  tgt_test += tgt_ts
 
     if shuffle_lines:
         log.info(f"\t- Shuffling lines...")
-        src_train, trg_train = shuffle_in_order(src_train, trg_train)
-        src_val, trg_val = shuffle_in_order(src_val, trg_val)
-        src_test, trg_test = shuffle_in_order(src_test, trg_test)
+        src_train, tgt_train = shuffle_in_order(src_train, tgt_train)
+        src_val, tgt_val = shuffle_in_order(src_val, tgt_val)
+        src_test, tgt_test = shuffle_in_order(src_test, tgt_test)
 
     make_dir(ds.get_split_path())
-    for src_lines, trg_lines, fname in (
-        (src_train, trg_train, ds.train_name),
-        (src_val, trg_val, ds.val_name),
-        (src_test, trg_test, ds.test_name),
+    for src_lines, tgt_lines, fname in (
+        (src_train, tgt_train, ds.train_name),
+        (src_val, tgt_val, ds.val_name),
+        (src_test, tgt_test, ds.test_name),
     ):
         write_file_lines(src_lines, ds.get_split_path(f"{fname}.{ds.src_lang}"))
-        write_file_lines(trg_lines, ds.get_split_path(f"{fname}.{ds.trg_lang}"))
-        log.info(f"\t\t- Partitions saved: {fname}.{ds.src_lang} and {fname}.{ds.trg_lang}")
+        write_file_lines(tgt_lines, ds.get_split_path(f"{fname}.{ds.tgt_lang}"))
+        log.info(f"\t\t- Partitions saved: {fname}.{ds.src_lang} and {fname}.{ds.tgt_lang}")

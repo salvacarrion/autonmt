@@ -56,7 +56,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -69,7 +69,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     # 2. Build the dataset: trains a SentencePiece BPE-4000 tokenizer and
@@ -93,14 +93,14 @@ def main():
     test_datasets = builder.get_test_ds()
 
     # 3. Train one tiny Transformer on the (de→en) cell.
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
-    model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
+    model = Transformer.from_vocabs(src_vocab, tgt_vocab)
 
     # `from_dataset` resolves runs_dir + run_name from the dataset variant, so
     # checkpoints and logs land under `datasets/01_hello/<...>/models/autonmt/runs/<run>`.
     trainer = AutonmtTranslator.from_dataset(
         train_ds, model=model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         run_prefix="hello",
     )
 

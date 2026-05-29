@@ -65,8 +65,8 @@ class DatasetLayout:
         self.dataset_name = dataset_name
         self.dataset_lang_pair = dataset_lang_pair
         self.dataset_size_name = dataset_size_name
-        self.src_lang, self.trg_lang = dataset_lang_pair.split("-")
-        self.langs = (self.src_lang, self.trg_lang)
+        self.src_lang, self.tgt_lang = dataset_lang_pair.split("-")
+        self.langs = (self.src_lang, self.tgt_lang)
 
         self.subword_model = subword_model
         self.vocab_size = str(vocab_size).lower() if vocab_size else vocab_size
@@ -110,7 +110,7 @@ class DatasetLayout:
     def split_names_lang(self) -> List[str]:
         return [f"{name}.{lang}" for name in self.split_names for lang in self.langs]
 
-    def id(self, as_path: bool = False):
+    def base_id(self, as_path: bool = False):
         t = (self.dataset_name, self.dataset_lang_pair, self.dataset_size_name)
         return os.path.join(*t) if as_path else t
 
@@ -124,8 +124,8 @@ class DatasetLayout:
             sw = f"{sw}+bytes"
         return (sw, str(self.vocab_size))
 
-    def id2(self, as_path: bool = False):
-        t = list(self.id()) + list(self.vocab_size_id())
+    def variant_id(self, as_path: bool = False):
+        t = list(self.base_id()) + list(self.vocab_size_id())
         return os.path.join(*t) if as_path else t
 
     def get_run_name(self, run_prefix: str) -> str:
@@ -137,7 +137,7 @@ class DatasetLayout:
     # --- Paths -----------------------------------------------------------
 
     def _path(self, *parts: str) -> str:
-        return os.path.join(self.base_path, *self.id(), *parts)
+        return os.path.join(self.base_path, *self.base_id(), *parts)
 
     def get_path(self) -> str:
         return self._path()
@@ -171,7 +171,7 @@ class DatasetLayout:
     def get_vocab_file(self, lang: Optional[str] = None) -> Optional[str]:
         if not has_vocab(self.subword_model):
             return None
-        lang_tag = f"{self.src_lang}-{self.trg_lang}" if self.merge_vocabs else lang
+        lang_tag = f"{self.src_lang}-{self.tgt_lang}" if self.merge_vocabs else lang
         return self._path(self.vocab_path, *self.vocab_size_id(), f"{lang_tag}")
 
     def get_toolkit_path(self, toolkit: str, fname: str = "") -> str:
@@ -232,7 +232,7 @@ class Dataset(DatasetLayout):
         self.source_data = None  # set later by DatasetBuilder
 
     def __str__(self) -> str:
-        parts = list(self.id())
+        parts = list(self.base_id())
         if not self.parent_ds:
             parts += [str(self.subword_model), str(self.vocab_size)]
         return '_'.join(parts).lower()
@@ -253,23 +253,23 @@ class Dataset(DatasetLayout):
 
     def get_raw_fnames(self) -> Tuple[str, str]:
         raw_files = [f for f in os.listdir(self.get_raw_path())
-                     if f[-2:] in {self.src_lang, self.trg_lang}]
+                     if f[-2:] in {self.src_lang, self.tgt_lang}]
 
         if len(raw_files) != 2:
             raise ValueError(f"Invalid number of raw files. Found '{len(raw_files)}' files when expecting 2.")
 
-        src_path, trg_path = None, None
+        src_path, tgt_path = None, None
         for filename in raw_files:
             ext = filename[-2:].lower()
             if ext == self.src_lang and src_path is None:
                 src_path = self.get_raw_path(fname=filename)
-            elif ext == self.trg_lang and trg_path is None:
-                trg_path = self.get_raw_path(fname=filename)
+            elif ext == self.tgt_lang and tgt_path is None:
+                tgt_path = self.get_raw_path(fname=filename)
             else:
                 raise ValueError(f"Invalid file extension '{ext}' for file '{filename}'")
-        assert os.path.isfile(src_path) and os.path.isfile(trg_path)
+        assert os.path.isfile(src_path) and os.path.isfile(tgt_path)
 
-        return os.path.basename(src_path), os.path.basename(trg_path)
+        return os.path.basename(src_path), os.path.basename(tgt_path)
 
     def has_raw_files(self, verbose: bool = True):
         if not os.path.exists(self.get_raw_path()):
@@ -337,12 +337,12 @@ class Dataset(DatasetLayout):
     # --- Vocab builders --------------------------------------------------
 
     def build_vocabs(self, max_tokens=None, **kwargs):
-        """Build the src/trg vocabularies for this dataset variant.
+        """Build the src/tgt vocabularies for this dataset variant.
 
-        Returns ``(src_vocab, trg_vocab)``. When ``self.merge_vocabs`` is True,
+        Returns ``(src_vocab, tgt_vocab)``. When ``self.merge_vocabs`` is True,
         both entries are the same shared :class:`Vocabulary` instance (loaded
         from the joint vocab file), so the caller can still write
-        ``src_vocab, trg_vocab = ds.build_vocabs(...)`` without special-casing.
+        ``src_vocab, tgt_vocab = ds.build_vocabs(...)`` without special-casing.
 
         ``max_tokens`` and any extra ``**kwargs`` are forwarded to the
         :class:`Vocabulary` constructor.
@@ -356,9 +356,9 @@ class Dataset(DatasetLayout):
 
         src_vocab = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
             ds=self, lang=self.src_lang)
-        trg_vocab = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
-            ds=self, lang=self.trg_lang)
-        return src_vocab, trg_vocab
+        tgt_vocab = Vocabulary(max_tokens=max_tokens, **kwargs).build_from_ds(
+            ds=self, lang=self.tgt_lang)
+        return src_vocab, tgt_vocab
 
     # --- Vocab consistency ----------------------------------------------
 
@@ -377,14 +377,14 @@ class Dataset(DatasetLayout):
         if custom_vocabs:
             num_expected_files = len(default_extensions) * (1 if self.merge_vocabs else 2)
         else:
-            lang_files = ([f"{self.src_lang}-{self.trg_lang}"] if self.merge_vocabs
-                          else [self.src_lang, self.trg_lang])
+            lang_files = ([f"{self.src_lang}-{self.tgt_lang}"] if self.merge_vocabs
+                          else [self.src_lang, self.tgt_lang])
             expected_files = [f"{self.get_vocab_file(lang=lang)}.{ext}"
                               for lang in lang_files for ext in default_extensions]
             missing_files = [os.path.split(f)[1] for f in expected_files if not os.path.exists(f)]
             if missing_files:
                 raise ValueError(
-                    f"=> [ERROR CAPTURED]: Missing vocab files for dataset '{self.id(as_path=True)}': "
+                    f"=> [ERROR CAPTURED]: Missing vocab files for dataset '{self.base_id(as_path=True)}': "
                     f"{missing_files}\n\t- Vocab path: {vocab_path}"
                 )
             num_expected_files = len(expected_files)
@@ -392,7 +392,7 @@ class Dataset(DatasetLayout):
         existing_files = [os.path.join(vocab_path, f) for f in os.listdir(vocab_path)
                           if f.endswith(tuple(default_extensions))]
         if len(existing_files) != num_expected_files:
-            msg = (f"Incorrect number of vocab files for dataset '{self.id(as_path=True)}'. "
+            msg = (f"Incorrect number of vocab files for dataset '{self.base_id(as_path=True)}'. "
                    f"Expected {num_expected_files}, found {len(existing_files)}."
                    f"\n\t- Reason: This can lead to potential vocabulary mismatches during training."
                    f"\n\t- Vocab path: {vocab_path}")

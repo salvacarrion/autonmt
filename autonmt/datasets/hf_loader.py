@@ -10,7 +10,7 @@ Convenience for new users so they can do::
         dataset_name="multi30k",
         lang_pair="de-en",
         src_field="de",
-        trg_field="en",
+        tgt_field="en",
     )
 
 …and immediately point a ``DatasetBuilder`` at ``datasets/multi30k``.
@@ -43,7 +43,7 @@ def download_hf_dataset(
     dataset_name: str,
     lang_pair: str,
     src_field: str,
-    trg_field: str,
+    tgt_field: str,
     *,
     size_name: str = "original",
     hf_config: Optional[str] = None,
@@ -57,8 +57,8 @@ def download_hf_dataset(
         hf_id: HuggingFace dataset identifier (e.g. ``"bentrevett/multi30k"``).
         base_path: Root where AutoNMT writes datasets.
         dataset_name: Folder name under ``base_path``.
-        lang_pair: ``"src-trg"`` (e.g. ``"de-en"``); also drives the file extensions.
-        src_field, trg_field: Keys inside each HF example holding the parallel text.
+        lang_pair: ``"src-tgt"`` (e.g. ``"de-en"``); also drives the file extensions.
+        src_field, tgt_field: Keys inside each HF example holding the parallel text.
             For nested dicts (e.g. ``{"translation": {"de": ..., "en": ...}}``) pass
             the leaf key — see ``split_map`` for the column path.
         size_name: Sub-folder (AutoNMT supports multiple sizes per dataset).
@@ -77,7 +77,7 @@ def download_hf_dataset(
     _require_datasets()
     from datasets import load_dataset
 
-    src_lang, trg_lang = lang_pair.split("-")
+    src_lang, tgt_lang = lang_pair.split("-")
     split_map = split_map or {"train": "train", "val": "validation", "test": "test"}
 
     out_dir = os.path.join(base_path, dataset_name, lang_pair, size_name)
@@ -94,25 +94,25 @@ def download_hf_dataset(
             continue
 
         src_file = os.path.join(splits_dir, f"{autonmt_split}.{src_lang}")
-        trg_file = os.path.join(splits_dir, f"{autonmt_split}.{trg_lang}")
-        if not force_overwrite and os.path.exists(src_file) and os.path.exists(trg_file):
+        tgt_file = os.path.join(splits_dir, f"{autonmt_split}.{tgt_lang}")
+        if not force_overwrite and os.path.exists(src_file) and os.path.exists(tgt_file):
             log.info(f"\t- '{autonmt_split}' already exists, skipping")
             continue
 
-        log.info(f"\t- Writing '{autonmt_split}' ({src_lang}/{trg_lang})...")
+        log.info(f"\t- Writing '{autonmt_split}' ({src_lang}/{tgt_lang})...")
         src_lines = _extract_field(ds[hf_split], src_field)
-        trg_lines = _extract_field(ds[hf_split], trg_field)
-        if len(src_lines) != len(trg_lines):
+        tgt_lines = _extract_field(ds[hf_split], tgt_field)
+        if len(src_lines) != len(tgt_lines):
             raise ValueError(
                 f"Misaligned parallel data in '{hf_split}': "
-                f"{len(src_lines)} src vs {len(trg_lines)} trg")
+                f"{len(src_lines)} src vs {len(tgt_lines)} tgt")
 
         if autonmt_split == "train" and max_train_lines:
             src_lines = src_lines[:max_train_lines]
-            trg_lines = trg_lines[:max_train_lines]
+            tgt_lines = tgt_lines[:max_train_lines]
 
         write_file_lines(src_lines, filename=src_file, insert_break_line=True)
-        write_file_lines(trg_lines, filename=trg_file, insert_break_line=True)
+        write_file_lines(tgt_lines, filename=tgt_file, insert_break_line=True)
         log.info(f"\t  ↳ {len(src_lines):,} pairs written")
 
     log.info(f"=> Done. AutoNMT layout ready at: {out_dir}")

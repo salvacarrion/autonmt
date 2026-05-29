@@ -24,12 +24,12 @@ class ConvS2S(LitSeq2Seq):
         so a true incremental path would need a per-layer rolling buffer of
         size K-1 (the "linearized convolution" trick used by fairseq), plus a
         step counter to drive ``decoder_pos_embedding`` without re-deriving
-        it from ``trg_len``. Search algorithms therefore fall back to the
+        it from ``tgt_len``. Search algorithms therefore fall back to the
         legacy full-prefix path — O(L^2) work per sentence, but correct.
     """
 
     def __init__(self,
-                 src_vocab_size, trg_vocab_size,
+                 src_vocab_size, tgt_vocab_size,
                  encoder_kernel_size=3,
                  decoder_kernel_size=3,
                  encoder_embed_dim=256,
@@ -41,10 +41,10 @@ class ConvS2S(LitSeq2Seq):
                  encoder_dropout=0.25,
                  decoder_dropout=0.25,
                  max_src_positions=100,
-                 max_trg_positions=100,
+                 max_tgt_positions=100,
                  padding_idx=None,
                  **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, architecture="convolutional", **kwargs)
+        super().__init__(src_vocab_size, tgt_vocab_size, padding_idx, architecture="convolutional", **kwargs)
         self.encoder_kernel_size = encoder_kernel_size
         self.decoder_kernel_size = decoder_kernel_size
         self.encoder_embed_dim = encoder_embed_dim
@@ -56,7 +56,7 @@ class ConvS2S(LitSeq2Seq):
         self.encoder_dropout = encoder_dropout
         self.decoder_dropout = decoder_dropout
         self.max_src_positions = max_src_positions
-        self.max_trg_positions = max_trg_positions
+        self.max_tgt_positions = max_tgt_positions
 
         assert encoder_kernel_size % 2 == 1, "Kernel size must be odd!"
         assert decoder_kernel_size % 2 == 1, "Kernel size must be odd!"
@@ -76,8 +76,8 @@ class ConvS2S(LitSeq2Seq):
 
         # Decoder
         self.decoder_scale = math.sqrt(0.5)
-        self.decoder_tok_embedding = nn.Embedding(trg_vocab_size, decoder_embed_dim)
-        self.decoder_pos_embedding = nn.Embedding(max_trg_positions, decoder_embed_dim)
+        self.decoder_tok_embedding = nn.Embedding(tgt_vocab_size, decoder_embed_dim)
+        self.decoder_pos_embedding = nn.Embedding(max_tgt_positions, decoder_embed_dim)
         self.decoder_emb2hid = nn.Linear(decoder_embed_dim, decoder_hidden_dim)
         self.decoder_hid2emb = nn.Linear(decoder_hidden_dim, decoder_embed_dim)
         self.decoder_attn_hid2emb = nn.Linear(decoder_hidden_dim, decoder_embed_dim)
@@ -87,7 +87,7 @@ class ConvS2S(LitSeq2Seq):
                                               kernel_size=decoder_kernel_size)
                                     for _ in range(decoder_layers)])
         self.decoder_dropout = nn.Dropout(decoder_dropout)
-        self.output_layer = nn.Linear(decoder_embed_dim, trg_vocab_size)
+        self.output_layer = nn.Linear(decoder_embed_dim, tgt_vocab_size)
 
 
     def forward_encoder(self, x, x_len, **kwargs):
@@ -135,15 +135,15 @@ class ConvS2S(LitSeq2Seq):
         return attention, attended_combined
 
     def forward_decoder(self, y, y_len, states, **kwargs):
-        assert y.shape[1] <= self.max_trg_positions
+        assert y.shape[1] <= self.max_tgt_positions
         batch_size = y.shape[0]
-        trg_len = y.shape[1]
+        tgt_len = y.shape[1]
         encoder_conved, encoder_combined = states
 
         # Create position tensor: (1...len) x batch size => (B, len)
-        pos = torch.arange(0, trg_len).unsqueeze(0).repeat(batch_size, 1).to(y.device)
+        pos = torch.arange(0, tgt_len).unsqueeze(0).repeat(batch_size, 1).to(y.device)
 
-        # Encode trg
+        # Encode tgt
         y_pos = self.decoder_pos_embedding(pos)  # (B, L, emb dim)
         y_emb = self.decoder_tok_embedding(y)  # (B, L, emb dim)
         y_emb = self.decoder_dropout(y_emb + y_pos)  # (B, L, emb dim)

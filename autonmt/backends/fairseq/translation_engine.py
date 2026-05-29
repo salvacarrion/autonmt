@@ -177,7 +177,7 @@ class FairseqTranslator(BaseTranslator):
 
         warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
-        super().__init__(engine="fairseq", **kwargs)
+        super().__init__(**kwargs)
         self.wandb_params = wandb_params
         self.data_bin_name = "data-bin"
 
@@ -186,25 +186,25 @@ class FairseqTranslator(BaseTranslator):
         # pipeline handles decode + src/ref materialization.
         self._spm = SPMTranslatePipeline(
             layout=self._layout, src_vocab=self.src_vocab,
-            trg_vocab=self.trg_vocab, test_subsets=self.test_subsets,
+            tgt_vocab=self.tgt_vocab, test_subsets=self.test_subsets,
         )
 
     # --- Backend hooks --------------------------------------------------
 
     def _get_lang_pair(self):
-        return self.src_vocab.lang, self.trg_vocab.lang
+        return self.src_vocab.lang, self.tgt_vocab.lang
 
     def _get_run_metadata(self) -> RunMetadata:
         """Fairseq doesn't expose a Python model object on ``self`` (it
         shells out to the CLI), so we report what we can derive from the
         vocabs and leave the model fields empty."""
-        src_vocab, trg_vocab = self.src_vocab, self.trg_vocab
-        if src_vocab is None or trg_vocab is None:
+        src_vocab, tgt_vocab = self.src_vocab, self.tgt_vocab
+        if src_vocab is None or tgt_vocab is None:
             return RunMetadata()
 
-        assert src_vocab.subword_model == trg_vocab.subword_model
-        if len(src_vocab) != len(trg_vocab):
-            vocab_size = f"{len(src_vocab)}/{len(trg_vocab)}"
+        assert src_vocab.subword_model == tgt_vocab.subword_model
+        if len(src_vocab) != len(tgt_vocab):
+            vocab_size = f"{len(src_vocab)}/{len(tgt_vocab)}"
         else:
             vocab_size = len(src_vocab)
 
@@ -216,7 +216,7 @@ class FairseqTranslator(BaseTranslator):
             vocab__subword_model=src_vocab.subword_model,
             vocab__size=vocab_size,
             vocab__merged=vocab_merged,
-            vocab__lang_pair=f"{src_vocab.lang}-{trg_vocab.lang}",
+            vocab__lang_pair=f"{src_vocab.lang}-{tgt_vocab.lang}",
         )
 
     # --- preprocess (train-side) ---------------------------------------
@@ -225,9 +225,9 @@ class FairseqTranslator(BaseTranslator):
         """Build the train-side data-bin. Called at the start of ``_train``."""
         self._build_data_bin(
             ds=ds, output_path=None,
-            src_lang=ds.src_lang, trg_lang=ds.trg_lang,
+            src_lang=ds.src_lang, tgt_lang=ds.tgt_lang,
             src_vocab_path=ds.get_vocab_file(lang=ds.src_lang),
-            trg_vocab_path=ds.get_vocab_file(lang=ds.trg_lang),
+            tgt_vocab_path=ds.get_vocab_file(lang=ds.tgt_lang),
             train_path=ds.get_encoded_path(fname=ds.train_name),
             val_path=ds.get_encoded_path(fname=ds.val_name),
             test_path=ds.get_encoded_path(fname=ds.test_name),
@@ -235,21 +235,21 @@ class FairseqTranslator(BaseTranslator):
             force_overwrite=True,  # gated by caller via skip-if-exists
         )
 
-    def _prepare_eval_data(self, *, ds, src_lang, trg_lang,
-                           src_vocab_path, trg_vocab_path,
+    def _prepare_eval_data(self, *, ds, src_lang, tgt_lang,
+                           src_vocab_path, tgt_vocab_path,
                            test_path, output_path, force_overwrite, **_):
         """Build the eval-side data-bin. Called by SPMTranslatePipeline."""
         self._build_data_bin(
             ds=ds, output_path=output_path,
-            src_lang=src_lang, trg_lang=trg_lang,
-            src_vocab_path=src_vocab_path, trg_vocab_path=trg_vocab_path,
+            src_lang=src_lang, tgt_lang=tgt_lang,
+            src_vocab_path=src_vocab_path, tgt_vocab_path=tgt_vocab_path,
             train_path=None, val_path=None, test_path=test_path,
             apply2test=True,
             force_overwrite=force_overwrite,
         )
 
-    def _build_data_bin(self, ds, output_path, src_lang, trg_lang,
-                        src_vocab_path, trg_vocab_path,
+    def _build_data_bin(self, ds, output_path, src_lang, tgt_lang,
+                        src_vocab_path, tgt_vocab_path,
                         train_path, val_path, test_path,
                         apply2test, force_overwrite):
         # Build data-bin output path.
@@ -268,7 +268,7 @@ class FairseqTranslator(BaseTranslator):
                 return
 
         new_src_vocab_path = self._reformat_vocab(src_vocab_path, src_lang, output_path)
-        new_trg_vocab_path = self._reformat_vocab(trg_vocab_path, trg_lang, output_path)
+        new_tgt_vocab_path = self._reformat_vocab(tgt_vocab_path, tgt_lang, output_path)
 
         # Fairseq always wants a trainpref, even at eval time.
         if apply2test:
@@ -276,7 +276,7 @@ class FairseqTranslator(BaseTranslator):
 
         input_args = [
             "--source-lang", src_lang,
-            "--target-lang", trg_lang,
+            "--target-lang", tgt_lang,
             "--trainpref", train_path,
             "--testpref", test_path,
             "--destdir", output_path,
@@ -285,8 +285,8 @@ class FairseqTranslator(BaseTranslator):
             input_args += ["--validpref", val_path]
         if new_src_vocab_path:
             input_args += ["--srcdict", new_src_vocab_path]
-        if new_trg_vocab_path:
-            input_args += ["--tgtdict", new_trg_vocab_path]
+        if new_tgt_vocab_path:
+            input_args += ["--tgtdict", new_tgt_vocab_path]
 
         input_args = self._flatten_cli(input_args)
 
@@ -357,9 +357,9 @@ class FairseqTranslator(BaseTranslator):
 
     # --- translate ------------------------------------------------------
 
-    def _translate(self, ds, data_path, output_path, src_lang, trg_lang, beam_width,
+    def _translate(self, ds, data_path, output_path, src_lang, tgt_lang, beam_width,
                    max_len_a, max_len_b, batch_size, max_tokens,
-                   checkpoints_dir, model_src_vocab_path, model_trg_vocab_path,
+                   checkpoints_dir, model_src_vocab_path, model_tgt_vocab_path,
                    **kwargs):
         if kwargs.get('devices'):
             log.warning("\t\t- 'devices' will be ignored when using Fairseq")
@@ -371,7 +371,7 @@ class FairseqTranslator(BaseTranslator):
         input_args = [data_bin_path]
         input_args += [
             "--source-lang", src_lang,
-            "--target-lang", trg_lang,
+            "--target-lang", tgt_lang,
             "--path", os.path.join(checkpoints_dir, "checkpoint_best.pt"),
             "--results-path", output_path,
             "--beam", beam_width,

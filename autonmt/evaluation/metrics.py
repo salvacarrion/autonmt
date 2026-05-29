@@ -80,7 +80,7 @@ _SACREBLEU_METRICS = {
 
 
 def score_sacrebleu(hyp_lines, ref_lines, metrics: Iterable[str],
-                    trg_lang: str = "", tokenize=None) -> List[dict]:
+                    tgt_lang: str = "", tokenize=None) -> List[dict]:
     """Public scorer used both by the eval pipeline and by validation-time BLEU
     inside ``LitSeq2Seq``. Returns the list-of-dicts shape sacrebleu produces."""
     scores = []
@@ -88,7 +88,9 @@ def score_sacrebleu(hyp_lines, ref_lines, metrics: Iterable[str],
         cls = _SACREBLEU_METRICS.get(name)
         if cls is None:
             continue
-        scorer = cls(trg_lang=trg_lang, tokenize=tokenize) if name == "bleu" else cls()
+        # NOTE: sacrebleu's BLEU kwarg is spelled ``trg_lang`` (external API);
+        # don't rename it to match our internal ``tgt_lang`` variable.
+        scorer = cls(trg_lang=tgt_lang, tokenize=tokenize) if name == "bleu" else cls()
         d = scorer.corpus_score(hyp_lines, [ref_lines]).__dict__
         d["signature"] = str(scorer.get_signature())
         scores.append(d)
@@ -178,9 +180,9 @@ def _compute_sacrebleu(*, ref_file, hyp_file, output_file, metrics, **_):
     fileio.save_json(score_sacrebleu(hyp, ref, metrics=metrics), output_file)
 
 
-def _compute_bertscore(*, ref_file, hyp_file, output_file, trg_lang, **_):
+def _compute_bertscore(*, ref_file, hyp_file, output_file, tgt_lang, **_):
     ref, hyp = _read_aligned(ref_file, hyp_file)
-    fileio.save_json(_score_bertscore(hyp, ref, lang=trg_lang), output_file)
+    fileio.save_json(_score_bertscore(hyp, ref, lang=tgt_lang), output_file)
 
 
 def _compute_comet(*, src_file, ref_file, hyp_file, output_file, **_):
@@ -216,7 +218,7 @@ class MetricBackend:
     Attributes:
         name:        identifier used in paths and registry lookup.
         metrics:     metric names this backend can compute (e.g. {"bleu","chrf","ter"}).
-        compute_fn:  ``(*, ref_file, hyp_file, src_file?, output_file, metrics?, trg_lang?) -> None``.
+        compute_fn:  ``(*, ref_file, hyp_file, src_file?, output_file, metrics?, tgt_lang?) -> None``.
                      Writes the score artifact to ``output_file``.
         parse_fn:    ``(text_lines) -> {metric_name: {field_name: value}}``.
         output_ext:  artifact extension (``json``/``txt``).
@@ -278,10 +280,15 @@ def _build_registry():
 
 METRIC_BACKENDS: Dict[str, MetricBackend] = _build_registry()
 
+# Reverse index (metric name -> owning backend), built once from the registry.
+_METRIC_TO_BACKEND: Dict[str, MetricBackend] = {
+    m: b for b in METRIC_BACKENDS.values() for m in b.metrics
+}
+
 
 def metric_to_backend() -> Dict[str, MetricBackend]:
     """Reverse index: each metric name -> the backend that owns it."""
-    return {m: b for b in METRIC_BACKENDS.values() for m in b.metrics}
+    return _METRIC_TO_BACKEND
 
 
 def resolve_backends(metrics: Iterable[str]) -> Dict[MetricBackend, Set[str]]:
@@ -291,7 +298,7 @@ def resolve_backends(metrics: Iterable[str]) -> Dict[MetricBackend, Set[str]]:
     Returns ``{backend: {metric_names_for_that_backend}}``.
     """
     grouped: Dict[MetricBackend, Set[str]] = {}
-    reverse = metric_to_backend()
+    reverse = _METRIC_TO_BACKEND
     hg = METRIC_BACKENDS["huggingface"]
     for m in metrics:
         if m.startswith("hg_"):

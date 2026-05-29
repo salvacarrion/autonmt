@@ -55,7 +55,7 @@ class SPMTranslateContext:
     dst_encoded_path: str
 
     model_src_vocab_path: Optional[str]
-    model_trg_vocab_path: Optional[str]
+    model_tgt_vocab_path: Optional[str]
 
     vocab_langs: Tuple[str, str]
     pretok_flags: Dict[str, bool] = field(default_factory=dict)
@@ -70,11 +70,11 @@ class SPMTranslateContext:
 class SPMTranslatePipeline:
     """SPM encode → backend ``_translate`` → decode round-trip."""
 
-    def __init__(self, layout: RunLayout, src_vocab, trg_vocab,
+    def __init__(self, layout: RunLayout, src_vocab, tgt_vocab,
                  test_subsets: List[Tuple[str, Optional[Callable]]]):
         self._layout = layout
         self.src_vocab = src_vocab
-        self.trg_vocab = trg_vocab
+        self.tgt_vocab = tgt_vocab
         self.test_subsets = test_subsets
 
     # --- Public entry point ---------------------------------------------
@@ -101,9 +101,9 @@ class SPMTranslatePipeline:
         translate_fn : callable
             Backend hook. Called once per (subset, beam). Signature::
 
-                translate_fn(*, data_path, output_path, src_lang, trg_lang,
+                translate_fn(*, data_path, output_path, src_lang, tgt_lang,
                              beam_width, checkpoints_dir,
-                             model_src_vocab_path, model_trg_vocab_path,
+                             model_src_vocab_path, model_tgt_vocab_path,
                              filter_idx, **kwargs) -> None
 
             Must write ``hyp.tok`` into ``output_path``. The pipeline decodes
@@ -142,7 +142,7 @@ class SPMTranslatePipeline:
         dst_encoded_path = self._layout.eval_encoded_path(str(eval_ds))
         make_dir([dst_raw_path, dst_preprocessed_path, dst_encoded_path])
 
-        src_lang, trg_lang = self.src_vocab.lang, self.trg_vocab.lang
+        src_lang, tgt_lang = self.src_vocab.lang, self.tgt_vocab.lang
         return SPMTranslateContext(
             checkpoints_dir=self._layout.checkpoints_path(),
             model_eval_path=model_eval_path,
@@ -150,14 +150,14 @@ class SPMTranslatePipeline:
             dst_preprocessed_path=dst_preprocessed_path,
             dst_encoded_path=dst_encoded_path,
             model_src_vocab_path=self.src_vocab.vocab_path,
-            model_trg_vocab_path=self.trg_vocab.vocab_path,
-            vocab_langs=(src_lang, trg_lang),
+            model_tgt_vocab_path=self.tgt_vocab.vocab_path,
+            vocab_langs=(src_lang, tgt_lang),
             pretok_flags={src_lang: self.src_vocab.pretok_flag,
-                          trg_lang: self.trg_vocab.pretok_flag},
+                          tgt_lang: self.tgt_vocab.pretok_flag},
             vocab_paths={src_lang: self.src_vocab.model_path,
-                         trg_lang: self.trg_vocab.model_path},
+                         tgt_lang: self.tgt_vocab.model_path},
             subword_models={src_lang: self.src_vocab.subword_model,
-                            trg_lang: self.trg_vocab.subword_model},
+                            tgt_lang: self.tgt_vocab.subword_model},
         )
 
     # --- Encode eval text (copy raw → preprocess → SPM encode) ----------
@@ -165,7 +165,7 @@ class SPMTranslatePipeline:
     def _encode_eval_text(self, eval_ds, ctx: SPMTranslateContext,
                           preprocess_fn, force_overwrite):
         test_fnames = [f"{eval_ds.test_name}.{eval_ds.src_lang}",
-                       f"{eval_ds.test_name}.{eval_ds.trg_lang}"]
+                       f"{eval_ds.test_name}.{eval_ds.tgt_lang}"]
         for i, ts_fname in enumerate(test_fnames):
             input_file = eval_ds.get_split_path(ts_fname)
             input_lang = ts_fname.split(".")[-1]
@@ -210,9 +210,9 @@ class SPMTranslatePipeline:
         preprocess_eval_fn(
             ds=eval_ds,
             train_path=None, val_path=None, test_path=test_path,
-            src_lang=eval_ds.src_lang, trg_lang=eval_ds.trg_lang,
+            src_lang=eval_ds.src_lang, tgt_lang=eval_ds.tgt_lang,
             src_vocab_path=ctx.model_src_vocab_path,
-            trg_vocab_path=ctx.model_trg_vocab_path,
+            tgt_vocab_path=ctx.model_tgt_vocab_path,
             apply2train=False, apply2val=False, apply2test=True,
             output_path=ctx.model_eval_path,
             force_overwrite=force_overwrite, **kwargs,
@@ -241,10 +241,10 @@ class SPMTranslatePipeline:
         translate_fn(
             ds=eval_ds,
             data_path=ctx.model_eval_path, output_path=output_path,
-            src_lang=eval_ds.src_lang, trg_lang=eval_ds.trg_lang,
+            src_lang=eval_ds.src_lang, tgt_lang=eval_ds.tgt_lang,
             beam_width=beam, checkpoints_dir=ctx.checkpoints_dir,
             model_src_vocab_path=ctx.model_src_vocab_path,
-            model_trg_vocab_path=ctx.model_trg_vocab_path,
+            model_tgt_vocab_path=ctx.model_tgt_vocab_path,
             filter_idx=filter_idx, **kwargs,
         )
 
@@ -265,7 +265,7 @@ class SPMTranslatePipeline:
 
     def _decode_hypothesis(self, ctx: SPMTranslateContext, output_path,
                             hyp_output_file, force_overwrite):
-        model_lang = self.trg_vocab.lang
+        model_lang = self.tgt_vocab.lang
         hyp_input_file = os.path.join(output_path, "hyp.tok")
         decode_file(
             input_file=hyp_input_file, output_file=hyp_output_file, lang=model_lang,
@@ -281,7 +281,7 @@ class SPMTranslatePipeline:
         src_input_file = os.path.join(ctx.dst_raw_path,
                                        f"{eval_ds.test_name}.{eval_ds.src_lang}")
         ref_input_file = os.path.join(ctx.dst_raw_path,
-                                       f"{eval_ds.test_name}.{eval_ds.trg_lang}")
+                                       f"{eval_ds.test_name}.{eval_ds.tgt_lang}")
         if not filter_fn:
             shutil.copyfile(src_input_file, src_output_file)
             shutil.copyfile(ref_input_file, ref_output_file)
@@ -289,11 +289,11 @@ class SPMTranslatePipeline:
 
         log.info(f"Filtering src/ref raw files (split='{fn_name}')...")
         src_lines = read_file_lines(filename=src_input_file, autoclean=True)
-        trg_lines = read_file_lines(filename=ref_input_file, autoclean=True)
-        src_lines, trg_lines = filter_fn(src_lines, trg_lines, from_fn="translate")
+        tgt_lines = read_file_lines(filename=ref_input_file, autoclean=True)
+        src_lines, tgt_lines = filter_fn(src_lines, tgt_lines, from_fn="translate")
         write_file_lines(filename=src_output_file, lines=src_lines,
                          autoclean=True, insert_break_line=True)
-        write_file_lines(filename=ref_output_file, lines=trg_lines,
+        write_file_lines(filename=ref_output_file, lines=tgt_lines,
                          autoclean=True, insert_break_line=True)
 
     def _postprocess_eval_files(self, eval_ds, ctx: SPMTranslateContext,
@@ -302,8 +302,8 @@ class SPMTranslatePipeline:
         # force_overwrite must be True here to rewrite src/ref/hyp in-place.
         for path, vocab_lang, lang in (
             (src_output_file, self.src_vocab.lang, eval_ds.src_lang),
-            (ref_output_file, self.trg_vocab.lang, eval_ds.trg_lang),
-            (hyp_output_file, self.trg_vocab.lang, eval_ds.trg_lang),
+            (ref_output_file, self.tgt_vocab.lang, eval_ds.tgt_lang),
+            (hyp_output_file, self.tgt_vocab.lang, eval_ds.tgt_lang),
         ):
             preprocess_predict_file(
                 input_file=path, output_file=path,

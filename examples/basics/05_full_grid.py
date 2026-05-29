@@ -57,7 +57,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -68,7 +68,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     # The grid:
@@ -102,7 +102,7 @@ def main():
 
     print(f"\n[grid] {len(tr_datasets)} variant(s) will be trained:")
     for ds in tr_datasets:
-        print(f"   - {ds.id2(as_path=True)}")
+        print(f"   - {ds.variant_id(as_path=True)}")
     print()
 
     fit_cfg = FitConfig(max_epochs=2, batch_size=128, learning_rate=1e-3, seed=42)
@@ -122,12 +122,12 @@ def main():
 
     scores = []
     for train_ds in tr_datasets:
-        src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
-        model = Transformer.from_vocabs(src_vocab, trg_vocab)
+        src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
+        model = Transformer.from_vocabs(src_vocab, tgt_vocab)
 
         trainer = AutonmtTranslator.from_dataset(
             train_ds, model=model,
-            src_vocab=src_vocab, trg_vocab=trg_vocab,
+            src_vocab=src_vocab, tgt_vocab=tgt_vocab,
             run_prefix="fullgrid",
         )
         trainer.fit(train_ds, config=fit_cfg)

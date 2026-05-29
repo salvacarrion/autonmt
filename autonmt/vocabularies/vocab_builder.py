@@ -26,8 +26,8 @@ _BYTES_SPECIAL_TOKENS = ("<unk>", "<s>", "</s>", "<pad>")
 def _lang_files(ds):
     """Vocab filename stems: one combined entry when merge_vocabs, else one per language."""
     if ds.merge_vocabs:
-        return [f"{ds.src_lang}-{ds.trg_lang}"]
-    return [ds.src_lang, ds.trg_lang]
+        return [f"{ds.src_lang}-{ds.tgt_lang}"]
+    return [ds.src_lang, ds.tgt_lang]
 
 
 def write_bytes_vocab(ds, force_overwrite):
@@ -43,16 +43,16 @@ def write_bytes_vocab(ds, force_overwrite):
 def train_spm(ds, force_overwrite, input_sentence_size, character_coverage, split_digits):
     """Train one SentencePiece model per language (or one combined if merge_vocabs)."""
     src_train = _train_input_path(ds, ds.src_lang)
-    trg_train = _train_input_path(ds, ds.trg_lang)
+    tgt_train = _train_input_path(ds, ds.tgt_lang)
 
     if ds.merge_vocabs:
         merged_path = os.path.join(ds.get_vocab_path(base=True), "_tmp",
-                                   f"{ds.train_name}.{ds.src_lang}-{ds.trg_lang}")
+                                   f"{ds.train_name}.{ds.src_lang}-{ds.tgt_lang}")
         os.makedirs(os.path.dirname(merged_path), exist_ok=True)
-        _concat_for_spm(src_train, trg_train, merged_path, force_overwrite)
-        files = [(merged_path, f"{ds.src_lang}-{ds.trg_lang}")]
+        _concat_for_spm(src_train, tgt_train, merged_path, force_overwrite)
+        files = [(merged_path, f"{ds.src_lang}-{ds.tgt_lang}")]
     else:
-        files = [(src_train, ds.src_lang), (trg_train, ds.trg_lang)]
+        files = [(src_train, ds.src_lang), (tgt_train, ds.tgt_lang)]
 
     for input_file, ext in files:
         output_file = ds.get_vocab_file(lang=ext)  # without extension
@@ -72,10 +72,10 @@ def _train_input_path(ds, lang):
     return path_fn(fname=f"{ds.train_name}.{lang}")
 
 
-def _concat_for_spm(src_path, trg_path, out_path, force_overwrite):
+def _concat_for_spm(src_path, tgt_path, out_path, force_overwrite):
     if not force_overwrite and os.path.exists(out_path):
         return
-    lines = read_file_lines(src_path, autoclean=True) + read_file_lines(trg_path, autoclean=True)
+    lines = read_file_lines(src_path, autoclean=True) + read_file_lines(tgt_path, autoclean=True)
     # spm_train_file loads the first N lines of the corpus by default; shuffle so
     # the trained vocab isn't biased toward one language's prefix.
     random.shuffle(lines)
@@ -97,21 +97,21 @@ def export_frequencies(ds, force_overwrite, normalize_freq=False):
     src_counter = build_counter_low_mem(
         ds.get_encoded_path(f"{ds.train_name}.{ds.src_lang}"),
         split_fn=lambda x: x.split(' '))
-    trg_counter = build_counter_low_mem(
-        ds.get_encoded_path(f"{ds.train_name}.{ds.trg_lang}"),
+    tgt_counter = build_counter_low_mem(
+        ds.get_encoded_path(f"{ds.train_name}.{ds.tgt_lang}"),
         split_fn=lambda x: x.split(' '))
 
     uses_spm = ds.subword_model is not SubwordModel.BYTES
     if not uses_spm:
-        counters = ([src_counter + trg_counter] if ds.merge_vocabs
-                    else [src_counter, trg_counter])
+        counters = ([src_counter + tgt_counter] if ds.merge_vocabs
+                    else [src_counter, tgt_counter])
     else:
-        per_lang = ([(src_counter + trg_counter, f"{ds.src_lang}-{ds.trg_lang}")]
+        per_lang = ([(src_counter + tgt_counter, f"{ds.src_lang}-{ds.tgt_lang}")]
                     if ds.merge_vocabs else [(src_counter, ds.src_lang),
-                                             (trg_counter, ds.trg_lang)])
+                                             (tgt_counter, ds.tgt_lang)])
         counters = []
         for counter, lang_file in per_lang:
-            spm_vocab = tokenizers.smp_read_vocab_file(
+            spm_vocab = tokenizers.spm_read_vocab_file(
                 vocab_path=ds.get_vocab_path(fname=lang_file) + ".vocab")
             counters.append(Counter({k: v for k, v in counter.items() if k in spm_vocab}))
 

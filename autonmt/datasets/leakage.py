@@ -6,7 +6,7 @@ train and test. Default is exact string match; pass ``key_fn=`` to relax it
 
 Intentionally a stand-alone utility — not wired into ``DatasetBuilder`` — so
 you call it on whatever lines you care about, with whatever policy you want
-(warn / raise / filter). For paired (src, trg) matching, join the two sides
+(warn / raise / filter). For paired (src, tgt) matching, join the two sides
 into one string and pass that as the line.
 """
 from __future__ import annotations

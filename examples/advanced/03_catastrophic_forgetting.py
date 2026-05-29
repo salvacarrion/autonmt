@@ -87,27 +87,27 @@ ALPHA = 1e-3
 # (1) Task splits via filter_fn on the encoded data
 # ---------------------------------------------------------------------------
 # `filter_fn` is called by `TranslationDataset.__init__` with (src_lines,
-# trg_lines) of *encoded* text — i.e. space-separated token IDs as strings.
+# tgt_lines) of *encoded* text — i.e. space-separated token IDs as strings.
 # We just count tokens on the source side.
-def _split_by_length(src_lines, trg_lines, keep_short: bool):
-    pairs = [(s, t) for s, t in zip(src_lines, trg_lines)
+def _split_by_length(src_lines, tgt_lines, keep_short: bool):
+    pairs = [(s, t) for s, t in zip(src_lines, tgt_lines)
              if (len(s.split()) <= LENGTH_THRESHOLD) == keep_short]
     if not pairs:
         return [], []
-    src, trg = zip(*pairs)
-    return list(src), list(trg)
+    src, tgt = zip(*pairs)
+    return list(src), list(tgt)
 
 
-def _short(src_lines, trg_lines, **_):
-    return _split_by_length(src_lines, trg_lines, keep_short=True)
+def _short(src_lines, tgt_lines, **_):
+    return _split_by_length(src_lines, tgt_lines, keep_short=True)
 
 
-def _long(src_lines, trg_lines, **_):
-    return _split_by_length(src_lines, trg_lines, keep_short=False)
+def _long(src_lines, tgt_lines, **_):
+    return _split_by_length(src_lines, tgt_lines, keep_short=False)
 
 
-def _identity(src_lines, trg_lines, **_):
-    return src_lines, trg_lines
+def _identity(src_lines, tgt_lines, **_):
+    return src_lines, tgt_lines
 
 
 # (name, fn) tuples — the `name` becomes the eval-subset label in the report.
@@ -202,7 +202,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -213,7 +213,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     builder = DatasetBuilder(
@@ -231,7 +231,7 @@ def main():
 
     train_ds = builder.get_train_ds()[0]
     test_datasets = builder.get_test_ds()
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
     pred_cfg = PredictConfig(
         metrics={"bleu"}, beams=[5],
@@ -244,9 +244,9 @@ def main():
     # (5) Phase 1 — train on Task A (short sentences) only
     # -----------------------------------------------------------------------
     print("\n=== Phase 1: train on Task A (short sentences) ===")
-    model_a = Transformer.from_vocabs(src_vocab, trg_vocab)
+    model_a = Transformer.from_vocabs(src_vocab, tgt_vocab)
     trainer_a = AutonmtTranslator(
-        model=model_a, src_vocab=src_vocab, trg_vocab=trg_vocab,
+        model=model_a, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
         run_name=train_ds.get_run_name(run_prefix="cf_taskA"),
         train_subset=TASK_A,
@@ -279,7 +279,7 @@ def main():
     train_path = train_ds.get_encoded_path(fname=train_ds.train_name)
     task_a_tds = TranslationDataset(
         file_prefix=train_path, src_lang=train_ds.src_lang,
-        trg_lang=train_ds.trg_lang, src_vocab=src_vocab, trg_vocab=trg_vocab,
+        tgt_lang=train_ds.tgt_lang, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         filter_fn=_short,
     )
     print(f"\n=== Computing Fisher on {len(task_a_tds)} Task-A examples ===")
@@ -299,14 +299,14 @@ def main():
     all_scores = [scores_a_only]  # include the Task-A-only baseline in the report
     for reg_name, reg_fn in regimes.items():
         print(f"\n=== Phase 2: fine-tune on Task B with reg={reg_name} ===")
-        model_b = Transformer.from_vocabs(src_vocab, trg_vocab)
+        model_b = Transformer.from_vocabs(src_vocab, tgt_vocab)
         model_b.load_state_dict(theta_a_full)
         # The hook is attached to the model instance; the trainer doesn't need
         # to know it exists.
         model_b.regularization_fn = reg_fn
 
         trainer_b = AutonmtTranslator(
-            model=model_b, src_vocab=src_vocab, trg_vocab=trg_vocab,
+            model=model_b, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
             runs_dir=train_ds.get_runs_path(toolkit="autonmt"),
             run_name=train_ds.get_run_name(run_prefix=f"cf_taskB_{reg_name}"),
             train_subset=TASK_B,

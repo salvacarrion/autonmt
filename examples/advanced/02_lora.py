@@ -128,7 +128,7 @@ def normalize(lines):
 
 
 def preprocess_train(data, ds):
-    return preprocess_pairs(data["src"]["lines"], data["trg"]["lines"], normalize_fn=normalize)
+    return preprocess_pairs(data["src"]["lines"], data["tgt"]["lines"], normalize_fn=normalize)
 
 
 def preprocess_predict(data, ds):
@@ -139,7 +139,7 @@ def main():
     download_hf_dataset(
         hf_id="bentrevett/multi30k", base_path=BASE_PATH,
         dataset_name=DATASET, lang_pair=LANG_PAIR,
-        src_field="de", trg_field="en",
+        src_field="de", tgt_field="en",
     )
 
     builder = DatasetBuilder(
@@ -157,7 +157,7 @@ def main():
 
     train_ds = builder.get_train_ds()[0]
     test_datasets = builder.get_test_ds()
-    src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+    src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
     pred_cfg = PredictConfig(
         metrics={"bleu", "chrf"}, beams=[5],
@@ -169,13 +169,13 @@ def main():
     # -----------------------------------------------------------------------
     # (3) Baseline — full fine-tuning, all params trainable
     # -----------------------------------------------------------------------
-    baseline_model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    baseline_model = Transformer.from_vocabs(src_vocab, tgt_vocab)
     n_train, n_total = count_trainable(baseline_model)
     print(f"\n[baseline] trainable params: {n_train:,} / {n_total:,} ({100*n_train/n_total:.1f}%)")
 
     baseline = AutonmtTranslator.from_dataset(
         train_ds, model=baseline_model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         run_prefix="baseline",
     )
     baseline.fit(
@@ -190,7 +190,7 @@ def main():
     # We load the baseline checkpoint into a *fresh* model so the LoRA run
     # starts from the same place the baseline finished. (For real adapter
     # workflows you'd start from a pretrained checkpoint instead — same code.)
-    lora_model = Transformer.from_vocabs(src_vocab, trg_vocab)
+    lora_model = Transformer.from_vocabs(src_vocab, tgt_vocab)
     lora_model.load_state_dict(baseline_model.state_dict())
 
     # Freeze everything first, then inject_lora unfreezes only A/B.
@@ -206,7 +206,7 @@ def main():
     # they need to move faster than a full fine-tune to catch up.
     lora_trainer = AutonmtTranslator.from_dataset(
         train_ds, model=lora_model,
-        src_vocab=src_vocab, trg_vocab=trg_vocab,
+        src_vocab=src_vocab, tgt_vocab=tgt_vocab,
         run_prefix=f"lora-r{LORA_RANK}",
     )
     lora_trainer.fit(

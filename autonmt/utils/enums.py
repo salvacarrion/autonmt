@@ -76,28 +76,20 @@ class SubwordModel(_StrEnum):
         return cls.coerce(value), bf
 
     @property
-    def needs_pretokenization(self) -> bool:
-        return self is SubwordModel.WORD
-
-    @property
-    def is_bytes_only(self) -> bool:
-        return self is SubwordModel.BYTES
-
-    @property
-    def has_vocab(self) -> bool:
-        """Whether this subword model produces / requires a learned vocabulary file."""
-        return self not in (SubwordModel.NONE, SubwordModel.BYTES)
-
-    @property
     def uses_sentencepiece(self) -> bool:
         """Whether the model is trained / encoded with SentencePiece (word/bpe/unigram/char)."""
         return self in (SubwordModel.WORD, SubwordModel.BPE,
                         SubwordModel.UNIGRAM, SubwordModel.CHAR)
 
 
+# Module-level, ``None``-tolerant predicates. These (rather than per-member
+# properties) are the single way the rest of the framework queries a subword
+# model, because callers routinely hold ``None`` ("no subword model") as a
+# legitimate value and a bare ``model.has_vocab`` would blow up on it.
+
 def has_vocab(model: Optional[SubwordModel]) -> bool:
-    """``None``-tolerant wrapper for ``SubwordModel.has_vocab``."""
-    return model is not None and model.has_vocab
+    """Whether ``model`` produces / requires a learned vocabulary file."""
+    return model not in (None, SubwordModel.NONE, SubwordModel.BYTES)
 
 
 def is_bytes_only(model: Optional[SubwordModel]) -> bool:

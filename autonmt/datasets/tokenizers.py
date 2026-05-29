@@ -102,7 +102,7 @@ def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_se
     )
 
 
-def smp_read_vocab_file(vocab_path, ignore_special_tokens=4):
+def spm_read_vocab_file(vocab_path, ignore_special_tokens=4):
     """Load an SPM ``.vocab`` file as ``{piece: log_prob}``."""
     lines = read_file_lines(vocab_path, autoclean=False)
     if ignore_special_tokens > 0:

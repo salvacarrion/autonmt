@@ -52,7 +52,7 @@ class HuggingFaceTranslator(BaseTranslator):
         :meth:`AutoModelForSeq2SeqLM.from_pretrained`.
     tokenizer_id : str, optional
         Defaults to ``model_id``. Override when the tokenizer lives elsewhere.
-    src_lang, trg_lang : str, optional
+    src_lang, tgt_lang : str, optional
         Source / target language codes. Auto-filled by :meth:`from_dataset` from
         the dataset. Used by :meth:`filter_eval_datasets` (via
         ``_get_lang_pair``) and metric backends that need a target language.
@@ -67,7 +67,7 @@ class HuggingFaceTranslator(BaseTranslator):
     ENGINE = "huggingface"
 
     def __init__(self, model_id: str, tokenizer_id: Optional[str] = None,
-                 src_lang: Optional[str] = None, trg_lang: Optional[str] = None,
+                 src_lang: Optional[str] = None, tgt_lang: Optional[str] = None,
                  device: str = "auto",
                  generation_kwargs: Optional[dict] = None,
                  **kwargs):
@@ -80,11 +80,11 @@ class HuggingFaceTranslator(BaseTranslator):
         if not _TORCH_AVAILABLE:
             raise ImportError("HuggingFaceTranslator requires PyTorch.")
 
-        super().__init__(engine=self.ENGINE, **kwargs)
+        super().__init__(**kwargs)
         self.model_id = model_id
         self.tokenizer_id = tokenizer_id or model_id
         self.src_lang = src_lang
-        self.trg_lang = trg_lang
+        self.tgt_lang = tgt_lang
         self.device = device
         self.generation_kwargs = dict(generation_kwargs or {})
 
@@ -97,23 +97,23 @@ class HuggingFaceTranslator(BaseTranslator):
         # No SPM round-trip — HF owns its own tokenizer. BaseTranslator.translate
         # falls into direct mode and calls _translate() with eval_ds + filter.
 
-    # --- from_dataset: auto-fill src_lang/trg_lang ---------------------------
+    # --- from_dataset: auto-fill src_lang/tgt_lang ---------------------------
 
     @classmethod
     def from_dataset(cls, train_ds, *, run_prefix: str, **kwargs) -> "HuggingFaceTranslator":
         kwargs.setdefault("src_lang", train_ds.src_lang)
-        kwargs.setdefault("trg_lang", train_ds.trg_lang)
+        kwargs.setdefault("tgt_lang", train_ds.tgt_lang)
         return super().from_dataset(train_ds, run_prefix=run_prefix, **kwargs)
 
     # --- Backend hooks (replace the old vocab-based overrides) -------------
 
     def _get_lang_pair(self):
-        if self.src_lang is None or self.trg_lang is None:
+        if self.src_lang is None or self.tgt_lang is None:
             raise ValueError(
-                "HuggingFaceTranslator needs src_lang / trg_lang. Pass them "
+                "HuggingFaceTranslator needs src_lang / tgt_lang. Pass them "
                 "to the constructor or use HuggingFaceTranslator.from_dataset(...)."
             )
-        return self.src_lang, self.trg_lang
+        return self.src_lang, self.tgt_lang
 
     def _get_run_metadata(self) -> RunMetadata:
         """HF analogue of the AutoNMT run metadata, sourced from the HF
@@ -139,8 +139,8 @@ class HuggingFaceTranslator(BaseTranslator):
             vocab_size = len(tokenizer)
 
         src_lang = self.src_lang
-        trg_lang = self.trg_lang
-        lang_pair = f"{src_lang}-{trg_lang}" if src_lang and trg_lang else None
+        tgt_lang = self.tgt_lang
+        lang_pair = f"{src_lang}-{tgt_lang}" if src_lang and tgt_lang else None
 
         return RunMetadata(
             model__architecture=f"huggingface:{self.model_id}",
@@ -302,25 +302,23 @@ class HuggingFaceTranslator(BaseTranslator):
 
     def _build_finetune_dataset(self, ds, split_name):
         src_path = ds.get_splits_auto_path(f"{split_name}.{ds.src_lang}")
-        trg_path = ds.get_splits_auto_path(f"{split_name}.{ds.trg_lang}")
+        tgt_path = ds.get_splits_auto_path(f"{split_name}.{ds.tgt_lang}")
         src_lines = read_file_lines(filename=src_path, autoclean=True)
-        trg_lines = read_file_lines(filename=trg_path, autoclean=True)
-        assert len(src_lines) == len(trg_lines), (
-            f"src/trg length mismatch for split {split_name!r}: "
-            f"{len(src_lines)} vs {len(trg_lines)}"
+        tgt_lines = read_file_lines(filename=tgt_path, autoclean=True)
+        assert len(src_lines) == len(tgt_lines), (
+            f"src/tgt length mismatch for split {split_name!r}: "
+            f"{len(src_lines)} vs {len(tgt_lines)}"
         )
+        max_length = self._max_seq_length()
         return _Seq2SeqTextDataset(
-            src_lines=src_lines, trg_lines=trg_lines,
+            src_lines=src_lines, tgt_lines=tgt_lines,
             tokenizer=self._tokenizer,
-            max_source_length=self._max_source_length(),
-            max_target_length=self._max_target_length(),
+            max_source_length=max_length, max_target_length=max_length,
         )
 
-    def _max_source_length(self) -> int:
-        # Fall back to the tokenizer's reported limit if available.
-        return int(getattr(self._tokenizer, "model_max_length", 1024) or 1024)
-
-    def _max_target_length(self) -> int:
+    def _max_seq_length(self) -> int:
+        """Source/target truncation length — the tokenizer's reported limit
+        if available, else a 1024 fallback."""
         return int(getattr(self._tokenizer, "model_max_length", 1024) or 1024)
 
     def _build_training_args_dict(self, fit_kwargs, output_dir, logs_dir, force_overwrite):
@@ -417,8 +415,8 @@ class HuggingFaceTranslator(BaseTranslator):
                                            input_lang=eval_ds.src_lang,
                                            vocab_lang=self.src_lang or eval_ds.src_lang)
             ref_lines = _apply_preprocess(preprocess_fn, ref_lines, eval_ds,
-                                           input_lang=eval_ds.trg_lang,
-                                           vocab_lang=self.trg_lang or eval_ds.trg_lang)
+                                           input_lang=eval_ds.tgt_lang,
+                                           vocab_lang=self.tgt_lang or eval_ds.tgt_lang)
 
         # 3. Tokenize → generate → decode.
         start = time.time()
@@ -444,13 +442,13 @@ class HuggingFaceTranslator(BaseTranslator):
     def _load_eval_text(eval_ds, filter_fn, fn_name):
         """Read source / target text from the dataset's preprocessed-split stage."""
         src_path = eval_ds.get_splits_auto_path(f"{eval_ds.test_name}.{eval_ds.src_lang}")
-        trg_path = eval_ds.get_splits_auto_path(f"{eval_ds.test_name}.{eval_ds.trg_lang}")
+        tgt_path = eval_ds.get_splits_auto_path(f"{eval_ds.test_name}.{eval_ds.tgt_lang}")
         src_lines = read_file_lines(filename=src_path, autoclean=True)
-        trg_lines = read_file_lines(filename=trg_path, autoclean=True)
+        tgt_lines = read_file_lines(filename=tgt_path, autoclean=True)
         if filter_fn:
             log.info(f"Filtering src/ref (split='{fn_name}')...")
-            src_lines, trg_lines = filter_fn(src_lines, trg_lines, from_fn="translate")
-        return src_lines, trg_lines
+            src_lines, tgt_lines = filter_fn(src_lines, tgt_lines, from_fn="translate")
+        return src_lines, tgt_lines
 
     def _generate(self, src_lines, beam, batch_size, max_len_a, max_len_b):
         device = self._resolved_device
@@ -494,11 +492,11 @@ class _Seq2SeqTextDataset:
     target pad ids with ``-100`` for the loss.
     """
 
-    def __init__(self, src_lines, trg_lines, tokenizer,
+    def __init__(self, src_lines, tgt_lines, tokenizer,
                  max_source_length=1024, max_target_length=1024):
-        assert len(src_lines) == len(trg_lines)
+        assert len(src_lines) == len(tgt_lines)
         self.src_lines = src_lines
-        self.trg_lines = trg_lines
+        self.tgt_lines = tgt_lines
         self.tokenizer = tokenizer
         self.max_source_length = max_source_length
         self.max_target_length = max_target_length
@@ -508,9 +506,9 @@ class _Seq2SeqTextDataset:
 
     def __getitem__(self, idx):
         src = self.src_lines[idx]
-        trg = self.trg_lines[idx]
+        tgt = self.tgt_lines[idx]
         enc = self.tokenizer(
-            src, text_target=trg,
+            src, text_target=tgt,
             truncation=True,
             max_length=self.max_source_length,
         )

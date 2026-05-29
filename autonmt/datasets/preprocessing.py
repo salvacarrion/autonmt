@@ -30,17 +30,17 @@ def _log_removed(label, before, after):
 def _filter_lengths_pairs(src_lines, tgt_lines, min_len, max_len, max_len_percentile):
     min_len = 0 if min_len is None else min_len
     max_len = float('inf') if max_len is None else max_len
-    max_len_src = max_len_trg = max_len
+    max_len_src = max_len_tgt = max_len
 
     if max_len_percentile and max_len_percentile < 100:
-        src_lengths, trg_lengths = zip(*[(len(s), len(t)) for s, t in zip(src_lines, tgt_lines)])
+        src_lengths, tgt_lengths = zip(*[(len(s), len(t)) for s, t in zip(src_lines, tgt_lines)])
         max_len_src = np.percentile(np.array(src_lengths), max_len_percentile)
-        max_len_trg = np.percentile(np.array(trg_lengths), max_len_percentile)
+        max_len_tgt = np.percentile(np.array(tgt_lengths), max_len_percentile)
 
     log.info("\t\t- Checking lengths...")
     before = len(src_lines)
     pairs = [(s, t) for s, t in zip(src_lines, tgt_lines)
-             if min_len <= len(s) <= max_len_src and min_len <= len(t) <= max_len_trg]
+             if min_len <= len(s) <= max_len_src and min_len <= len(t) <= max_len_tgt]
     if not pairs:
         _log_removed("invalid lengths", before, 0)
         return [], []

@@ -20,10 +20,10 @@
 #     # Create path
 #     test_dir = pathlib.Path(__file__).parent.resolve()
 #     src_dataset_path = os.path.join(test_dir, "data")
-#     trg_dataset_path = os.path.join(tmp_path, "data")
+#     tgt_dataset_path = os.path.join(tmp_path, "data")
 #
 #     # Copy data
-#     dest_dir = shutil.copytree(src_dataset_path, trg_dataset_path)
+#     dest_dir = shutil.copytree(src_dataset_path, tgt_dataset_path)
 #
 #     return dest_dir
 #

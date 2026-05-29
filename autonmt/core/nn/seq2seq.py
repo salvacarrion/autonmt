@@ -32,10 +32,10 @@ _OPTIMIZERS = {
 
 class LitSeq2Seq(pl.LightningModule):
 
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, packed_sequence=False, architecture=None, **kwargs):
+    def __init__(self, src_vocab_size, tgt_vocab_size, padding_idx, packed_sequence=False, architecture=None, **kwargs):
         super().__init__()
         self.src_vocab_size = src_vocab_size
-        self.trg_vocab_size = trg_vocab_size
+        self.tgt_vocab_size = tgt_vocab_size
         self.padding_idx = padding_idx
         self.packed_sequence = packed_sequence  # Use for RNNs and to "sort within batches"
         self.architecture = architecture if architecture else self.__class__.__name__
@@ -56,25 +56,25 @@ class LitSeq2Seq(pl.LightningModule):
         self.validation_step_outputs = defaultdict(list)
 
     @classmethod
-    def from_vocabs(cls, src_vocab, trg_vocab, **kwargs):
+    def from_vocabs(cls, src_vocab, tgt_vocab, **kwargs):
         """Build the model inferring sizes / pad id from the vocabularies.
 
         Equivalent to:
-            cls(src_vocab_size=len(src_vocab), trg_vocab_size=len(trg_vocab),
+            cls(src_vocab_size=len(src_vocab), tgt_vocab_size=len(tgt_vocab),
                 padding_idx=src_vocab.pad_id, **kwargs)
 
-        ``src_vocab`` and ``trg_vocab`` must share ``pad_id`` (true by default
+        ``src_vocab`` and ``tgt_vocab`` must share ``pad_id`` (true by default
         for AutoNMT vocabularies); otherwise pass ``padding_idx`` explicitly.
         """
-        assert src_vocab.pad_id == trg_vocab.pad_id, (
-            f"src/trg vocabularies have different pad_id "
-            f"({src_vocab.pad_id} vs {trg_vocab.pad_id}); "
+        assert src_vocab.pad_id == tgt_vocab.pad_id, (
+            f"src/tgt vocabularies have different pad_id "
+            f"({src_vocab.pad_id} vs {tgt_vocab.pad_id}); "
             f"pass padding_idx= explicitly to the model constructor instead."
         )
         kwargs.setdefault("padding_idx", src_vocab.pad_id)
         return cls(
             src_vocab_size=len(src_vocab),
-            trg_vocab_size=len(trg_vocab),
+            tgt_vocab_size=len(tgt_vocab),
             **kwargs,
         )
 
@@ -271,13 +271,13 @@ class LitSeq2Seq(pl.LightningModule):
         # Scoring (sacrebleu) is deferred to ``on_validation_epoch_end`` so
         # we compute corpus-BLEU once per epoch instead of once per batch.
         # Since ref lines are encoded, unknowns can appear. Therefore, for small vocabularies the scores could be strongly biased
-        src_vocab, trg_vocab = self._src_vocab, self._trg_vocab
-        hyp_lines = [trg_vocab.decode(list(row)) for row in y_hat.detach().cpu().numpy()]
-        ref_lines = [trg_vocab.decode(list(row)) for row in y.detach().cpu().numpy()]
+        src_vocab, tgt_vocab = self._src_vocab, self._tgt_vocab
+        hyp_lines = [tgt_vocab.decode(list(row)) for row in y_hat.detach().cpu().numpy()]
+        ref_lines = [tgt_vocab.decode(list(row)) for row in y.detach().cpu().numpy()]
         src_lines = [src_vocab.decode(list(row)) for row in x.detach().cpu().numpy()]
 
-        hyp_lines = decode_lines(hyp_lines, trg_vocab.lang, trg_vocab.subword_model, trg_vocab.pretok_flag, trg_vocab.spm_model)
-        ref_lines = decode_lines(ref_lines, trg_vocab.lang, trg_vocab.subword_model, trg_vocab.pretok_flag, trg_vocab.spm_model)
+        hyp_lines = decode_lines(hyp_lines, tgt_vocab.lang, tgt_vocab.subword_model, tgt_vocab.pretok_flag, tgt_vocab.spm_model)
+        ref_lines = decode_lines(ref_lines, tgt_vocab.lang, tgt_vocab.subword_model, tgt_vocab.pretok_flag, tgt_vocab.spm_model)
         src_lines = decode_lines(src_lines, src_vocab.lang, src_vocab.subword_model, src_vocab.pretok_flag, src_vocab.spm_model)
 
         return {"hyp": hyp_lines, "ref": ref_lines, "src": src_lines}

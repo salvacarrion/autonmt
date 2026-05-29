@@ -54,7 +54,7 @@ class LuongRNN(SimpleRNN):
         y = self.last_token(y)
 
         # (B, 1) → (B, 1, E)
-        y_emb = self.dec_dropout(self.trg_embeddings(y))
+        y_emb = self.dec_dropout(self.tgt_embeddings(y))
 
         # Luong: RNN step FIRST, then attention on the resulting h_t.
         h_t, states = self.decoder_rnn(y_emb, states)               # (B, 1, H_dec)

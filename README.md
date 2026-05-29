@@ -39,7 +39,7 @@ from autonmt.core.models import Transformer
 # 1. Pull multi30k from HuggingFace into AutoNMT's on-disk layout
 download_hf_dataset(
     hf_id="bentrevett/multi30k", base_path="datasets/quickstart",
-    dataset_name="multi30k", lang_pair="de-en", src_field="de", trg_field="en",
+    dataset_name="multi30k", lang_pair="de-en", src_field="de", tgt_field="en",
 )
 
 # 2. Preprocess + train SentencePiece BPE-4000
@@ -51,12 +51,12 @@ builder = DatasetBuilder(
 
 # 3. Train + score
 train_ds = builder.get_train_ds()[0]
-src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
 trainer = AutonmtTranslator.from_dataset(
     train_ds,
-    model=Transformer.from_vocabs(src_vocab, trg_vocab),
-    src_vocab=src_vocab, trg_vocab=trg_vocab,
+    model=Transformer.from_vocabs(src_vocab, tgt_vocab),
+    src_vocab=src_vocab, tgt_vocab=tgt_vocab,
     run_prefix="quickstart",
 )
 trainer.fit(train_ds, config=FitConfig(max_epochs=3, batch_size=128))
@@ -183,8 +183,8 @@ Inherit from `LitSeq2Seq` and implement `forward_encoder`, `forward_decoder`, an
 from autonmt.core.seq2seq import LitSeq2Seq
 
 class MyModel(LitSeq2Seq):
-    def __init__(self, src_vocab_size, trg_vocab_size, padding_idx, **kwargs):
-        super().__init__(src_vocab_size, trg_vocab_size, padding_idx, **kwargs)
+    def __init__(self, src_vocab_size, tgt_vocab_size, padding_idx, **kwargs):
+        super().__init__(src_vocab_size, tgt_vocab_size, padding_idx, **kwargs)
 
     def forward_encoder(self, x, x_len, **kwargs): ...
     def forward_decoder(self, y, y_len, states, **kwargs): ...
@@ -194,11 +194,11 @@ class MyModel(LitSeq2Seq):
 Then plug it in exactly like the built-in `Transformer`:
 
 ```python
-src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 trainer = AutonmtTranslator.from_dataset(
     train_ds,
-    model=MyModel.from_vocabs(src_vocab, trg_vocab),
-    src_vocab=src_vocab, trg_vocab=trg_vocab,
+    model=MyModel.from_vocabs(src_vocab, tgt_vocab),
+    src_vocab=src_vocab, tgt_vocab=tgt_vocab,
     run_prefix="mymodel",
 )
 ```
@@ -218,10 +218,10 @@ from autonmt.backends.fairseq.translation_engine import FairseqTranslator  # Dep
 
 # Vocabs are needed so the base translator can encode eval splits with the
 # same subword model the training run used.
-src_vocab, trg_vocab = train_ds.build_vocabs(max_tokens=150)
+src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
 trainer = FairseqTranslator.from_dataset(
-    train_ds, src_vocab=src_vocab, trg_vocab=trg_vocab, run_prefix="fairseq",
+    train_ds, src_vocab=src_vocab, tgt_vocab=tgt_vocab, run_prefix="fairseq",
 )
 trainer.fit(
     train_ds,
