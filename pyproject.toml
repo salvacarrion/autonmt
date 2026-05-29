@@ -7,7 +7,7 @@ name = "autonmt"
 dynamic = ["version"]
 description = "A framework for automating grid experimentation in neural machine translation."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "Salva Carrión" }]
 keywords = ["nmt", "seq2seq", "machine-translation", "pytorch", "research"]
