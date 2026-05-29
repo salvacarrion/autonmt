@@ -35,7 +35,13 @@ def average_checkpoints(checkpoint_paths: Iterable[PathLike],
     log.info(f"=> [Avg]: Averaging {len(paths)} checkpoint(s)")
     base = torch.load(paths[0], map_location="cpu", weights_only=False)
     base_sd = base.get("state_dict", base)
-    accum = {k: v.detach().clone().float() for k, v in base_sd.items()}
+
+    # Only floating-point tensors are meaningfully averaged. Integer / bool
+    # buffers (e.g. BatchNorm's ``num_batches_tracked``, cached position ids)
+    # are copied verbatim from the first checkpoint — averaging then truncating
+    # them back to their dtype would corrupt their value.
+    avg_keys = [k for k, v in base_sd.items() if v.is_floating_point()]
+    accum = {k: base_sd[k].detach().clone().float() for k in avg_keys}
 
     for p in paths[1:]:
         ckpt = torch.load(p, map_location="cpu", weights_only=False)
@@ -47,7 +53,8 @@ def average_checkpoints(checkpoint_paths: Iterable[PathLike],
             accum[k] += sd[k].detach().float()
 
     n = len(paths)
-    averaged = {k: (v / n).to(base_sd[k].dtype) for k, v in accum.items()}
+    averaged = dict(base_sd)  # start from base (carries the non-float buffers as-is)
+    averaged.update({k: (accum[k] / n).to(base_sd[k].dtype) for k in avg_keys})
 
     if "state_dict" in base:
         base["state_dict"] = averaged

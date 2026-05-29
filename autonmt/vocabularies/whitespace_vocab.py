@@ -51,9 +51,24 @@ class Vocabulary(BaseVocabulary):
         import sentencepiece as spm
         self.spm_model = spm.SentencePieceProcessor(model_file=path)
 
+    @staticmethod
+    def _parse_vocab_count(value: str):
+        """Parse the second (score/count) column of a ``.vocab`` line.
+
+        AutoNMT-written vocabs and SentencePiece ``bpe`` models store an integer
+        here, but ``unigram`` / ``char`` / ``word`` models store a float log-prob
+        score. Accept both so loading never depends on the subword model (the
+        value only feeds :meth:`save`; real token frequencies live in ``.vocabf``).
+        """
+        value = value.strip()
+        try:
+            return int(value)
+        except ValueError:
+            return float(value)
+
     def _build_from_vocab(self, filename: str, includes_special_tokens: bool = True) -> "Vocabulary":
         tokens = [line.rstrip('\n').split('\t') for line in read_file_lines(filename, autoclean=False)]
-        tokens = [(tok, int(freq)) for tok, freq in tokens]
+        tokens = [(tok, self._parse_vocab_count(freq)) for tok, freq in tokens]
         special = [(tok, 0) for tok, _ in self.special_tokens()] if not includes_special_tokens else []
         tokens = special + tokens  # Special tokens must appear first in the file
         self.voc2idx = {tok: idx for idx, (tok, _) in enumerate(tokens)}
