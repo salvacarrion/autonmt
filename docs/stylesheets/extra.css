@@ -1,0 +1,24 @@
+/* Slightly roomier code blocks and tables for readability. */
+.md-typeset pre > code {
+  font-size: 0.78rem;
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.74rem;
+}
+
+/* Center the hero logo on the landing page. */
+.autonmt-hero {
+  text-align: center;
+  margin: 1.5rem 0 2rem;
+}
+
+.autonmt-hero img {
+  max-width: 320px;
+  width: 70%;
+}
+
+/* Tighten the spacing of the pipeline ASCII diagrams. */
+.md-typeset pre.pipeline {
+  line-height: 1.2;
+}

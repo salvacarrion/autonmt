@@ -1,0 +1,139 @@
+site_name: AutoNMT
+site_description: A framework for automating grid experimentation in neural machine translation.
+site_author: Salva Carrión
+site_url: https://salvacarrion.github.io/autonmt/
+
+repo_name: salvacarrion/autonmt
+repo_url: https://github.com/salvacarrion/autonmt
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; Salva Carrión — MIT License
+
+theme:
+  name: material
+  logo: images/logos/logo3.png
+  favicon: images/logos/logo3.png
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - Concepts:
+      - Philosophy: concepts/philosophy.md
+      - The pipeline: concepts/pipeline.md
+      - The grid: concepts/grid.md
+      - On-disk layout: concepts/on-disk-layout.md
+      - Reproducibility: concepts/reproducibility.md
+  - Guides:
+      - Bring your own data: guides/bring-your-own-data.md
+      - Preprocessing & vocabularies: guides/preprocessing-and-vocabs.md
+      - Grid experiments: guides/grid-experiments.md
+      - Custom models: guides/custom-models.md
+      - Reports & plots: guides/reports.md
+      - Under the hood: guides/under-the-hood.md
+  - Backends:
+      - Overview: backends/index.md
+      - AutoNMT (Lightning): backends/autonmt.md
+      - HuggingFace: backends/huggingface.md
+      - Fairseq (deprecated): backends/fairseq.md
+  - API reference:
+      - Overview: reference/index.md
+      - Datasets: reference/datasets.md
+      - Vocabularies: reference/vocabularies.md
+      - Backends: reference/backends.md
+      - Models & decoding: reference/core.md
+      - Evaluation: reference/evaluation.md
+      - Reporting: reference/reporting.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# Keep the archived docs out of the built site (kept in-repo for reference only).
+exclude_docs: |
+  _legacy/
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_if_no_docstring: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            filters: ["!^_"]
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/salvacarrion/autonmt
+
+extra_css:
+  - stylesheets/extra.css

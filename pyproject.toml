@@ -51,6 +51,13 @@ wandb = ["wandb"]
 # Deprecated: fairseq was archived on 2026-03-20. Kept for users with existing flows.
 fairseq = ["fairseq"]
 dev = ["pytest", "flake8"]
+# Build the documentation site (MkDocs Material + API autodoc from docstrings).
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.25",
+    "pymdown-extensions>=10",
+    "black",  # mkdocstrings uses it to pretty-format rendered signatures
+]
 all = [
     "datasets", "evaluate",
     "transformers", "accelerate>=1.1",
