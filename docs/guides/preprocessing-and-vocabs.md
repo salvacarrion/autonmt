@@ -15,15 +15,15 @@ raw files  ──preprocess_raw_fn──►  splits  ──preprocess_splits_fn�
 
 There are **three** hooks, and the distinction matters:
 
-| Hook | Passed to | Runs | Use for |
-| --- | --- | --- | --- |
-| `preprocess_raw_fn` | `DatasetBuilder` | **once**, on the raw corpus | opinionated, one-time decisions: dedupe, shuffle, percentile filters |
-| `preprocess_splits_fn` | `DatasetBuilder` | per split (train/val/test) | normalization you want applied identically to every split |
-| `preprocess_fn` | `PredictConfig` | on the test source at predict time | the same normalization, so inference matches training |
+| Hook                   | Passed to        | Runs                               | Use for                                                              |
+| ---------------------- | ---------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `preprocess_raw_fn`    | `DatasetBuilder` | **once**, on the raw corpus        | opinionated, one-time decisions: dedupe, shuffle, percentile filters |
+| `preprocess_splits_fn` | `DatasetBuilder` | per split (train/val/test)         | normalization you want applied identically to every split            |
+| `preprocess_fn`        | `PredictConfig`  | on the test source at predict time | the same normalization, so inference matches training                |
 
 The golden rule: **dedupe/shuffle/filter belong in `preprocess_raw_fn`**; per-line
 normalization belongs in `preprocess_splits_fn` (and must be mirrored in `preprocess_fn`).
-Don't dedupe or shuffle per-split — that would treat val/test differently from train.
+Don't dedupe or shuffle per-split - that would treat val/test differently from train.
 
 ## Writing the hooks
 
@@ -67,17 +67,17 @@ where there's no target to align against).
 
 Declared per encoding entry via `subword_models`:
 
-| Model | What it does | Notes |
-| --- | --- | --- |
-| `bpe` | Classic BPE merges (SentencePiece) | A solid default |
-| `unigram` | SentencePiece unigram LM | Often slightly better than BPE |
-| `word` | Whitespace + **Moses** pretokenization | Large vocab, fast model; triggers the `3_pretokenized` stage |
-| `char` | One symbol per character | Tiny vocab, long sequences |
-| `bytes` | Pure byte level | Vocab is always 256; **ignores `vocab_sizes`** |
+| Model     | What it does                           | Notes                                                        |
+| --------- | -------------------------------------- | ------------------------------------------------------------ |
+| `bpe`     | Classic BPE merges (SentencePiece)     | A solid default                                              |
+| `unigram` | SentencePiece unigram LM               | Often slightly better than BPE                               |
+| `word`    | Whitespace + **Moses** pretokenization | Large vocab, fast model; triggers the `3_pretokenized` stage |
+| `char`    | One symbol per character               | Tiny vocab, long sequences                                   |
+| `bytes`   | Pure byte level                        | Vocab is always 256; **ignores `vocab_sizes`**               |
 
 ### Byte fallback: the `+bytes` shorthand
 
-Suffix any model with `+bytes` to enable SentencePiece byte fallback — unseen characters
+Suffix any model with `+bytes` to enable SentencePiece byte fallback - unseen characters
 are emitted as raw bytes instead of `<unk>`. Invaluable for rare scripts, emoji, and names.
 
 ```python
@@ -86,8 +86,8 @@ encoding=[{"subword_models": ["unigram+bytes"], "vocab_sizes": [4000]}]
 encoding=[{"subword_models": ["unigram"], "vocab_sizes": [4000], "byte_fallback": True}]
 ```
 
-Because the flag is orthogonal to the model, you compare *with vs without* fallback by
-declaring two entries — they live at different on-disk paths (`unigram/4000` vs
+Because the flag is orthogonal to the model, you compare _with vs without_ fallback by
+declaring two entries - they live at different on-disk paths (`unigram/4000` vs
 `unigram+bytes/4000`). See [The grid](../concepts/grid.md#subword-models-and-the-bytes-shorthand).
 
 ## Inspecting the artifacts

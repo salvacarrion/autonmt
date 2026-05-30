@@ -28,21 +28,21 @@ multi30k/de-en/original/
 The `data/` subfolders are numbered in pipeline order, splitting cleanly into
 **subword-agnostic** and **subword-dependent** stages:
 
-| Stage | Produced by | Subword-dependent? |
-| --- | --- | --- |
-| `0_raw/` | `download_hf_dataset` or your own files | no |
-| `1_splits/` | the builder's split logic | no |
-| `2_preprocessed/` | `preprocess_raw_fn` / `preprocess_splits_fn` (filter, normalize, dedupe) | no |
-| `3_pretokenized/` | Moses pretokenizer — **only when `subword=word`** | no |
-| `4_encoded/<subword>/<vocab>/` | SentencePiece / bytes encoding | **yes** |
+| Stage                          | Produced by                                                              | Subword-dependent? |
+| ------------------------------ | ------------------------------------------------------------------------ | ------------------ |
+| `0_raw/`                       | `download_hf_dataset` or your own files                                  | no                 |
+| `1_splits/`                    | the builder's split logic                                                | no                 |
+| `2_preprocessed/`              | `preprocess_raw_fn` / `preprocess_splits_fn` (filter, normalize, dedupe) | no                 |
+| `3_pretokenized/`              | Moses pretokenizer - **only when `subword=word`**                        | no                 |
+| `4_encoded/<subword>/<vocab>/` | SentencePiece / bytes encoding                                           | **yes**            |
 
 Because the first stages are subword-agnostic, sweeping vocab sizes or subword models
 reuses the same `0_raw`–`2_preprocessed` files and only re-runs `4_encoded`. That's what
 makes a grid cheap.
 
 !!! note "Language code is the file extension"
-    Split files use the language code as the **extension** (`train.es`, `train.en`), never
-    as a directory.
+Split files use the language code as the **extension** (`train.es`, `train.en`), never
+as a directory.
 
 ## Byte fallback never collides
 
@@ -65,9 +65,9 @@ stages that already exist on disk**, so a crashed run continues where it stopped
 adding a new grid cell doesn't recompute the old ones.
 
 !!! tip "Delete the stage, not the tree"
-    When you need to redo a stage — say you changed your normalization and want to
-    re-encode — **delete only that stage's directory** (e.g. `data/4_encoded/...`), then
-    re-run. Deleting the whole cell forces every stage to recompute from scratch.
+When you need to redo a stage - say you changed your normalization and want to
+re-encode - **delete only that stage's directory** (e.g. `data/4_encoded/...`), then
+re-run. Deleting the whole cell forces every stage to recompute from scratch.
 
 You can pass `force_overwrite=True` to `build()` to ignore existing artifacts and rewrite
 everything.

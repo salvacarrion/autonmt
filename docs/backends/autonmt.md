@@ -7,7 +7,7 @@ Lightning and owns the DataLoaders, callbacks (EarlyStopping, ModelCheckpoint), 
 
 ## Constructing it
 
-`from_dataset` is the idiomatic constructor — it resolves the run directory and run name
+`from_dataset` is the idiomatic constructor - it resolves the run directory and run name
 from the dataset cell, so checkpoints and logs land in the right place automatically:
 
 ```python
@@ -25,7 +25,7 @@ trainer = AutonmtTranslator.from_dataset(
 ```
 
 The `run_prefix` becomes part of the run name under
-`models/autonmt/runs/<run>/` — see [On-disk layout](../concepts/on-disk-layout.md).
+`models/autonmt/runs/<run>/` - see [On-disk layout](../concepts/on-disk-layout.md).
 
 ## Training
 
@@ -53,7 +53,7 @@ trainer.fit(train_ds, config=FitConfig(max_epochs=10),
             wandb_params={"project": "autonmt", "name": "exp-1"})
 ```
 
-TensorBoard logging is on by default — point `tensorboard --logdir` at the run's `logs/`.
+TensorBoard logging is on by default - point `tensorboard --logdir` at the run's `logs/`.
 
 ## Prediction & scoring
 
@@ -77,14 +77,14 @@ hypotheses back to text, scores them, and returns the per-run dict that feeds
 
 Importable from [`autonmt.core.nn.models`](../reference/core.md):
 
-| Model | Class |
-| --- | --- |
-| Transformer | `Transformer` |
-| Convolutional seq2seq | `ConvS2S` |
+| Model                               | Class                                                |
+| ----------------------------------- | ---------------------------------------------------- |
+| Transformer                         | `Transformer`                                        |
+| Convolutional seq2seq               | `ConvS2S`                                            |
 | RNN (vanilla / context / attention) | `SimpleRNN`, `ContextRNN`, `BahdanauRNN`, `LuongRNN` |
-| MLP (baseline) | `MLP` |
+| MLP (baseline)                      | `MLP`                                                |
 
-Bring your own by subclassing `LitSeq2Seq` — see [Custom models](../guides/custom-models.md).
+Bring your own by subclassing `LitSeq2Seq` - see [Custom models](../guides/custom-models.md).
 
 ## API reference
 

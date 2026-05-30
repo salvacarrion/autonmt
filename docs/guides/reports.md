@@ -21,10 +21,10 @@ print(format_summary_table(df_summary))
 
 It returns `(df_report, df_summary)` and writes three files:
 
-| File | Contents |
-| --- | --- |
-| `reports/report.json` | The full, unflattened per-run dicts |
-| `reports/report.csv` | Every flattened score column, one row per (run, test set) |
+| File                         | Contents                                                        |
+| ---------------------------- | --------------------------------------------------------------- |
+| `reports/report.json`        | The full, unflattened per-run dicts                             |
+| `reports/report.csv`         | Every flattened score column, one row per (run, test set)       |
 | `reports/report_summary.csv` | Identifying columns + the columns matching the reference metric |
 
 If you pass `plot_metric`, a model-comparison figure is also written under `plots/`.
@@ -75,7 +75,7 @@ For "X vs Y" line plots (e.g. average tokens vs BLEU), use
 ### Dataset diagnostics
 
 `plot_dataset_diagnostics` produces sentence-length histograms, split-size bars, and
-vocabulary-distribution plots straight from a `Dataset` — useful for sanity-checking a
+vocabulary-distribution plots straight from a `Dataset` - useful for sanity-checking a
 corpus before you train on it. The low-level primitives live in
 [`autonmt.reporting.plots`](../reference/reporting.md).
 

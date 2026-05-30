@@ -7,21 +7,21 @@ hide:
 
 ![AutoNMT](images/logos/logo3.png)
 
-**Automate the boring half of seq2seq research.**
+**A framework to streamline the research of neural machine translation models.**
 
 </div>
 
 AutoNMT is a research framework that automates the repetitive machinery around neural
-machine translation experiments — dataset variant generation, tokenization, training,
-translation, scoring, logging, plotting, and file management — so you can spend your
+machine translation experiments - dataset variant generation, tokenization, training,
+translation, scoring, logging, plotting, and file management - so you can spend your
 time on the part that matters: the model.
 
 You **declare a grid** of datasets × language pairs × training sizes × subword models ×
 vocabulary sizes. AutoNMT unrolls the cross-product, runs every cell, persists every
 intermediate artifact on disk, and hands you back a single comparable report.
 
-The *same* script can train AutoNMT's own PyTorch Lightning models, fine-tune (or just
-evaluate) a HuggingFace seq2seq checkpoint, or shell out to Fairseq — you switch backends
+The _same_ script can train AutoNMT's own PyTorch Lightning models, fine-tune (or just
+evaluate) a HuggingFace seq2seq checkpoint, or shell out to Fairseq - you switch backends
 by changing one class.
 
 ---
@@ -70,41 +70,41 @@ generate_report(scores=[scores], output_path="outputs/quickstart")
 
 <div class="grid cards" markdown>
 
--   :material-grid:{ .lg .middle } __Grids, not scripts__
+- :material-grid:{ .lg .middle } **Grids, not scripts**
 
-    ---
+  ***
 
-    Describe the axes you want to sweep. AutoNMT runs the cross-product and gives you one
-    table where every cell is directly comparable.
+  Describe the axes you want to sweep. AutoNMT runs the cross-product and gives you one
+  table where every cell is directly comparable.
 
-    [:octicons-arrow-right-24: The grid](concepts/grid.md)
+  [:octicons-arrow-right-24: The grid](concepts/grid.md)
 
--   :material-swap-horizontal:{ .lg .middle } __Backend-agnostic__
+- :material-swap-horizontal:{ .lg .middle } **Backend-agnostic**
 
-    ---
+  ***
 
-    AutoNMT Lightning models, HuggingFace seq2seq checkpoints, or the Fairseq CLI behind
-    one `fit()` / `predict()` surface.
+  AutoNMT Lightning models, HuggingFace seq2seq checkpoints, or the Fairseq CLI behind
+  one `fit()` / `predict()` surface.
 
-    [:octicons-arrow-right-24: Backends](backends/index.md)
+  [:octicons-arrow-right-24: Backends](backends/index.md)
 
--   :material-folder-cog:{ .lg .middle } __Everything on disk__
+- :material-folder-cog:{ .lg .middle } **Everything on disk**
 
-    ---
+  ***
 
-    Each stage is persisted in a numbered folder and skipped on re-run. Inspect, reuse, or
-    pin any step.
+  Each stage is persisted in a numbered folder and skipped on re-run. Inspect, reuse, or
+  pin any step.
 
-    [:octicons-arrow-right-24: On-disk layout](concepts/on-disk-layout.md)
+  [:octicons-arrow-right-24: On-disk layout](concepts/on-disk-layout.md)
 
--   :material-flask:{ .lg .middle } __Built for reproducibility__
+- :material-flask:{ .lg .middle } **Built for reproducibility**
 
-    ---
+  ***
 
-    One seed seeds everything; every run dumps its full effective config. Built on
-    SentencePiece, sacreBLEU, Moses, COMET, BERTScore.
+  One seed seeds everything; every run dumps its full effective config. Built on
+  SentencePiece, sacreBLEU, Moses, COMET, BERTScore.
 
-    [:octicons-arrow-right-24: Reproducibility](concepts/reproducibility.md)
+  [:octicons-arrow-right-24: Reproducibility](concepts/reproducibility.md)
 
 </div>
 

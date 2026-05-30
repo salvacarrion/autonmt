@@ -13,7 +13,7 @@ DatasetBuilder  ───►  Translator  ───►  generate_report
   (Lightning models)  (transformers seq2seq)  (fairseq CLI, deprecated)
 ```
 
-## Layer 1 — `DatasetBuilder`: the grid
+## Layer 1 - `DatasetBuilder`: the grid
 
 [`DatasetBuilder`][autonmt.datasets.dataset_builder.DatasetBuilder] takes your declared
 axes and unrolls the cross-product of `datasets × language pairs × sizes × subword models
@@ -26,14 +26,14 @@ axes and unrolls the cross-product of `datasets × language pairs × sizes × su
 and writes everything to disk. `get_train_ds()` / `get_test_ds()` return the lists of
 [`Dataset`][autonmt.datasets.dataset.Dataset] objects the experiment loop iterates over.
 
-A `Dataset` here is a **path/identity holder** — it knows where its files live and what
-its variant is. It is *not* a PyTorch `Dataset` (that's
+A `Dataset` here is a **path/identity holder** - it knows where its files live and what
+its variant is. It is _not_ a PyTorch `Dataset` (that's
 [`TranslationDataset`][autonmt.core.data.translation_dataset.TranslationDataset], used
 internally by the AutoNMT backend).
 
 → [The grid](grid.md) · [Preprocessing & vocabularies](../guides/preprocessing-and-vocabs.md)
 
-## Layer 2 — `Translator`: fit & predict
+## Layer 2 - `Translator`: fit & predict
 
 A translator wraps a model (or an external toolkit) and exposes two methods:
 
@@ -45,11 +45,11 @@ All backends inherit this contract from
 [`BaseTranslator`][autonmt.backends._base.translation_engine.BaseTranslator]. The concrete
 class you pick decides the engine:
 
-| Translator | Engine | Use it for |
-| --- | --- | --- |
-| [`AutonmtTranslator`](../backends/autonmt.md) | PyTorch Lightning | Training AutoNMT's own models (default) |
-| [`HuggingFaceTranslator`](../backends/huggingface.md) | `transformers` | Evaluating / fine-tuning pretrained seq2seq checkpoints |
-| [`FairseqTranslator`](../backends/fairseq.md) | Fairseq CLI | Legacy flows (**deprecated**) |
+| Translator                                            | Engine            | Use it for                                              |
+| ----------------------------------------------------- | ----------------- | ------------------------------------------------------- |
+| [`AutonmtTranslator`](../backends/autonmt.md)         | PyTorch Lightning | Training AutoNMT's own models (default)                 |
+| [`HuggingFaceTranslator`](../backends/huggingface.md) | `transformers`    | Evaluating / fine-tuning pretrained seq2seq checkpoints |
+| [`FairseqTranslator`](../backends/fairseq.md)         | Fairseq CLI       | Legacy flows (**deprecated**)                           |
 
 Because the surface is identical, swapping engines means changing the class and little
 else.
@@ -74,7 +74,7 @@ trainer.fit(train_ds, config=FitConfig(batch_size=64), max_epochs=20)  # → 20 
 Toolkit-specific extras (`wandb_params`, `fairseq_args`, `strategy`, …) pass through
 `**kwargs` untouched and are forwarded to the underlying backend.
 
-## Layer 3 — `generate_report`: one comparable table
+## Layer 3 - `generate_report`: one comparable table
 
 [`generate_report`][autonmt.reporting.report.generate_report] takes the list of score
 dicts your `predict()` calls returned and flattens them into a single CSV + JSON plus

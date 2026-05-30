@@ -1,7 +1,7 @@
 # Bring your own data
 
 The quickstart downloaded multi30k from HuggingFace, but most real projects start from
-files you already have. AutoNMT doesn't care where the corpus came from — it only cares
+files you already have. AutoNMT doesn't care where the corpus came from - it only cares
 that the files sit in the right place in the [on-disk layout](../concepts/on-disk-layout.md).
 
 Mirrors [`examples/basics/02_bring_your_own_data.py`](https://github.com/salvacarrion/autonmt/blob/main/examples/basics/02_bring_your_own_data.py).
@@ -20,17 +20,17 @@ datasets/mycorpus/es-en/original/
         └── test.es    test.en
 ```
 
-That's it. There is no manifest to write — the path *is* the metadata. The segments encode
+That's it. There is no manifest to write - the path _is_ the metadata. The segments encode
 the dataset name (`mycorpus`), language pair (`es-en`), and size variant (`original`).
 
 !!! tip "Only have raw text?"
-    If you have a single unsplit corpus instead of `train/val/test`, put it in `0_raw/`
-    (`data.es`, `data.en`) and let the builder create the splits. Provide a
-    `preprocess_raw_fn` if you want to shuffle/dedupe before splitting.
+If you have a single unsplit corpus instead of `train/val/test`, put it in `0_raw/`
+(`data.es`, `data.en`) and let the builder create the splits. Provide a
+`preprocess_raw_fn` if you want to shuffle/dedupe before splitting.
 
 ## Point the builder at it
 
-The builder declaration is identical to the quickstart — just skip the download:
+The builder declaration is identical to the quickstart - just skip the download:
 
 ```python
 from autonmt.datasets import DatasetBuilder
@@ -53,7 +53,7 @@ predict, report) is exactly as in the [Quickstart](../getting-started/quickstart
 
 Add more entries to `datasets` (or more pairs to `languages`) and they all unroll into the
 grid. You can register a held-out test-only corpus the same way and reach it with
-`eval_mode="compatible"` — see [The grid](../concepts/grid.md#choosing-what-to-evaluate-eval_mode).
+`eval_mode="compatible"` - see [The grid](../concepts/grid.md#choosing-what-to-evaluate-eval_mode).
 
 ```python
 datasets=[
@@ -78,7 +78,7 @@ function that returns the offending lines rather than just warning).
 
 ## Loading from HuggingFace
 
-When you *do* want a Hub corpus, `download_hf_dataset` writes it straight into the layout
+When you _do_ want a Hub corpus, `download_hf_dataset` writes it straight into the layout
 (needs the `hf` extra):
 
 ```python

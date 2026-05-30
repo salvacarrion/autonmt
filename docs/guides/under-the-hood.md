@@ -1,8 +1,8 @@
 # Under the hood
 
-The convenience one-liners — `AutonmtTranslator.from_dataset(...)`,
+The convenience one-liners - `AutonmtTranslator.from_dataset(...)`,
 `ds.build_vocabs(...)`, `Transformer.from_vocabs(...)`, `trainer.predict(...)`,
-`generate_report(...)` — each have a lower-level equivalent. This guide shows when to reach
+`generate_report(...)` - each have a lower-level equivalent. This guide shows when to reach
 for them. Mirrors
 [`examples/advanced/01_under_the_hood.py`](https://github.com/salvacarrion/autonmt/blob/main/examples/advanced/01_under_the_hood.py).
 
@@ -40,7 +40,7 @@ leaked = find_leaked_lines(train_ds)  # returns the offending lines for inspecti
 
 ## Decode, score, and report separately
 
-`predict()` bundles three steps — translate, score, build the report dict. Splitting them
+`predict()` bundles three steps - translate, score, build the report dict. Splitting them
 lets you, for instance, re-score existing hypotheses with a new metric without paying for
 decoding again. The report builders are public:
 
@@ -53,7 +53,7 @@ print(format_summary_table(df_summary))
 ```
 
 This is exactly what [`generate_report`][autonmt.reporting.report.generate_report] does
-internally — calling them yourself lets you add custom columns or merge with another
+internally - calling them yourself lets you add custom columns or merge with another
 experiment's dataframe before writing anything to disk.
 
 ## Custom decoding
@@ -96,7 +96,7 @@ between two systems is statistically real.
 
 `PredictConfig(load_checkpoint="best")` already loads the best checkpoint a run saved. To
 evaluate a previously-trained run without retraining, construct the translator and call
-`predict()` directly — the checkpoints persist on disk under the run folder (see
+`predict()` directly - the checkpoints persist on disk under the run folder (see
 [On-disk layout](../concepts/on-disk-layout.md)).
 
 ## Other advanced examples

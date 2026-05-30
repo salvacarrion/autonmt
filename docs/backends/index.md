@@ -3,7 +3,7 @@
 A **backend** is the engine behind a translator. All three implement the same
 `fit()` / `predict()` contract from
 [`BaseTranslator`][autonmt.backends._base.translation_engine.BaseTranslator], so the
-experiment code around them is identical — you switch engines by changing one class.
+experiment code around them is identical - you switch engines by changing one class.
 
 ```{.text .pipeline}
                 BaseTranslator   (fit / predict, shared pipeline)
@@ -14,11 +14,11 @@ AutonmtTranslator  HuggingFaceTranslator  FairseqTranslator
 (Lightning models)  (transformers seq2seq)  (fairseq CLI, deprecated)
 ```
 
-| Backend | Engine | Toolkit folder | Status |
-| --- | --- | --- | --- |
-| [`AutonmtTranslator`](autonmt.md) | PyTorch Lightning | `models/autonmt/` | **Recommended** |
-| [`HuggingFaceTranslator`](huggingface.md) | `transformers` | `models/huggingface/` | Stable |
-| [`FairseqTranslator`](fairseq.md) | Fairseq CLI | `models/fairseq/` | ⚠️ Deprecated |
+| Backend                                   | Engine            | Toolkit folder        | Status          |
+| ----------------------------------------- | ----------------- | --------------------- | --------------- |
+| [`AutonmtTranslator`](autonmt.md)         | PyTorch Lightning | `models/autonmt/`     | **Recommended** |
+| [`HuggingFaceTranslator`](huggingface.md) | `transformers`    | `models/huggingface/` | Stable          |
+| [`FairseqTranslator`](fairseq.md)         | Fairseq CLI       | `models/fairseq/`     | ⚠️ Deprecated   |
 
 ## What the base class does
 
@@ -41,7 +41,7 @@ and is wired by composition: a backend sets `self._spm = SPMTranslatePipeline(..
 constructor, and `translate()` branches on whether it's set.
 
 The HuggingFace backend brings its **own** tokenizer, so it leaves `_spm = None` and writes
-`src.txt` / `ref.txt` / `hyp.txt` directly — *direct mode*. From your point of view nothing
+`src.txt` / `ref.txt` / `hyp.txt` directly - _direct mode_. From your point of view nothing
 changes; the score schema is identical.
 
 ## Mixing backends in one report

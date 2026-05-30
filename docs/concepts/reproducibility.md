@@ -6,7 +6,7 @@ experiment is auditable after the fact, without you having to remember to instru
 ## Persisted artifacts
 
 Every intermediate is written to a numbered stage folder (see
-[On-disk layout](on-disk-layout.md)). You can inspect, reuse, or pin any step — the data
+[On-disk layout](on-disk-layout.md)). You can inspect, reuse, or pin any step - the data
 that produced a number still exists on disk after the run.
 
 ## Effective config dumps
@@ -19,13 +19,13 @@ models/<toolkit>/runs/<run>/logs/
 └── config_predict.json   # everything predict() actually used
 ```
 
-This is the resolved config *after* merging `FitConfig`/`PredictConfig` with any override
-kwargs — so it records what the run really did, not what you intended.
+This is the resolved config _after_ merging `FitConfig`/`PredictConfig` with any override
+kwargs - so it records what the run really did, not what you intended.
 
 !!! note "Only primitives round-trip"
-    The config dump filters out non-primitive values. Don't expect arbitrary Python objects
-    (a custom callable, a model instance) to appear in the JSON — log those yourself if you
-    need them.
+The config dump filters out non-primitive values. Don't expect arbitrary Python objects
+(a custom callable, a model instance) to appear in the JSON - log those yourself if you
+need them.
 
 ## One seed for everything
 
@@ -45,13 +45,13 @@ trainer.fit(train_ds, config=FitConfig(max_epochs=10, seed=42))
 
 ## Standard reference tools
 
-AutoNMT delegates the parts that *must* be comparable across papers to widely-used
+AutoNMT delegates the parts that _must_ be comparable across papers to widely-used
 reference implementations rather than reinventing them:
 
-- **SentencePiece** — subword tokenization
-- **sacreBLEU** — BLEU / chrF with versioned, reproducible signatures
-- **Moses** (`sacremoses`) — word pretokenization
-- **COMET**, **BERTScore** — neural metrics
+- **SentencePiece** - subword tokenization
+- **sacreBLEU** - BLEU / chrF with versioned, reproducible signatures
+- **Moses** (`sacremoses`) - word pretokenization
+- **COMET**, **BERTScore** - neural metrics
 
 Because these are the same tools the rest of the field uses, your numbers line up with
 published baselines.

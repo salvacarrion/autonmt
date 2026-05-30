@@ -1,15 +1,15 @@
 # Fairseq backend
 
 !!! warning "Deprecated"
-    Fairseq was [archived by its maintainers on 2026-03-20](https://github.com/facebookresearch/fairseq)
-    and no longer receives updates.
-    [`FairseqTranslator`][autonmt.backends.fairseq.translation_engine.FairseqTranslator] is
-    kept working for users with existing flows, but **new projects should use the
-    [AutoNMT backend](autonmt.md)** (PyTorch Lightning).
+Fairseq was [archived by its maintainers on 2026-03-20](https://github.com/facebookresearch/fairseq)
+and no longer receives updates.
+[`FairseqTranslator`][autonmt.backends.fairseq.translation_engine.FairseqTranslator] is
+kept working for users with existing flows, but **new projects should use the
+[AutoNMT backend](autonmt.md)** (PyTorch Lightning).
 
     Importing the module emits a `DeprecationWarning`; instantiating it without `fairseq`
     installed raises `ImportError` with install instructions. Fairseq is **not** in the
-    default dependencies — install it with `pip install -e '.[fairseq]'`.
+    default dependencies - install it with `pip install -e '.[fairseq]'`.
 
 `FairseqTranslator` shells out to the Fairseq CLI. AutoNMT translates its kwargs
 (`max_epochs`, `batch_size`, …) into Fairseq flags via an internal `_AUTONMT_TO_FAIRSEQ`
@@ -38,7 +38,7 @@ trainer.fit(
 ## Precedence: `fairseq_args` always win
 
 !!! danger "On collision, raw Fairseq flags override AutoNMT kwargs"
-    If you set `max_epochs=10` *and* `--max-epoch 15` in `fairseq_args`, the run uses **15**.
+If you set `max_epochs=10` _and_ `--max-epoch 15` in `fairseq_args`, the run uses **15**.
 
     This is intentional: it lets you express anything Fairseq supports without AutoNMT
     needing to know about it. The trade-off is that you must avoid setting the same thing

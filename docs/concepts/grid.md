@@ -25,11 +25,11 @@ builder = DatasetBuilder(
 
 This declares:
 
-| Axis | Values | Count |
-| --- | --- | --- |
-| Language pairs | `de-en` | 1 |
-| Training sizes | `original`, `10k` | 2 |
-| Subword × vocab | `bpe/2000`, `bpe/4000`, `char/200` | 3 |
+| Axis            | Values                             | Count |
+| --------------- | ---------------------------------- | ----- |
+| Language pairs  | `de-en`                            | 1     |
+| Training sizes  | `original`, `10k`                  | 2     |
+| Subword × vocab | `bpe/2000`, `bpe/4000`, `char/200` | 3     |
 
 The cross-product is `1 × 2 × 3 = 6` dataset cells. `build()` materializes all six on
 disk; `get_train_ds()` returns the six `Dataset` objects.
@@ -45,14 +45,14 @@ line cap (`None`).
 "sizes": [("original", None), ("100k", 100_000), ("10k", 10_000)]
 ```
 
-This is how you study **data efficiency** — train the same model on progressively smaller
+This is how you study **data efficiency** - train the same model on progressively smaller
 subsets and compare the curve.
 
 ## Subword models and the `+bytes` shorthand
 
 `subword_models` accepts: `word`, `char`, `bytes`, `bpe`, `unigram`, and the byte-fallback
 variants `char+bytes`, `unigram+bytes`. The `+bytes` suffix is sugar for setting
-`byte_fallback=True` on that entry — equivalent to:
+`byte_fallback=True` on that entry - equivalent to:
 
 ```python
 {"subword_models": ["unigram"], "byte_fallback": True}
@@ -60,7 +60,7 @@ variants `char+bytes`, `unigram+bytes`. The `+bytes` suffix is sugar for setting
 
 Byte fallback emits unseen characters as raw bytes instead of `<unk>`, which matters for
 rare scripts, emoji, and names. The flag is orthogonal to the model, so to compare BPE
-*with and without* fallback you declare two entries:
+_with and without_ fallback you declare two entries:
 
 ```python
 encoding=[
@@ -73,13 +73,13 @@ The two land at different on-disk paths (`bpe/8000` vs `bpe+bytes/8000`), so the
 independent cells.
 
 !!! note "`word` triggers Moses pretokenization"
-    The `word` model whitespace-tokenizes with Moses before building the vocabulary. It
-    produces a large vocab but a fast model. `bytes` ignores `vocab_sizes` entirely (the
-    vocab is always 256).
+The `word` model whitespace-tokenizes with Moses before building the vocabulary. It
+produces a large vocab but a fast model. `bytes` ignores `vocab_sizes` entirely (the
+vocab is always 256).
 
 ## Iterating over cells
 
-The experiment loop is the same regardless of grid size — iterate the train datasets,
+The experiment loop is the same regardless of grid size - iterate the train datasets,
 build vocabs, train, predict, collect scores:
 
 ```python
@@ -100,11 +100,11 @@ generate_report(scores=scores, output_path="outputs/grid")
 
 `PredictConfig(eval_mode=...)` controls which test sets each trained model is scored on:
 
-| `eval_mode` | Scores on |
-| --- | --- |
-| `"same"` | Only the test set with the same `(name, lang, size)` as the trained cell |
-| `"compatible"` | Every test set with the **same language pair** |
-| `"all"` | Every test set |
+| `eval_mode`    | Scores on                                                                |
+| -------------- | ------------------------------------------------------------------------ |
+| `"same"`       | Only the test set with the same `(name, lang, size)` as the trained cell |
+| `"compatible"` | Every test set with the **same language pair**                           |
+| `"all"`        | Every test set                                                           |
 
 `"compatible"` is the most useful for cross-corpus generalization: train on small subsets,
 evaluate on the full test sets of every compatible corpus you have. With the 6-cell grid

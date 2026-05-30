@@ -11,11 +11,11 @@ A few principles shape every design decision in the framework.
 ## 1. Declare the experiment, don't script it
 
 You don't write a `for` loop over vocab sizes and copy-paste training code. You **declare
-the axes** — datasets, language pairs, training sizes, subword models, vocabulary sizes —
+the axes** - datasets, language pairs, training sizes, subword models, vocabulary sizes -
 and AutoNMT unrolls the cross-product into concrete dataset cells. Each cell is a fully
 materialized variant you can train and compare.
 
-The payoff is that the result is *one comparable table*, not a directory of ad-hoc runs
+The payoff is that the result is _one comparable table_, not a directory of ad-hoc runs
 you have to reconcile by hand. See [The grid](grid.md).
 
 ## 2. Everything is path-driven and persisted
@@ -28,7 +28,7 @@ Two consequences fall out of this:
 
 - **Resumability.** Each stage checks `force_overwrite` and skips work that already
   exists. Re-running an experiment after a crash continues where it stopped. When you need
-  to redo a stage, you delete *that stage's folder* — not the whole tree.
+  to redo a stage, you delete _that stage's folder_ - not the whole tree.
 - **Inspectability.** When a result looks wrong, you can read the actual intermediate
   files. There is no hidden in-memory state that only existed during the run.
 
@@ -39,7 +39,7 @@ See [On-disk layout](on-disk-layout.md).
 Training an AutoNMT Lightning model, fine-tuning a HuggingFace checkpoint, and shelling
 out to Fairseq are very different operations. AutoNMT hides them behind a single
 `fit()` / `predict()` contract so the surrounding experiment code is identical. You change
-*one class* to switch engines. See [Backends](../backends/index.md).
+_one class_ to switch engines. See [Backends](../backends/index.md).
 
 ## 4. Minimal core, extend at the edges
 
@@ -49,8 +49,8 @@ flags, AutoNMT gives you **extension points**: callable hooks (`preprocess_raw_f
 models. If a behavior is specific to your project, you supply it as a function or a
 subclass instead of waiting for a flag.
 
-This keeps the framework legible: you can read the core, and the parts that are *yours*
-stay in *your* code.
+This keeps the framework legible: you can read the core, and the parts that are _yours_
+stay in _your_ code.
 
 ## 5. Reproducible by construction
 

@@ -1,5 +1,5 @@
 site_name: AutoNMT
-site_description: A framework for automating grid experimentation in neural machine translation.
+site_description: A framework to streamline the research of neural machine translation models.
 site_author: Salva Carrión
 site_url: https://salvacarrion.github.io/autonmt/
 

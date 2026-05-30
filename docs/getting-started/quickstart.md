@@ -7,10 +7,10 @@ We'll fetch the **multi30k** German→English corpus from HuggingFace, train a s
 Transformer for one epoch, and print a summary table.
 
 !!! info "Install the HuggingFace loader first"
-    Downloading the corpus uses the `hf` extra:
-    ```bash
+Downloading the corpus uses the `hf` extra:
+`bash
     pip install -e '.[hf]'
-    ```
+    `
 
 ## The full script
 
@@ -102,9 +102,9 @@ python examples/basics/01_hello_autonmt.py
 ```
 
 !!! tip "A low score is expected here"
-    One epoch on a tiny Transformer will produce a **single-digit BLEU**. That's fine —
-    this script's job is to prove the pipeline runs end-to-end, not to produce a
-    publishable model.
+One epoch on a tiny Transformer will produce a **single-digit BLEU**. That's fine -
+this script's job is to prove the pipeline runs end-to-end, not to produce a
+publishable model.
 
 ## What just happened
 
@@ -112,7 +112,7 @@ Reading the script top to bottom is reading the [three-layer pipeline](../concep
 
 1. **`download_hf_dataset` + `DatasetBuilder`** prepared the corpus on disk: splits,
    normalization, a trained SentencePiece BPE-4000 tokenizer, and the encoded text. Every
-   stage landed in a numbered folder under `datasets/quickstart/` — see the
+   stage landed in a numbered folder under `datasets/quickstart/` - see the
    [on-disk layout](../concepts/on-disk-layout.md). Re-running skips finished stages.
 2. **`AutonmtTranslator`** wrapped the `Transformer` and ran `fit()` (training) then
    `predict()` (translate the test set + score it).

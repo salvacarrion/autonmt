@@ -8,7 +8,7 @@ Read [The grid](../concepts/grid.md) first for the concepts; this is the hands-o
 
 ## Sweeping one axis
 
-Start by varying a single thing — say vocabulary size — and keeping everything else fixed:
+Start by varying a single thing - say vocabulary size - and keeping everything else fixed:
 
 ```python
 builder = DatasetBuilder(
@@ -20,7 +20,7 @@ builder = DatasetBuilder(
 ).build(force_overwrite=False)
 ```
 
-The experiment loop is axis-agnostic — it iterates whatever the builder produced:
+The experiment loop is axis-agnostic - it iterates whatever the builder produced:
 
 ```python
 fit_cfg  = FitConfig(max_epochs=2, batch_size=128, learning_rate=1e-3, seed=42)
@@ -67,12 +67,12 @@ for ds in builder.get_train_ds():
 `PredictConfig(metrics=...)` takes a set of metric names, routed to the right backend
 automatically:
 
-| Metric string | Backend | Extra needed |
-| --- | --- | --- |
-| `"bleu"`, `"chrf"`, `"ter"` | sacreBLEU | — (base install) |
-| `"bertscore"` | BERTScore | — (base install) |
-| `"comet"` | COMET | downloads a model on first use |
-| `"hg_<name>"` | HuggingFace `evaluate` | `pip install -e '.[hf]'` |
+| Metric string               | Backend                | Extra needed                   |
+| --------------------------- | ---------------------- | ------------------------------ |
+| `"bleu"`, `"chrf"`, `"ter"` | sacreBLEU              | - (base install)               |
+| `"bertscore"`               | BERTScore              | - (base install)               |
+| `"comet"`                   | COMET                  | downloads a model on first use |
+| `"hg_<name>"`               | HuggingFace `evaluate` | `pip install -e '.[hf]'`       |
 
 ```python
 PredictConfig(metrics={"bleu", "chrf", "comet"}, beams=[1, 5])
@@ -85,10 +85,10 @@ call; each ends up as its own column in the report.
 
 `eval_mode` decides which test sets each trained model is scored against:
 
-- `"same"` — only the cell's own test set.
-- `"compatible"` — every test set with the same language pair (best for cross-corpus
+- `"same"` - only the cell's own test set.
+- `"compatible"` - every test set with the same language pair (best for cross-corpus
   generalization).
-- `"all"` — everything.
+- `"all"` - everything.
 
 See the [eval_mode table](../concepts/grid.md#choosing-what-to-evaluate-eval_mode).
 

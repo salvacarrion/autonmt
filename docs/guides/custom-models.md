@@ -2,7 +2,7 @@
 
 AutoNMT ships several built-in architectures (`Transformer`, `ConvS2S`, the RNN family,
 `MLP`) under [`autonmt.core.nn.models`](../reference/core.md). When you want your own, you
-subclass one base class and plug it in exactly like a built-in — this is the
+subclass one base class and plug it in exactly like a built-in - this is the
 [extension-first](../concepts/philosophy.md#4-minimal-core-extend-at-the-edges) design in
 action.
 
@@ -32,8 +32,8 @@ class MyModel(LitSeq2Seq):
         ...
 ```
 
-`LitSeq2Seq` already implements the Lightning plumbing — training/validation steps, the
-optimizer, loss, and the decoding entry points — so you only write the architecture.
+`LitSeq2Seq` already implements the Lightning plumbing - training/validation steps, the
+optimizer, loss, and the decoding entry points - so you only write the architecture.
 
 ## Plug it in
 
@@ -51,7 +51,7 @@ trainer = AutonmtTranslator.from_dataset(
 trainer.fit(train_ds, config=FitConfig(max_epochs=10, batch_size=128))
 ```
 
-`from_vocabs` is a classmethod on the base — it reads `src_vocab_size`, `tgt_vocab_size`,
+`from_vocabs` is a classmethod on the base - it reads `src_vocab_size`, `tgt_vocab_size`,
 and `padding_idx` off the vocabularies and forwards any extra kwargs to your `__init__`, so
 you can pass hyperparameters straight through:
 
@@ -62,8 +62,8 @@ MyModel.from_vocabs(src_vocab, tgt_vocab, hidden_dim=512, num_layers=6, dropout=
 ## Decoding strategies
 
 Decoding is decoupled from the model. The strategies live under
-[`autonmt.core.decoding`](../reference/core.md) — `GreedySearch`, `BeamSearch`,
-`MultinomialSampling`, `TopkSampling`, `ToppSampling` — built on the `BaseSearch` contract.
+[`autonmt.core.decoding`](../reference/core.md) - `GreedySearch`, `BeamSearch`,
+`MultinomialSampling`, `TopkSampling`, `ToppSampling` - built on the `BaseSearch` contract.
 Pick one at predict time:
 
 ```python
@@ -76,7 +76,7 @@ works with greedy, beam, and sampling decoders without changes.
 
 ## Tips
 
-- Keep architecture knobs as `__init__` kwargs and pass them via `from_vocabs(...)` — they
+- Keep architecture knobs as `__init__` kwargs and pass them via `from_vocabs(...)` - they
   flow into the run config dump for [reproducibility](../concepts/reproducibility.md).
 - Start by reading
   [`autonmt/core/nn/models/transformer/transformer.py`](https://github.com/salvacarrion/autonmt/blob/main/autonmt/core/nn/models/transformer/transformer.py)

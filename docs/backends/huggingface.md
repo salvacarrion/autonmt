@@ -2,7 +2,7 @@
 
 [`HuggingFaceTranslator`][autonmt.backends.huggingface.translation_engine.HuggingFaceTranslator]
 wraps `transformers.AutoModelForSeq2SeqLM` so you can **evaluate** a pretrained seq2seq
-checkpoint on your test set, or **fine-tune** it on your splits — using the same
+checkpoint on your test set, or **fine-tune** it on your splits - using the same
 `fit()` / `predict()` flow as every other backend.
 
 Install the extras:
@@ -16,14 +16,14 @@ Mirrors [`examples/basics/06_huggingface_baseline_and_finetune.py`](https://gith
 ## Its own tokenizer
 
 The HF backend brings its own tokenizer, so the `subword_models` / `vocab_sizes` you
-declared in `encoding=` are used only for the AutoNMT-side dataset *identity* and stats —
-HF ignores the SentencePiece model and tokenizes the source itself. It runs in *direct
-mode* (`_spm = None`), writing `src.txt` / `ref.txt` / `hyp.txt` straight to disk. The
+declared in `encoding=` are used only for the AutoNMT-side dataset _identity_ and stats -
+HF ignores the SentencePiece model and tokenizes the source itself. It runs in _direct
+mode_ (`_spm = None`), writing `src.txt` / `ref.txt` / `hyp.txt` straight to disk. The
 score schema is identical to the other backends.
 
 ## Evaluate a pretrained baseline
 
-No `fit()` — the model is already trained, so jump straight to `predict()`:
+No `fit()` - the model is already trained, so jump straight to `predict()`:
 
 ```python
 from autonmt.backends import HuggingFaceTranslator
@@ -45,13 +45,13 @@ scores = baseline.predict(test_datasets, config=PredictConfig(
 
 `FitConfig` fields map onto `transformers.Seq2SeqTrainingArguments`:
 
-| `FitConfig` | `Seq2SeqTrainingArguments` |
-| --- | --- |
-| `max_epochs` | `num_train_epochs` |
-| `batch_size` | `per_device_{train,eval}_batch_size` |
-| `learning_rate`, `weight_decay`, `gradient_clip_val`, `accumulate_grad_batches` | same-named args |
-| `patience` | `EarlyStoppingCallback` |
-| `seed`, `num_workers` | `seed`, `dataloader_num_workers` |
+| `FitConfig`                                                                     | `Seq2SeqTrainingArguments`           |
+| ------------------------------------------------------------------------------- | ------------------------------------ |
+| `max_epochs`                                                                    | `num_train_epochs`                   |
+| `batch_size`                                                                    | `per_device_{train,eval}_batch_size` |
+| `learning_rate`, `weight_decay`, `gradient_clip_val`, `accumulate_grad_batches` | same-named args                      |
+| `patience`                                                                      | `EarlyStoppingCallback`              |
+| `seed`, `num_workers`                                                           | `seed`, `dataloader_num_workers`     |
 
 ```python
 finetuner = HuggingFaceTranslator.from_dataset(
@@ -72,14 +72,14 @@ finetuned_scores = finetuner.predict(test_datasets, config=pred_cfg)
 ```
 
 !!! note "HF-only training knobs"
-    Anything specific to the HF `Trainer` (label smoothing, mixed precision, …) goes through
-    `hf_training_args=dict(...)` on `.fit()`. On collision with `FitConfig`, the explicit
-    `hf_training_args` value wins.
+Anything specific to the HF `Trainer` (label smoothing, mixed precision, …) goes through
+`hf_training_args=dict(...)` on `.fit()`. On collision with `FitConfig`, the explicit
+`hf_training_args` value wins.
 
 ## Same report as everyone else
 
 Because the schema matches, the baseline and the fine-tuned run drop into the same report
-alongside your AutoNMT models — one row per `(run, test_ds)` pair:
+alongside your AutoNMT models - one row per `(run, test_ds)` pair:
 
 ```python
 generate_report(scores=[baseline_scores, finetuned_scores], output_path="outputs/hf")
