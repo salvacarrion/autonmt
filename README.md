@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo3.png" alt="AutoNMT" width="280"/>
+<img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo_with_name.png" alt="AutoNMT" width="280"/>
 
 **A framework to streamline the research of neural machine translation models.**
 
