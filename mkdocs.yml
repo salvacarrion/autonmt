@@ -11,31 +11,30 @@ copyright: Copyright &copy; Salva Carrión — MIT License
 
 theme:
   name: material
-  logo: images/logos/logo3.png
-  favicon: images/logos/logo3.png
+  logo: images/logos/logo.png
+  favicon: images/logos/logo.png
   icon:
     repo: fontawesome/brands/github
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep purple
-      accent: deep purple
+      primary: teal
+      accent: orange
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep purple
-      accent: deep purple
+      primary: teal
+      accent: orange
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
     - navigation.instant
     - navigation.tracking
-    - navigation.tabs
     - navigation.sections
     - navigation.top
     - navigation.footer
@@ -48,27 +47,37 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting started:
-      - Installation: getting-started/installation.md
-      - Quickstart: getting-started/quickstart.md
-  - Concepts:
-      - Philosophy: concepts/philosophy.md
-      - The pipeline: concepts/pipeline.md
-      - The grid: concepts/grid.md
-      - On-disk layout: concepts/on-disk-layout.md
-      - Reproducibility: concepts/reproducibility.md
-  - Guides:
-      - Bring your own data: guides/bring-your-own-data.md
-      - Preprocessing & vocabularies: guides/preprocessing-and-vocabs.md
-      - Grid experiments: guides/grid-experiments.md
-      - Custom models: guides/custom-models.md
-      - Reports & plots: guides/reports.md
-      - Under the hood: guides/under-the-hood.md
+  - Introduction:
+      - Why AutoNMT: introduction/why.md
+      - Design philosophy: introduction/philosophy.md
+      - The mental model: introduction/mental-model.md
+  - Get started:
+      - Installation: get-started/installation.md
+      - Your first experiment: get-started/first-experiment.md
+  - Architecture:
+      - Building blocks & the pipeline: architecture/building-blocks.md
+      - The toolkit abstraction: architecture/toolkit-abstraction.md
+      - On-disk layout & reproducibility: architecture/layout-and-reproducibility.md
+  - Data & vocabularies:
+      - Datasets & the dataset builder: data/dataset-builder.md
+      - Preprocessing & subword encoding: data/preprocessing-and-encoding.md
+      - Vocabularies: data/vocabularies.md
+  - The AutoNMT toolkit:
+      - Overview & the experiment loop: toolkit/overview.md
+      - Training (fit): toolkit/training.md
+      - Translating & decoding (predict): toolkit/predict.md
+      - Models & the LitSeq2Seq contract: toolkit/models.md
+      - Decoding strategies: toolkit/decoding.md
+      - Samplers & the TranslationDataset: toolkit/data-pipeline.md
+      - Full manual control: toolkit/manual-control.md
   - Backends:
-      - Overview: backends/index.md
-      - AutoNMT (Lightning): backends/autonmt.md
+      - Choosing a backend: backends/index.md
       - HuggingFace: backends/huggingface.md
       - Fairseq (deprecated): backends/fairseq.md
+  - Evaluation & reports:
+      - Metrics & significance: evaluation/metrics.md
+      - Reports & plots: evaluation/reports.md
+  - Extending AutoNMT: extending/index.md
   - API reference:
       - Overview: reference/index.md
       - Datasets: reference/datasets.md
@@ -85,6 +94,8 @@ markdown_extensions:
   - md_in_html
   - footnotes
   - tables
+  - pymdownx.arithmatex:
+      generic: true
   - toc:
       permalink: true
   - pymdownx.details
@@ -103,9 +114,10 @@ markdown_extensions:
       alternate_style: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_generator:
+        !!python/name:material.extensions.emoji.to_svg # Keep the archived docs out of the built site (kept in-repo for reference only).
 
-# Keep the archived docs out of the built site (kept in-repo for reference only).
+
 exclude_docs: |
   _legacy/
 
@@ -137,3 +149,7 @@ extra:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js

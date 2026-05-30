@@ -1,51 +1,74 @@
-# Backends
+# Choosing a backend
 
-A **backend** is the engine behind a translator. All three implement the same
-`fit()` / `predict()` contract from
-[`BaseTranslator`][autonmt.backends._base.translation_engine.BaseTranslator], so the
-experiment code around them is identical - you switch engines by changing one class.
+A **backend** is the NMT toolkit that runs underneath `fit` / `predict`. AutoNMT ships
+three, all implementing the same [`BaseTranslator`
+contract](../architecture/toolkit-abstraction.md), so switching is a one-line change while
+your data prep, scoring, and reports stay identical.
 
-```{.text .pipeline}
-                BaseTranslator   (fit / predict, shared pipeline)
-                      │
-      ┌───────────────┼────────────────────┐
-      ▼               ▼                     ▼
-AutonmtTranslator  HuggingFaceTranslator  FairseqTranslator
-(Lightning models)  (transformers seq2seq)  (fairseq CLI, deprecated)
+| Backend | Class | Use it when… | Install |
+| --- | --- | --- | --- |
+| **AutoNMT** (Lightning) | `AutonmtTranslator` | You're training a **custom architecture from scratch** and want full control over the model, decoding, and data pipeline | core |
+| **HuggingFace** | `HuggingFaceTranslator` | You want to **fine-tune or evaluate a pretrained** seq2seq checkpoint (Marian, mBART, NLLB, T5…) | `[hf-models]` |
+| **Fairseq** *(deprecated)* | `FairseqTranslator` | You need to **reproduce an existing Fairseq baseline** | `[fairseq]` |
+
+## The one-line swap
+
+The same script, three engines — only the translator object changes:
+
+```python
+# Native Lightning engine (custom Transformer)
+trainer = AutonmtTranslator.from_dataset(
+    train_ds, model=Transformer.from_vocabs(src_vocab, tgt_vocab),
+    src_vocab=src_vocab, tgt_vocab=tgt_vocab, run_prefix="exp")
+
+# Fine-tune a pretrained HuggingFace model
+trainer = HuggingFaceTranslator.from_dataset(
+    train_ds, model_id="Helsinki-NLP/opus-mt-de-en", run_prefix="exp")
+
+# Reproduce a Fairseq baseline (deprecated)
+trainer = FairseqTranslator.from_dataset(
+    train_ds, src_vocab=src_vocab, tgt_vocab=tgt_vocab, run_prefix="exp")
 ```
 
-| Backend                                   | Engine            | Toolkit folder        | Status          |
-| ----------------------------------------- | ----------------- | --------------------- | --------------- |
-| [`AutonmtTranslator`](autonmt.md)         | PyTorch Lightning | `models/autonmt/`     | **Recommended** |
-| [`HuggingFaceTranslator`](huggingface.md) | `transformers`    | `models/huggingface/` | Stable          |
-| [`FairseqTranslator`](fairseq.md)         | Fairseq CLI       | `models/fairseq/`     | ⚠️ Deprecated   |
+After that line, `trainer.fit(...)` and `trainer.predict(...)` are called the same way, and
+`generate_report(...)` consumes the results identically. That's the [Keras-style
+abstraction](../introduction/philosophy.md#keras) in practice.
 
-## What the base class does
+## How they differ underneath
 
-`BaseTranslator` owns the parts every backend shares:
+| | AutoNMT | HuggingFace | Fairseq |
+| --- | --- | --- | --- |
+| Model source | your `LitSeq2Seq` | pretrained `AutoModelForSeq2SeqLM` | Fairseq CLI archs |
+| Training | PyTorch Lightning | `Seq2SeqTrainer` (fine-tune) | `fairseq-train` (subprocess) |
+| Tokenization | dataset's SentencePiece | the model's own HF tokenizer | dataset's SentencePiece |
+| Translate mode | [SPM pipeline](../architecture/toolkit-abstraction.md#spm-pipeline-mode-autonmt-fairseq) | [direct](../architecture/toolkit-abstraction.md#direct-mode-huggingface) | SPM pipeline |
+| Decoding | AutoNMT's [search strategies](../toolkit/decoding.md) | `model.generate` | Fairseq's generator |
+| Maintained | ✅ actively | ✅ | ❌ archived 2026-03-20 |
 
-- the public `fit()` / `predict()` surface and config merging,
-- selecting which test sets to evaluate via `filter_eval_datasets` / `eval_mode`,
-- routing metrics through the [`MetricBackend`](../reference/evaluation.md) registry,
-- assembling the per-run report dict.
+The practical consequences:
 
-Subclasses implement the abstract hooks `_train`, `_translate`, `_get_lang_pair`, and
-`_get_run_metadata`.
+- **AutoNMT** is the only backend where you control the architecture and the decoding
+  algorithm. It's documented in depth in [The AutoNMT toolkit](../toolkit/overview.md) — this
+  section doesn't repeat it.
+- **HuggingFace** brings its own tokenizer, so the dataset's subword model is irrelevant to
+  it (it reads the preprocessed splits and tokenizes itself). Best when you want a strong
+  pretrained starting point. → [HuggingFace](huggingface.md)
+- **Fairseq** still works but is deprecated; prefer AutoNMT for new work. → [Fairseq](fairseq.md)
 
-## SPM round-trip vs direct mode
+## What's shared no matter the backend
 
-SentencePiece-based backends (AutoNMT, Fairseq) encode the evaluation splits with the same
-subword model the training run used, then decode the hypotheses back. That round-trip lives
-in [`spm_pipeline.py`](https://github.com/salvacarrion/autonmt/blob/main/autonmt/backends/_base/spm_pipeline.py)
-and is wired by composition: a backend sets `self._spm = SPMTranslatePipeline(...)` in its
-constructor, and `translate()` branches on whether it's set.
+Because all three honor the same contract, you always get — for free, identically:
 
-The HuggingFace backend brings its **own** tokenizer, so it leaves `_spm = None` and writes
-`src.txt` / `ref.txt` / `hyp.txt` directly - _direct mode_. From your point of view nothing
-changes; the score schema is identical.
+- the same [config persistence + environment snapshot](../architecture/layout-and-reproducibility.md),
+- the same [`eval_mode`](../toolkit/predict.md#eval-mode) test-set filtering,
+- the same [metric backends](../evaluation/metrics.md) and [report schema](../evaluation/reports.md),
+- the same on-disk run layout (only the `<toolkit>` folder name differs:
+  `models/autonmt/…`, `models/huggingface/…`, `models/fairseq/…`).
 
-## Mixing backends in one report
+!!! tip "Mix backends in one report"
+    Because every backend emits the same flattened score schema, you can drop an AutoNMT
+    model, a fine-tuned HuggingFace checkpoint, and a Fairseq baseline into a **single**
+    `generate_report` call and compare them in one table.
 
-Because every backend emits the same flattened score schema, you can drop an AutoNMT model,
-a fine-tuned HuggingFace checkpoint, and a Fairseq baseline into a **single**
-`generate_report` call and compare them in one table. See [Reports & plots](../guides/reports.md).
+To document a *new* toolkit as a backend, see [Extending
+AutoNMT](../extending/index.md#a-custom-backend).

@@ -1,50 +1,32 @@
----
-hide:
-  - navigation
----
+<p align="center">
+  <img src="images/logos/logo_with_name.png" alt="AutoNMT" width="400">
+</p>
 
-<div class="autonmt-hero" markdown>
+<p style="font-size: 1.15rem; opacity: 0.85; text-align: center;">
+A framework to streamline the research of neural machine translation models.
+</p>
 
-![AutoNMT](images/logos/logo3.png)
+AutoNMT takes the **repetitive half** of NMT research off your hands — tokenization,
+training, decoding, scoring, logging, plotting, and the file bookkeeping that ties them
+together — so the hours you spend are the hours that actually move your research: the
+model.
 
-**A framework to streamline the research of neural machine translation models.**
-
-</div>
-
-AutoNMT is a research framework that automates the repetitive machinery around neural
-machine translation experiments - dataset variant generation, tokenization, training,
-translation, scoring, logging, plotting, and file management - so you can spend your
-time on the part that matters: the model.
-
-You **declare a grid** of datasets × language pairs × training sizes × subword models ×
-vocabulary sizes. AutoNMT unrolls the cross-product, runs every cell, persists every
-intermediate artifact on disk, and hands you back a single comparable report.
-
-The _same_ script can train AutoNMT's own PyTorch Lightning models, fine-tune (or just
-evaluate) a HuggingFace seq2seq checkpoint, or shell out to Fairseq - you switch backends
-by changing one class.
-
----
-
-## The shape of an experiment
-
-Every AutoNMT experiment is three composable layers:
-
-```{.text .pipeline}
-DatasetBuilder  ───►  Translator  ───►  generate_report
-   (the grid)        (fit / predict)     (json + csv + plots)
-```
+You don't write loops over datasets and hyper-parameters. You **declare a grid** —
+datasets × language pairs × subword models × vocabulary sizes — and AutoNMT walks the
+cross-product, persists every intermediate artifact in a predictable place on disk, and
+hands you one comparable report at the end. Swap a single class and the same script
+trains AutoNMT's own PyTorch Lightning models, fine-tunes a HuggingFace checkpoint, or
+shells out to Fairseq.
 
 ```python
 from autonmt.datasets import DatasetBuilder
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
-from autonmt.reporting.report import generate_report
 
-# 1. Declare the grid → AutoNMT materializes every cell on disk
+# 1. Declare the grid → AutoNMT unrolls it into dataset variants on disk.
 builder = DatasetBuilder(
-    base_path="datasets/quickstart",
+    base_path="data",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
 ).build()
@@ -52,70 +34,87 @@ builder = DatasetBuilder(
 train_ds = builder.get_train_ds()[0]
 src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
-# 2. Wrap a model in a translator and run fit / predict
+# 2. Bind a model to a backend and run the experiment loop.
 trainer = AutonmtTranslator.from_dataset(
-    train_ds, model=Transformer.from_vocabs(src_vocab, tgt_vocab),
-    src_vocab=src_vocab, tgt_vocab=tgt_vocab, run_prefix="quickstart",
+    train_ds,
+    model=Transformer.from_vocabs(src_vocab, tgt_vocab),
+    src_vocab=src_vocab, tgt_vocab=tgt_vocab,
+    run_prefix="demo",
 )
 trainer.fit(train_ds, config=FitConfig(max_epochs=3, batch_size=128))
 scores = trainer.predict(builder.get_test_ds(), config=PredictConfig(metrics={"bleu"}))
-
-# 3. Turn the scores into a report
-generate_report(scores=[scores], output_path="outputs/quickstart")
 ```
 
----
-
-## Why AutoNMT
-
-<div class="grid cards" markdown>
-
-- :material-grid:{ .lg .middle } **Grids, not scripts**
-
-  ***
-
-  Describe the axes you want to sweep. AutoNMT runs the cross-product and gives you one
-  table where every cell is directly comparable.
-
-  [:octicons-arrow-right-24: The grid](concepts/grid.md)
-
-- :material-swap-horizontal:{ .lg .middle } **Backend-agnostic**
-
-  ***
-
-  AutoNMT Lightning models, HuggingFace seq2seq checkpoints, or the Fairseq CLI behind
-  one `fit()` / `predict()` surface.
-
-  [:octicons-arrow-right-24: Backends](backends/index.md)
-
-- :material-folder-cog:{ .lg .middle } **Everything on disk**
-
-  ***
-
-  Each stage is persisted in a numbered folder and skipped on re-run. Inspect, reuse, or
-  pin any step.
-
-  [:octicons-arrow-right-24: On-disk layout](concepts/on-disk-layout.md)
-
-- :material-flask:{ .lg .middle } **Built for reproducibility**
-
-  ***
-
-  One seed seeds everything; every run dumps its full effective config. Built on
-  SentencePiece, sacreBLEU, Moses, COMET, BERTScore.
-
-  [:octicons-arrow-right-24: Reproducibility](concepts/reproducibility.md)
-
-</div>
+That snippet is the whole shape of an AutoNMT experiment: **describe the data, pick a
+backend, `fit`, `predict`.** Everything in these docs is about understanding what happens
+inside those four steps and how to bend each one to your research.
 
 ---
 
 ## Where to go next
 
-- **New here?** Start with [Installation](getting-started/installation.md) then the
-  [Quickstart](getting-started/quickstart.md).
-- **Want the mental model?** Read [Philosophy](concepts/philosophy.md) and
-  [The pipeline](concepts/pipeline.md).
-- **Ready to build?** The [Guides](guides/bring-your-own-data.md) mirror the runnable
-  scripts in [`examples/`](https://github.com/salvacarrion/autonmt/tree/main/examples).
-- **Looking for a specific class?** Jump to the [API reference](reference/index.md).
+<div class="grid cards" markdown>
+
+-   :material-lightbulb-on:{ .lg .middle } **New here? Start with the idea**
+
+    ---
+
+    Why AutoNMT exists, its design principles, and the mental model that makes the rest
+    click.
+
+    [:octicons-arrow-right-24: Introduction](introduction/why.md)
+
+-   :material-rocket-launch:{ .lg .middle } **Just want to run something**
+
+    ---
+
+    Install AutoNMT and walk through your first end-to-end experiment, line by line.
+
+    [:octicons-arrow-right-24: Get started](get-started/installation.md)
+
+-   :material-sitemap:{ .lg .middle } **Understand how it fits together**
+
+    ---
+
+    The pipeline, the toolkit abstraction that lets backends swap, and the on-disk layout
+    behind reproducibility.
+
+    [:octicons-arrow-right-24: Architecture](architecture/building-blocks.md)
+
+-   :material-engine:{ .lg .middle } **Use the native engine in depth**
+
+    ---
+
+    The AutoNMT toolkit, from the high-level `fit`/`predict` down to models, decoding,
+    samplers — and full manual control.
+
+    [:octicons-arrow-right-24: The AutoNMT toolkit](toolkit/overview.md)
+
+-   :material-swap-horizontal:{ .lg .middle } **Pick the right backend**
+
+    ---
+
+    When to use AutoNMT's engine, when to fine-tune HuggingFace, and the deprecated
+    Fairseq path.
+
+    [:octicons-arrow-right-24: Backends](backends/index.md)
+
+-   :material-chart-bar:{ .lg .middle } **Evaluate and report**
+
+    ---
+
+    Metrics (BLEU, chrF, TER, COMET, BERTScore), significance testing, and comparable
+    reports.
+
+    [:octicons-arrow-right-24: Evaluation & reports](evaluation/metrics.md)
+
+</div>
+
+---
+
+!!! note "Who this is for"
+    AutoNMT is built for **researchers**. We assume you can write Python and train a
+    model, but we do *not* assume every reader is equally fluent in every NMT concept.
+    Whenever a piece of machine-translation machinery shows up — subwords, beam search,
+    samplers, length penalties — you'll find a short, intuitive primer right next to it,
+    so you can keep reading without a detour to a textbook.

@@ -1,7 +1,7 @@
 # Reporting
 
-Report orchestration, domain figures, and low-level plot primitives. See the
-[Reports & plots guide](../guides/reports.md) for usage.
+Report orchestration, domain figures, and low-level plot primitives. See
+[Reports & plots](../evaluation/reports.md) for usage.
 
 ## Report
 

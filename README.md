@@ -2,8 +2,6 @@
 
 <img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo3.png" alt="AutoNMT" width="280"/>
 
-# AutoNMT
-
 **A framework to streamline the research of neural machine translation models.**
 
 [![Build](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml/badge.svg)](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml)
