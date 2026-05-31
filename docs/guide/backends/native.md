@@ -1,4 +1,4 @@
-# Native (PyTorch Lightning)
+# Native
 
 [`AutonmtTranslator`](../../reference/backends.md) is the default backend and AutoNMT's own
 engine. It wraps one of your [models](../models/using-a-model.md) with PyTorch Lightning and

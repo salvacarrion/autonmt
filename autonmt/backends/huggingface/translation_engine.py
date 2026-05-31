@@ -62,6 +62,11 @@ class HuggingFaceTranslator(BaseTranslator):
         Extra kwargs forwarded to :meth:`model.generate` on every call. The
         ``num_beams`` / ``max_new_tokens`` arguments are managed by AutoNMT
         from :class:`PredictConfig` and override any value here.
+
+    References
+    ----------
+    Wolf et al. (2020). *Transformers: State-of-the-Art Natural Language
+    Processing.* [arXiv:1910.03771](https://arxiv.org/abs/1910.03771)
     """
 
     ENGINE = "huggingface"

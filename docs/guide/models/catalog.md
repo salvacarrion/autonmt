@@ -17,7 +17,7 @@ research question you're asking.
 
 ## Transformer
 
-The default (Vaswani et al., 2017). The constructor exposes the standard knobs; defaults
+The default ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)). The constructor exposes the standard knobs; defaults
 build a small model that trains quickly:
 
 ```python
@@ -39,11 +39,12 @@ A few choices worth understanding:
 
 - **Embedding scaling.** Token embeddings are scaled by $\sqrt{d_{\text{model}}}$ before
   positional encodings are added, so the two have comparable magnitude (paper §3.4).
-- **`tie_embeddings`.** Shares the decoder input embedding with the output projection (Press
-  & Wolf, 2017) — fewer parameters, standard in NMT. Requires a compatible (often
+- **`tie_embeddings`.** Shares the decoder input embedding with the output projection ([Press & Wolf, 2017](https://arxiv.org/abs/1608.05859)) — fewer parameters, standard in NMT. Requires a compatible (often
   [merged](../data/vocabularies.md#separate-vs-shared-merged-vocabularies)) vocabulary.
-- **`norm_first` (Pre-LN vs Post-LN).** Pre-LN puts LayerNorm before each sub-block and
-  tends to train more stably without careful warmup; Post-LN is the original formulation.
+- **`norm_first` (Pre-LN vs Post-LN).** Pre-LN puts
+  [LayerNorm](https://arxiv.org/abs/1607.06450) before each sub-block and tends to train more
+  stably without careful warmup ([Xiong et al., 2020](https://arxiv.org/abs/2002.04745));
+  Post-LN is the original formulation.
 - **KV-cached decoding.** `supports_incremental_decoding = True`, so the decoders feed only
   the last token each step and reuse cached keys/values — turning the per-step cost from
   $O(L^2)$ to $O(L)$. Transparent to you; it just makes beam search fast.
@@ -61,15 +62,16 @@ All four share a recurrent core and the same constructor knobs (`encoder_hidden_
 `encoder_n_layers`, `encoder_bidirectional`, `teacher_force_ratio`, …), and pick the cell
 with `base_rnn="rnn" | "lstm" | "gru"`:
 
-- **`SimpleRNN`** (Sutskever et al., 2014) — the encoder compresses the source into a final
+- **`SimpleRNN`** ([Sutskever et al., 2014](https://arxiv.org/abs/1409.3215)) — the encoder compresses the source into a final
   hidden state; the decoder is seeded with it and generates token by token. No attention:
   the decoder sees the source *only* through that fixed-size state.
-- **`ContextRNN`** — like `SimpleRNN`, but the encoder context is **injected at every decode
-  step**, not just used as the initial state, so it doesn't have to survive in the hidden
-  state alone.
-- **`BahdanauRNN`** (Bahdanau et al., 2015) — adds **additive attention**: at each step the
+- **`ContextRNN`** ([Cho et al., 2014](https://arxiv.org/abs/1406.1078)) — like `SimpleRNN`,
+  but the encoder context is **injected at every decode step**, not just used as the initial
+  state, so it doesn't have to survive in the hidden state alone. (This is the RNN
+  Encoder–Decoder that also introduced the GRU.)
+- **`BahdanauRNN`** ([Bahdanau et al., 2015](https://arxiv.org/abs/1409.0473)) — adds **additive attention**: at each step the
   decoder computes a weighted read over *all* encoder states, learning where to look.
-- **`LuongRNN`** (Luong et al., 2015) — the same idea with **multiplicative (dot-product)
+- **`LuongRNN`** ([Luong et al., 2015](https://arxiv.org/abs/1508.04025)) — the same idea with **multiplicative (dot-product)
   attention**, the other canonical formulation.
 
 !!! info "Why attention mattered (and still does)"
@@ -85,7 +87,7 @@ with `base_rnn="rnn" | "lstm" | "gru"`:
 
 ## ConvS2S
 
-A fully convolutional encoder–decoder (Gehring et al., 2017): stacked convolutions with
+A fully convolutional encoder–decoder ([Gehring et al., 2017](https://arxiv.org/abs/1705.03122)): stacked convolutions with
 gated linear units replace recurrence, so the source is processed in parallel. A useful
 non-recurrent, non-self-attention point of comparison.
 

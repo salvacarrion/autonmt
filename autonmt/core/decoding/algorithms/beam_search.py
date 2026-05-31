@@ -78,6 +78,12 @@ class BeamSearch(BaseSearch):
 
     Final beam selection uses length-normalized scores: ``score / L^length_penalty``.
     Set ``length_penalty=0`` for raw log-probabilities (favors short hypotheses).
+
+    References
+    ----------
+    Wu et al. (2016). *Google's Neural Machine Translation System: Bridging the
+    Gap between Human and Machine Translation.* (length penalty)
+    [arXiv:1609.08144](https://arxiv.org/abs/1609.08144)
     """
 
     def __init__(self, length_penalty=1.0):

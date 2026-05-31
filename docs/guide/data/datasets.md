@@ -1,4 +1,4 @@
-# Datasets & the dataset builder
+# Building datasets
 
 This is the **input side** of the pipeline. Before any model trains, AutoNMT has to turn
 raw parallel text into clean, split, encoded files with matching vocabularies — once per

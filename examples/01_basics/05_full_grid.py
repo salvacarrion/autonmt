@@ -31,7 +31,7 @@ or shrink the lists below to iterate faster.
 Run
 ---
     pip install -e '.[hf]'
-    python examples/basics/05_full_grid.py
+    python examples/01_basics/05_full_grid.py
 """
 import datetime
 import os

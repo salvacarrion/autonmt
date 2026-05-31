@@ -115,3 +115,23 @@ inside those four steps and how to bend each one to your research.
     Whenever a piece of machine-translation machinery shows up — subwords, beam search,
     samplers, length penalties — you'll find a short, intuitive primer right next to it,
     so you can keep reading without a detour to a textbook.
+
+    **New to neural machine translation?** Start with
+    [How NMT works](get-started/how-nmt-works.md) — a 10-minute, first-principles tour of
+    the whole pipeline that every other page links back to.
+
+!!! quote "Citing AutoNMT"
+    If you use AutoNMT in academic work, please cite
+    [Carrión & Casacuberta (2023)](https://arxiv.org/abs/2302.04981):
+
+    ```bibtex
+    @misc{carrion2023autonmt,
+      title  = {AutoNMT: A Framework to Streamline the Research of Seq2Seq Models},
+      author = {Salvador Carrión and Francisco Casacuberta},
+      year   = {2023},
+      eprint = {2302.04981},
+      archivePrefix = {arXiv},
+      primaryClass  = {cs.CL},
+      url = {https://arxiv.org/abs/2302.04981}
+    }
+    ```

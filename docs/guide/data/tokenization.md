@@ -39,6 +39,16 @@ You can also append **`+bytes`** to a SentencePiece model (`"bpe+bytes"`,
 `"unigram+bytes"`) to enable SentencePiece's **byte fallback**: any character the subword
 model can't represent decomposes into raw bytes instead of becoming `<unk>`.
 
+!!! quote "Where these come from"
+    - **`bpe`** — [Sennrich, Haddow & Birch (2016)](https://arxiv.org/abs/1508.07909),
+      *Neural Machine Translation of Rare Words with Subword Units*.
+    - **`unigram`** — [Kudo (2018)](https://arxiv.org/abs/1804.10959), *Subword
+      Regularization*.
+    - **SentencePiece** (the engine behind `word`/`char`/`bpe`/`unigram`) —
+      [Kudo & Richardson (2018)](https://arxiv.org/abs/1808.06226).
+    - **Moses** pretokenization (used by `word`) —
+      [Koehn et al. (2007)](https://aclanthology.org/P07-2045/).
+
 ## `word` is special
 
 Choosing `word` flips the `pretok_flag`: AutoNMT first runs **Moses pretokenization**

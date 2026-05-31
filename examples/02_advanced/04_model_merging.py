@@ -42,7 +42,7 @@ When to merge
 Run
 ---
     pip install -e '.[hf]'
-    python examples/advanced/04_model_merging.py
+    python examples/02_advanced/04_model_merging.py
 """
 import datetime
 import os

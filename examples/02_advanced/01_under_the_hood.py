@@ -33,7 +33,7 @@ that you'd want before publishing results.
 Run
 ---
     pip install -e '.[hf]'
-    python examples/advanced/01_under_the_hood.py
+    python examples/02_advanced/01_under_the_hood.py
 """
 import datetime
 import os

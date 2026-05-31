@@ -33,7 +33,7 @@ Why this matters
 Run
 ---
     pip install -e '.[hf]'
-    python examples/advanced/02_lora.py
+    python examples/02_advanced/02_lora.py
 """
 import datetime
 import math

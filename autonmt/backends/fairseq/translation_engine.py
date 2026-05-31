@@ -161,6 +161,11 @@ class FairseqTranslator(BaseTranslator):
     .. deprecated::
         Fairseq was archived on 2026-03-20 and is no longer maintained.
         New code should prefer :class:`~autonmt.backends.autonmt.translation_engine.AutonmtTranslator`.
+
+    References
+    ----------
+    Ott et al. (2019). *fairseq: A Fast, Extensible Toolkit for Sequence
+    Modeling.* [arXiv:1904.01038](https://arxiv.org/abs/1904.01038)
     """
 
     ENGINE = "fairseq"

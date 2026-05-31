@@ -44,7 +44,7 @@ pip install -e '.[wandb]'              # W&B logger
 pip install -e '.[all]'                # everything above
 ```
 
-See the [installation guide](https://salvacarrion.github.io/autonmt/getting-started/installation/) for Docker and optional extras.
+See the [installation guide](https://salvacarrion.github.io/autonmt/get-started/installation/) for optional extras and GPU notes.
 
 ## Quickstart
 
@@ -87,10 +87,10 @@ Full walkthroughs live in [`examples/`](examples) - a step-by-step tutorial that
 
 Full docs are published at **[salvacarrion.github.io/autonmt](https://salvacarrion.github.io/autonmt/)**:
 
-- [Getting started](https://salvacarrion.github.io/autonmt/getting-started/) - install, first run, on-disk layout.
-- [Concepts](https://salvacarrion.github.io/autonmt/concepts/) - dataset builder, translators, reports, reproducibility.
-- [Guides](https://salvacarrion.github.io/autonmt/guides/) - custom models, bring-your-own-data, grids, logging.
-- [Backends](https://salvacarrion.github.io/autonmt/backends/) - AutoNMT, HuggingFace, Fairseq.
+- [Get started](https://salvacarrion.github.io/autonmt/get-started/installation/) - install, first experiment, understanding the output.
+- [User guide](https://salvacarrion.github.io/autonmt/guide/experiments/workflow/) - data, models, training, translation, evaluation, backends.
+- [How-to guides](https://salvacarrion.github.io/autonmt/how-to/) - task-oriented recipes for common workflows.
+- [Concepts](https://salvacarrion.github.io/autonmt/concepts/philosophy/) - design philosophy, mental model, architecture, on-disk layout, reproducibility.
 - [API reference](https://salvacarrion.github.io/autonmt/reference/) - autodoc from docstrings.
 
 ## Contributing

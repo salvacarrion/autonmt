@@ -116,6 +116,20 @@ class LitSeq2Seq(pl.LightningModule):
         }
 
     def _build_scheduler(self, optimizer):
+        """Resolve ``self.scheduler`` into a torch LR scheduler.
+
+        Accepts the string presets ``"noam"`` and ``"inverse_sqrt"``, a callable
+        ``(optimizer) -> scheduler``, or an already-built scheduler instance.
+
+        References
+        ----------
+        Vaswani et al. (2017). *Attention Is All You Need.* (noam schedule, §5.3)
+        [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
+
+        Ott et al. (2019). *fairseq: A Fast, Extensible Toolkit for Sequence
+        Modeling.* (inverse-sqrt schedule)
+        [arXiv:1904.01038](https://arxiv.org/abs/1904.01038)
+        """
         s = self.scheduler
         if s is None:
             return None

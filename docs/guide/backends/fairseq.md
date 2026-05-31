@@ -8,7 +8,8 @@
     `fit` / `predict` surface with a maintained toolkit, in-process models, and
     [custom-architecture support](../models/custom-models.md).
 
-`FairseqTranslator` **shells out to the Fairseq CLI** (`fairseq-train`, `fairseq-generate`).
+`FairseqTranslator` **shells out to the Fairseq CLI** (`fairseq-train`, `fairseq-generate`) of
+[Ott et al. (2019)](https://arxiv.org/abs/1904.01038).
 AutoNMT prepares the data, encodes the eval splits with the dataset's SentencePiece model (it
 runs in [SPM-pipeline mode](choosing.md#two-translate-modes)), translates your `fit` kwargs
 into Fairseq flags, runs the subprocess, and parses the BLEU it reports.

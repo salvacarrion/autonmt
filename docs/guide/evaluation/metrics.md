@@ -43,6 +43,12 @@ These three need only `ref` and `hyp`, are fast, and have no extra dependencies.
 records its full sacreBLEU **signature** in the artifact so the exact configuration is
 reproducible.
 
+!!! quote "References"
+    - **BLEU** — [Papineni et al. (2002)](https://aclanthology.org/P02-1040/).
+    - **chrF** — [Popović (2015)](https://aclanthology.org/W15-3049/).
+    - **TER** — [Snover et al. (2006)](https://aclanthology.org/2006.amta-papers.25/).
+    - **sacreBLEU** (comparable, tokenization-fixed BLEU) — [Post (2018)](https://arxiv.org/abs/1804.08771).
+
 ## Neural metrics (BERTScore, COMET)
 
 String overlap misses valid paraphrases ("begin" vs "start"). **Neural metrics** score
@@ -53,6 +59,10 @@ meaning instead:
 - **COMET** is a model *trained on human quality judgments* — it tends to correlate best with
   human ratings and is increasingly expected in MT papers. It uses the **source** as well as
   the reference (`needs_src`), so AutoNMT passes `src.txt` through automatically.
+
+!!! quote "References"
+    - **BERTScore** — [Zhang et al. (2020)](https://arxiv.org/abs/1904.09675).
+    - **COMET** — [Rei et al. (2020)](https://arxiv.org/abs/2009.09025).
 
 ```bash
 pip install unbabel-comet      # downloads a ~2 GB model on first use

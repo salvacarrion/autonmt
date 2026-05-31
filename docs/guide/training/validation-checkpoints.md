@@ -54,6 +54,13 @@ That alias indirection is why you rarely type checkpoint paths — `predict` res
     point `monitor` at it and checkpoint on translation quality directly — at the cost of
     decoding during validation.
 
+!!! tip "Average several checkpoints for a free BLEU bump"
+    Averaging the weights of the last few checkpoints often gains 0.5–2 BLEU over the single
+    best one, at no extra training cost ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)).
+    AutoNMT ships `average_checkpoints` (in `autonmt.utils.checkpoint_avg`) for exactly this —
+    point it at the `.pt` files in the run's `checkpoints/` folder and load the averaged result
+    like any other checkpoint.
+
 ---
 
 Next, the knob with the biggest effect on training *throughput*:

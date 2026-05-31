@@ -23,6 +23,11 @@ def paired_bootstrap_bleu(hyp_a: List[str], hyp_b: List[str], ref: List[str],
     H0: ``score(B) <= score(A)``). Cost is ``n_samples`` calls to sacrebleu —
     a few seconds for a 3k-line test set, minutes for tens of thousands. Use
     ``n_samples >= 1000`` for reportable results.
+
+    References
+    ----------
+    Koehn (2004). *Statistical Significance Tests for Machine Translation
+    Evaluation.* [ACL Anthology W04-3250](https://aclanthology.org/W04-3250/)
     """
     if not (len(hyp_a) == len(hyp_b) == len(ref)):
         raise ValueError(f"hyp_a/hyp_b/ref must be line-aligned "

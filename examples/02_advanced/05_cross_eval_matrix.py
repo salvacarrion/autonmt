@@ -36,7 +36,7 @@ training you'd expect the **diagonal to dominate** (in-domain > cross-domain).
 
 Run
 ---
-    python examples/advanced/05_cross_eval_matrix.py
+    python examples/02_advanced/05_cross_eval_matrix.py
 """
 import datetime
 import os

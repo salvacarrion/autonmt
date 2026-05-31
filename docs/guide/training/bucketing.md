@@ -90,6 +90,9 @@ one of `batch_size` / `max_tokens`):
   constant per batch regardless of sentence length, the more robust choice for mixed-length
   corpora.
 
+Both modes follow [Vaswani et al. (2017, §5.1)](https://arxiv.org/abs/1706.03762), who batched
+sentence pairs by approximate length under a per-batch token budget.
+
 Bucket composition is computed **once**; each epoch only the *order* of batches is reshuffled
 (with a per-epoch seed), so the model still sees a fresh sequence every epoch without paying
 to re-bucket. For packed-sequence models the sampler can also sort within each batch.

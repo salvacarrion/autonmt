@@ -26,7 +26,7 @@ What's new vs tutorial 03
 Run
 ---
     pip install -e '.[hf]'
-    python examples/basics/04_grid_experiment.py
+    python examples/01_basics/04_grid_experiment.py
 """
 import datetime
 import os

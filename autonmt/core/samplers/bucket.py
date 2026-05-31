@@ -13,6 +13,12 @@ class BucketSampler(BatchSampler):
     Bucket composition is precomputed once; on each new iteration only the
     *order* in which batches are emitted is reshuffled, with a per-epoch
     seed so the model sees a different sequence every epoch.
+
+    References
+    ----------
+    Vaswani et al. (2017). *Attention Is All You Need.* (length-based batching
+    and per-batch token budgets, §5.1)
+    [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
     """
 
     def __init__(self, data_source, sort_key, batch_size=None, max_tokens=None,

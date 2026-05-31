@@ -1,10 +1,15 @@
 """Checkpoint averaging.
 
 Averaging the parameters of the last N best checkpoints is the standard NMT
-trick from Vaswani et al. (2017) §5.4: it typically gains 0.5-2 BLEU over the
+trick from Vaswani et al. (2017) §6.1: it typically gains 0.5-2 BLEU over the
 single best checkpoint, with no extra training cost. AutoNMT doesn't run it
 automatically — you call ``average_checkpoints(...)`` on the files you want
 and then load the result like any other Lightning ``.pt``.
+
+References
+----------
+Vaswani et al. (2017). *Attention Is All You Need.*
+[arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
 """
 from __future__ import annotations
 

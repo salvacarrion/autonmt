@@ -23,12 +23,14 @@ them. All are importable from `autonmt.core.nn.layers`.
     word order carries meaning.
 
 - **Sinusoidal** (`SinusoidalPositionalEmbedding`) — fixed sine/cosine patterns; no
-  parameters, and extrapolates to sequences longer than seen in training.
+  parameters, and extrapolates to sequences longer than seen in training
+  ([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)).
 - **Learned** (`LearnedPositionalEmbedding`) — a trainable embedding per position; flexible
-  but capped at `max_positions`.
+  but capped at `max_positions` ([Gehring et al., 2017](https://arxiv.org/abs/1705.03122)).
 - **Rotary / RoPE** (`RotaryPositionalEmbedding`) — instead of *adding* a position vector,
   it *rotates* the query/key vectors by a position-dependent angle inside attention, which
-  encodes *relative* position and tends to generalize well to longer contexts.
+  encodes *relative* position and tends to generalize well to longer contexts
+  ([Su et al., 2021](https://arxiv.org/abs/2104.09864)).
 
 `PositionalEmbedding` is the dispatcher the `Transformer` uses (`learned=` flips between
 sinusoidal and learned); `pos_embedding_at(...)` is a small helper for fetching the encoding
@@ -36,11 +38,13 @@ at a given step during incremental decoding.
 
 ## Normalization & feed-forward
 
-- **`RMSNorm`** — normalizes by the root-mean-square of activations (no mean subtraction,
-  no bias). Cheaper than LayerNorm and common in recent architectures.
-- **`SwiGLU`** — a gated feed-forward block (a SiLU-gated linear unit) that often
-  outperforms a plain ReLU/GELU MLP at equal parameter budget; a drop-in for the
-  position-wise FFN.
+- **`RMSNorm`** ([Zhang & Sennrich, 2019](https://arxiv.org/abs/1910.07467)) — normalizes by
+  the root-mean-square of activations (no mean subtraction, no bias). Cheaper than
+  [LayerNorm](https://arxiv.org/abs/1607.06450) (Ba et al., 2016) and common in recent
+  architectures.
+- **`SwiGLU`** ([Shazeer, 2020](https://arxiv.org/abs/2002.05202)) — a gated feed-forward
+  block (a SiLU-gated linear unit) that often outperforms a plain ReLU/GELU MLP at equal
+  parameter budget; a drop-in for the position-wise FFN.
 
 ## The incremental (autoregressive) decoder
 
@@ -57,7 +61,8 @@ moment because it's where training and inference genuinely differ.
     bringing the per-step cost down to $O(L)$. This is what makes beam search affordable.
 
 `IncrementalTransformerDecoder` / `IncrementalTransformerDecoderLayer` implement that
-KV-cache-aware decoding. Two practical properties:
+KV-cache-aware decoding for the Transformer
+([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762)). Two practical properties:
 
 - **Parameter-compatible** with PyTorch's `nn.TransformerDecoder` — same weight layout, so a
   checkpoint trained with the standard module loads into the incremental one unchanged. You

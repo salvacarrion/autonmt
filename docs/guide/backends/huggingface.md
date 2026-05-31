@@ -3,7 +3,8 @@
 [`HuggingFaceTranslator`](../../reference/backends.md) lets you **evaluate** any pretrained
 seq2seq checkpoint on your test set, or **fine-tune** it on your splits — through the same
 `fit` / `predict` flow as every other backend. Reach for it when you'd rather start from a
-strong pretrained model (Marian/OPUS, mBART, NLLB, T5…) than train from scratch.
+strong pretrained model (Marian/OPUS, mBART, NLLB, T5…) than train from scratch. It wraps the
+[HuggingFace `transformers`](https://arxiv.org/abs/1910.03771) library ([Wolf et al., 2020](https://arxiv.org/abs/1910.03771)).
 
 ```bash
 pip install -e '.[hf-models]'    # transformers + accelerate
@@ -127,7 +128,7 @@ trainer.predict(test_datasets, config=PredictConfig(metrics={"bleu", "hg_meteor"
 techniques like **LoRA** apply to the underlying model the usual way (e.g. wrapping it with
 `peft` before training). AutoNMT doesn't add a built-in flag for it — that's a deliberate
 [minimal-core](../../concepts/philosophy.md#extensible) choice — but the runnable
-[`examples/advanced/`](https://github.com/salvacarrion/autonmt/tree/main/examples/advanced)
+[`examples/02_advanced/`](https://github.com/salvacarrion/autonmt/tree/main/examples/02_advanced)
 scripts show LoRA, catastrophic-forgetting, and model-merging recipes on top of this backend.
 
 ---

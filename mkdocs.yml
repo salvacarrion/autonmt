@@ -48,8 +48,9 @@ theme:
     - content.tabs.link
 
 nav:
-  - Home: index.md
   - Get started:
+      - Overview: index.md
+      - How NMT works: get-started/how-nmt-works.md
       - Installation: get-started/installation.md
       - "Quickstart: your first experiment": get-started/quickstart.md
       - Understanding the output: get-started/understanding-the-output.md
@@ -58,7 +59,7 @@ nav:
           - The experiment workflow: guide/experiments/workflow.md
           - Configuration & reproducibility: guide/experiments/configuration.md
       - Data:
-          - Datasets & the builder: guide/data/datasets.md
+          - Building datasets: guide/data/datasets.md
           - Preprocessing: guide/data/preprocessing.md
           - Subword tokenization: guide/data/tokenization.md
           - Vocabularies: guide/data/vocabularies.md
@@ -79,9 +80,9 @@ nav:
           - Metrics: guide/evaluation/metrics.md
           - Statistical significance: guide/evaluation/significance.md
           - Reports & plots: guide/evaluation/reports.md
-      - Toolkits & backends:
+      - Backends:
           - Choosing a backend: guide/backends/choosing.md
-          - Native (PyTorch Lightning): guide/backends/native.md
+          - Native: guide/backends/native.md
           - HuggingFace: guide/backends/huggingface.md
           - Fairseq (deprecated): guide/backends/fairseq.md
   - How-to guides:

@@ -50,7 +50,7 @@ crank ``ALPHA`` until you see a useful Pareto front.
 Run
 ---
     pip install -e '.[hf]'
-    python examples/advanced/03_catastrophic_forgetting.py
+    python examples/02_advanced/03_catastrophic_forgetting.py
 """
 import datetime
 import os

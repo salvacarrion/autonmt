@@ -7,6 +7,20 @@ Parallel mode (``incremental_state=None``) delegates to ``nn.MultiheadAttention`
 unchanged → bit-exact compatible with PyTorch's stock decoder for training.
 Incremental mode reuses the same projection weights but manages K/V manually
 so each decode step costs O(L) instead of O(L^2).
+
+The ``norm_first`` flag selects Pre-LN (before each sub-block) vs Post-LN (the
+original placement); see Xiong et al. (2020) for why Pre-LN trains more stably.
+
+References
+----------
+Vaswani et al. (2017). *Attention Is All You Need.* (the Transformer decoder
+this caches) [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
+
+Ba et al. (2016). *Layer Normalization.*
+[arXiv:1607.06450](https://arxiv.org/abs/1607.06450)
+
+Xiong et al. (2020). *On Layer Normalization in the Transformer Architecture.*
+[arXiv:2002.04745](https://arxiv.org/abs/2002.04745)
 """
 from copy import deepcopy
 

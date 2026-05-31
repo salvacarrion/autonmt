@@ -43,7 +43,7 @@ After that line, `trainer.fit(...)` and `trainer.predict(...)` are called the sa
 | Tokenization | dataset's SentencePiece | the model's own HF tokenizer | dataset's SentencePiece |
 | Translate mode | [SPM pipeline](#two-translate-modes) | [direct](#two-translate-modes) | SPM pipeline |
 | Decoding | AutoNMT's [search strategies](../translation/decoding.md) | `model.generate` | Fairseq's generator |
-| Maintained | ✅ actively | ✅ | ❌ archived 2026-03-20 |
+| Maintained | ✅ actively developed | ✅ supported | ❌ archived 2026-03-20 |
 
 - **[AutoNMT (native)](native.md)** is the only backend where you control the architecture
   and the decoding algorithm — documented in depth across the rest of the User guide.
@@ -137,4 +137,4 @@ your translate mode; the [API reference](../../reference/backends.md) documents 
 
 ---
 
-Start with the default: **[Native (PyTorch Lightning)](native.md)**.
+Start with the default: **[Native](native.md)**.

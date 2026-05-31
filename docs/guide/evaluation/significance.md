@@ -13,6 +13,9 @@ already produced.
 
 ## Paired bootstrap resampling
 
+AutoNMT's test is the paired bootstrap of [Koehn (2004)](https://aclanthology.org/W04-3250/),
+the standard significance test for machine translation.
+
 ```python
 from autonmt.evaluation.significance import paired_bootstrap_bleu
 from autonmt.utils import fileio

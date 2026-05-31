@@ -96,6 +96,10 @@ $\alpha$ is the **length penalty** (`length_penalty`):
 - $\alpha = 1$ → full length normalization (the default).
 - $\alpha > 1$ → actively favors longer hypotheses.
 
+This length penalty was popularized by [Wu et al. (2016)](https://arxiv.org/abs/1609.08144),
+whose GNMT system introduced length normalization to stop beam search from favoring short
+translations.
+
 ```python
 from autonmt.core.decoding import BeamSearch
 
@@ -149,7 +153,8 @@ trainer.predict(test, config=PredictConfig(beams=[1], decoder=TopKSampling(top_k
 
 This caps the worst-case mistake (a token outside the top $k$ can never be drawn) while
 keeping variety. The drawback: a fixed $k$ is too generous when the model is confident and
-too restrictive when it's uncertain — which nucleus sampling fixes.
+too restrictive when it's uncertain — which nucleus sampling fixes. Top-k sampling for
+generation was popularized by [Fan et al. (2018)](https://arxiv.org/abs/1805.04833).
 
 ### Top-p / nucleus sampling
 
@@ -163,7 +168,8 @@ trainer.predict(test, config=PredictConfig(beams=[1], decoder=TopPSampling(top_p
 
 The nucleus size **adapts** to the model's confidence: when one token dominates, the nucleus
 is tiny (near-greedy); when the model is unsure, it widens. AutoNMT always keeps at least one
-token so generation can't stall.
+token so generation can't stall. Nucleus sampling was introduced by
+[Holtzman et al. (2019)](https://arxiv.org/abs/1904.09751).
 
 ## Choosing a strategy
 

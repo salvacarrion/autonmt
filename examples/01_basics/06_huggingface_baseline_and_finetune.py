@@ -28,7 +28,7 @@ What's new vs tutorial 05
 Run
 ---
     pip install -e '.[hf,hf-models]'
-    python examples/basics/06_huggingface_baseline_and_finetune.py
+    python examples/01_basics/06_huggingface_baseline_and_finetune.py
 """
 import datetime
 import os
