@@ -66,7 +66,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/adv_03_cf"
 DATASET = "multi30k"
@@ -325,9 +325,12 @@ def main():
     # (8) Report — one row per (regime × eval_ds), grouped by run_name
     # -----------------------------------------------------------------------
     out = f".outputs/adv_03_cf/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(scores=all_scores, output_path=out)
+    # One row per (regime × eval_ds). Because each regime evaluates the same
+    # dataset under three `test_subsets`, the per-task BLEU lands in separate
+    # `translations.<task>.beam5.*` columns — visible side by side in the table.
+    report = Report.from_runs(all_scores, output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
     print(
         "\nRead the report as: for each regime, compare the BLEU on Task A\n"
         "(retention of old knowledge) vs Task B (acquisition of new knowledge).\n"

@@ -44,8 +44,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.figures import plot_model_comparison
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/05_full_grid"
 DATASET = "multi30k"
@@ -134,17 +133,15 @@ def main():
         scores.append(trainer.predict(ts_datasets, config=pred_cfg))
 
     out = f".outputs/05_full_grid/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    df_report, df_summary = generate_report(scores=scores, output_path=out)
-    plot_model_comparison(
-        df_report=df_report,
-        out_dir=os.path.join(out, "plots"),
-        metric="translations.beam5.sacrebleu_bleu_score",
+    report = Report.from_runs(scores, output_path=out).save()
+    report.plot_comparison(
+        "bleu", beam=5,
         xlabel="Train variant", ylabel="BLEU",
         title="Full grid: size × subword × vocab",
     )
 
     print(f"\nReport + plots saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

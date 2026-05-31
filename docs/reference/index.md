@@ -2,7 +2,8 @@
 
 This section is generated directly from the source docstrings, so it always matches the
 installed version. It's organized by package, following the pipeline laid out in
-[Architecture](../architecture/building-blocks.md).
+[Architecture](../concepts/architecture.md). The reference is for **lookup** — signatures,
+parameters, contracts; for how-and-why, follow the links back into the User guide.
 
 <div class="grid cards" markdown>
 
@@ -42,11 +43,11 @@ installed version. It's organized by package, following the pipeline laid out in
 
     ---
 
-    `generate_report`, domain figures, and low-level plot primitives.
+    `Report`, `DatasetReport`, the report schema, and plot primitives.
 
 </div>
 
 !!! tip "Reading the source"
     Every documented symbol has a **source** link. AutoNMT is small enough to read — when in
     doubt, follow it. For the *narrative* version of each area, start from
-    [Architecture](../architecture/building-blocks.md) and follow the pipeline.
+    [Architecture](../concepts/architecture.md) and follow the pipeline.

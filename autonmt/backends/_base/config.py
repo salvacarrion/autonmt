@@ -36,6 +36,13 @@ UNSET = _Unset()
 
 @dataclass
 class FitConfig:
+    """Typed training configuration for :meth:`BaseTranslator.fit`.
+
+    Every field can equivalently be passed as a keyword argument to ``fit``;
+    explicit kwargs win on a per-key basis. Defaults are intentionally tiny
+    (``max_epochs=1``) so the smoke-test path runs fast — set real values for
+    actual training.
+    """
     max_tokens: Optional[int] = None
     batch_size: int = 128
     max_epochs: int = 1
@@ -68,6 +75,12 @@ class FitConfig:
 
 @dataclass
 class PredictConfig:
+    """Typed prediction configuration for :meth:`BaseTranslator.predict`.
+
+    As with :class:`FitConfig`, every field may instead be passed directly as a
+    keyword argument to ``predict`` (explicit kwargs win). ``beams`` accepts
+    several widths — translation runs once per width.
+    """
     metrics: Optional[Iterable[str]] = None
     beams: Optional[Sequence[int]] = None
     max_len_a: float = 1.2

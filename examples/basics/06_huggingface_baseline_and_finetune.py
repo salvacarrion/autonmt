@@ -18,7 +18,7 @@ What's new vs tutorial 05
 -------------------------
 - We import `HuggingFaceTranslator` instead of `AutonmtTranslator`. Everything
   else stays the same: `DatasetBuilder`, `FitConfig`, `PredictConfig`,
-  `generate_report`.
+  `Report`.
 - The HF backend brings its own tokenizer, so the `subword_models`/`vocab_sizes`
   declared in `encoding=` are only used for the AutoNMT-side dataset stats and
   cache layout; HF will ignore the SPM model and tokenize source text itself.
@@ -40,7 +40,7 @@ from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/06_hf"
 DATASET = "multi30k"
@@ -137,11 +137,9 @@ def main():
 
     # Both runs land in the same report — one row per (run, test_ds) pair.
     out = f".outputs/06_hf/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(
-        scores=[baseline_scores, finetuned_scores], output_path=out,
-    )
+    report = Report.from_runs([baseline_scores, finetuned_scores], output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

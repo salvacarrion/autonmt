@@ -6,7 +6,7 @@ on disk in fixed stages (raw → splits → preprocessed → encoded → stats),
 caches enough state to iterate cleanly over the variants.
 
 Plotting is intentionally NOT a builder responsibility: call
-``autonmt.reporting.figures.plot_dataset_diagnostics(ds, ...)`` after ``build()``
+``autonmt.reporting.report.DatasetReport(ds).generate(...)`` after ``build()``
 if you want diagnostic plots.
 """
 import os
@@ -32,6 +32,33 @@ log = get_logger(__name__)
 
 
 class DatasetBuilder:
+    """Unrolls a (dataset × lang-pair × size × subword × vocab) grid and builds it on disk.
+
+    Declare the experiment's data axes once; :meth:`build` materialises every
+    cell as a :class:`~autonmt.datasets.dataset.Dataset` under ``base_path`` in
+    fixed stages (raw → splits → preprocessed → encoded → stats/vocabs).
+    :meth:`get_train_ds` / :meth:`get_test_ds` return the lists the experiment
+    loop iterates over.
+
+    Parameters
+    ----------
+    base_path : str
+        Root directory under which all dataset variants are written.
+    datasets : list of dict
+        Dataset declarations; each gives a name, ``languages`` (``"xx-yy"``)
+        and split sizes.
+    encoding : list of dict, optional
+        Subword-model / vocab-size axes to unroll. When omitted, only the
+        parent (un-encoded) datasets are produced.
+    merge_vocabs : bool, default False
+        Train a single shared source+target vocabulary instead of one per side.
+    preprocess_raw_fn : callable, optional
+        Hook applied to the raw corpus before it is split.
+    preprocess_splits_fn : callable, optional
+        Hook applied to each split after splitting.
+    random_seed : int, default 42
+        Seeds the shuffles inside :meth:`build` for reproducibility.
+    """
 
     DEFAULT_SPLIT_SIZES = (None, 1000, 1000)
     REF_SIZE_NAME = "original"

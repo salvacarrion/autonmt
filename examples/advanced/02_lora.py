@@ -49,7 +49,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/adv_02_lora"
 DATASET = "multi30k"
@@ -219,11 +219,9 @@ def main():
     # (5) Report — baseline vs LoRA side by side
     # -----------------------------------------------------------------------
     out = f".outputs/adv_02_lora/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(
-        scores=[baseline_scores, lora_scores], output_path=out,
-    )
+    report = Report.from_runs([baseline_scores, lora_scores], output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
     # -----------------------------------------------------------------------
     # (6) Optional: save just the LoRA delta

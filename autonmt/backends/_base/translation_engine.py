@@ -40,7 +40,7 @@ from autonmt.utils.enums import EvalMode
 from autonmt.utils.fileio import make_dir, save_json
 from autonmt.utils.logger import get_logger
 from autonmt.evaluation.metrics import METRIC_BACKENDS, resolve_backends
-from autonmt.reporting.report import RunMetadata, build_run_report
+from autonmt.reporting.schema import RunMetadata, build_run_report
 from autonmt.utils.seed import manual_seed
 from autonmt.datasets.dataset import Dataset
 from autonmt.backends._base.config import FitConfig, PredictConfig, UNSET, merge_config
@@ -243,6 +243,20 @@ class BaseTranslator(ABC):
     # --- fit ------------------------------------------------------------
 
     def fit(self, train_ds: Dataset, config: Optional[FitConfig] = None, **kwargs) -> None:
+        """Train the model on a dataset variant.
+
+        Parameters
+        ----------
+        train_ds : Dataset
+            The dataset variant to train on (one cell of the builder grid).
+        config : FitConfig, optional
+            Training configuration. Any field may instead be passed directly as
+            a keyword argument; explicit ``**kwargs`` win on collision. See
+            :class:`~autonmt.backends._base.config.FitConfig`.
+        **kwargs : Any
+            Per-field overrides plus backend-specific options forwarded to the
+            underlying toolkit.
+        """
         log.info("=" * 70)
         log.info(f"=> [Fit]: {train_ds.variant_id(as_path=True)}  (run={self.run_name})")
         log.info("=" * 70)
@@ -258,6 +272,29 @@ class BaseTranslator(ABC):
 
     def predict(self, eval_datasets: Iterable[Dataset],
                 config: Optional[PredictConfig] = None, **kwargs) -> List[dict]:
+        """Translate and score one or more evaluation datasets.
+
+        Runs translation (one pass per beam width), scores the hypotheses with
+        the requested metrics, and returns the parsed scores.
+
+        Parameters
+        ----------
+        eval_datasets : Iterable[Dataset]
+            Candidate test sets; filtered by ``eval_mode`` to those compatible
+            with the trained model.
+        config : PredictConfig, optional
+            Prediction configuration. Fields may instead be passed as keyword
+            arguments; explicit ``**kwargs`` win on collision. See
+            :class:`~autonmt.backends._base.config.PredictConfig`.
+        **kwargs : Any
+            Per-field overrides plus backend-specific options.
+
+        Returns
+        -------
+        list of dict
+            One nested score dict per evaluated dataset, with flattened keys of
+            the form ``translations.beam<N>.<tool>_<metric>_<field>``.
+        """
         log.info("=" * 70)
         log.info(f"=> [Predict]: (run={self.run_name})")
         log.info("=" * 70)

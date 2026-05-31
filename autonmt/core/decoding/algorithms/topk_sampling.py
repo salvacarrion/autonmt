@@ -11,6 +11,11 @@ class TopKSampling(BaseStepSearch):
     before the top-k filter — same semantics as :class:`MultinomialSampling`.
 
     Output is non-deterministic — seed ``torch.manual_seed`` for reproducibility.
+
+    References
+    ----------
+    Fan, Lewis & Dauphin (2018). *Hierarchical Neural Story Generation.*
+    [arXiv:1805.04833](https://arxiv.org/abs/1805.04833)
     """
 
     def __init__(self, top_k=50, temperature=1.0):

@@ -5,11 +5,17 @@ import torch.nn as nn
 
 
 class SinusoidalPositionalEmbedding(nn.Module):
-    """Sinusoidal positional embeddings (Vaswani et al., 2017 §3.5).
+    """Sinusoidal positional embeddings.
 
+    The fixed sin/cos position table from the original Transformer (§3.5).
     Padding positions are zeroed out (fairseq convention) — redundant with a
     proper key-padding mask in attention, but kept for parity with the
     learned variant.
+
+    References
+    ----------
+    Vaswani et al. (2017). *Attention Is All You Need.*
+    [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
     """
     def __init__(self, num_embeddings, embedding_dim, padding_idx):
         super().__init__()

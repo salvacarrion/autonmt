@@ -10,6 +10,15 @@ from typing import List, Optional, Tuple
 
 
 class BaseVocabulary(ABC):
+    """Abstract base for all vocabularies.
+
+    Owns the four special tokens shared by every NMT vocabulary
+    (``unk`` / ``sos`` / ``eos`` / ``pad``) and their ids, so the rest of the
+    framework can rely on ``vocab.pad_id`` / ``vocab.special_tokens()`` without
+    knowing the concrete subclass. Subclasses implement :meth:`encode` /
+    :meth:`decode` and the length / lookup protocol.
+    """
+
     def __init__(self,
                  unk_id: int = 0, sos_id: int = 1, eos_id: int = 2, pad_id: int = 3,
                  unk_piece: str = "<unk>", sos_piece: str = "<s>",

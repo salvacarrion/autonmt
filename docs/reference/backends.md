@@ -1,7 +1,7 @@
 # Backends
 
 The shared translator contract, its config objects, and the three concrete engines.
-See the [Backends guide](../backends/index.md) for the narrative version.
+See [Choosing a backend](../guide/backends/choosing.md) for the narrative version.
 
 ## BaseTranslator
 

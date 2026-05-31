@@ -4,7 +4,7 @@ from autonmt.core.decoding.base_step_search import BaseStepSearch
 
 
 class TopPSampling(BaseStepSearch):
-    """Top-p sampling (a.k.a. *nucleus* sampling, Holtzman et al. 2019).
+    """Top-p (nucleus) sampling.
 
     At every step, keep the smallest set of tokens whose cumulative probability
     is at least ``top_p`` (the "nucleus"), zero-out the rest, and sample from
@@ -12,6 +12,11 @@ class TopPSampling(BaseStepSearch):
     before nucleus selection — same semantics as :class:`MultinomialSampling`.
 
     Output is non-deterministic — seed ``torch.manual_seed`` for reproducibility.
+
+    References
+    ----------
+    Holtzman et al. (2019). *The Curious Case of Neural Text Degeneration.*
+    [arXiv:1904.09751](https://arxiv.org/abs/1904.09751)
     """
 
     def __init__(self, top_p=0.9, temperature=1.0):

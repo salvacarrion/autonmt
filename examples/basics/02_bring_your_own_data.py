@@ -48,7 +48,7 @@ from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/02_byo"
 DATASET = "tiny_corpus"
@@ -148,9 +148,9 @@ def main():
     )
 
     out = f".outputs/02_byo/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(scores=[scores], output_path=out)
+    report = Report.from_predict(scores, output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import DatasetReport, Report
 
 BASE_PATH = "datasets/03_preproc"
 DATASET = "multi30k"
@@ -121,6 +121,14 @@ def main():
     print(f"\n[info] Vocab artifacts at: {train_ds.get_vocab_path()}")
     print(f"[info] Encoded splits at:   {train_ds.get_encoded_path()}\n")
 
+    # Visualise the *data itself* before training: sentence-length distributions,
+    # split sizes, and the vocabulary frequency distribution. `DatasetReport` is
+    # the corpus-diagnostics sibling of `Report`; it writes figures under
+    # `train_ds.get_plots_path()`. A quick way to sanity-check a subword choice
+    # before spending GPU time. (`merge_vocabs=False` matches the builder above.)
+    DatasetReport(train_ds).generate(merge_vocabs=False)
+    print(f"[info] Diagnostic plots at: {train_ds.get_plots_path()}\n")
+
     src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
     model = Transformer.from_vocabs(src_vocab, tgt_vocab)
 
@@ -142,9 +150,9 @@ def main():
     )
 
     out = f".outputs/03_preproc/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(scores=[scores], output_path=out)
+    report = Report.from_predict(scores, output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

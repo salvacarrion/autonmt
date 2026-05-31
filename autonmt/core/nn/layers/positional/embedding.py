@@ -5,7 +5,14 @@ from autonmt.core.nn.layers.positional.sinusoidal import SinusoidalPositionalEmb
 
 
 class PositionalEmbedding(nn.Module):
-    """Thin dispatcher that picks between learned and sinusoidal absolute PE."""
+    """Absolute positional embedding dispatcher.
+
+    Picks :class:`LearnedPositionalEmbedding` when ``learned=True`` and
+    :class:`SinusoidalPositionalEmbedding` otherwise, adding the chosen
+    positional signal to the token embeddings. This is what the built-in
+    ``Transformer`` uses; for the rotary alternative see
+    :class:`RotaryPositionalEmbedding`.
+    """
 
     def __init__(self, num_embeddings, embedding_dim, padding_idx, learned):
         super().__init__()

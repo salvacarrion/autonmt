@@ -15,8 +15,10 @@ class SimpleRNN(LitSeq2Seq):
     the fixed-size hidden state. Supports plain RNN / LSTM / GRU as the
     underlying cell.
 
-    Reference: Sutskever, Vinyals & Le, *Sequence to Sequence Learning with
-    Neural Networks*, NeurIPS 2014 (arXiv:1409.3215).
+    References
+    ----------
+    Sutskever, Vinyals & Le (2014). *Sequence to Sequence Learning with
+    Neural Networks.* [arXiv:1409.3215](https://arxiv.org/abs/1409.3215)
     """
 
     BASE_RNNS = {"rnn": nn.RNN, "lstm": nn.LSTM, "gru": nn.GRU}

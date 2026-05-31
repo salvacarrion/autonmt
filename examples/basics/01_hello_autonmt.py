@@ -9,7 +9,7 @@ The three blocks every AutoNMT experiment is made of:
 
     1. A `DatasetBuilder` that prepares files on disk (splits, vocab, encoded text).
     2. A `Translator` that wraps a model and runs `fit()` + `predict()`.
-    3. A `generate_report` call that turns the scores into JSON/CSV + a table.
+    3. A `Report` that turns the scores into JSON/CSV + a table.
 
 What's new vs the previous tutorial
 -----------------------------------
@@ -40,7 +40,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/01_hello"
 DATASET = "multi30k"
@@ -121,9 +121,9 @@ def main():
 
     # 4. Persist the report and print a one-line summary.
     out = f".outputs/01_hello/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(scores=[scores], output_path=out)
+    report = Report.from_predict(scores, output_path=out).save()
     print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

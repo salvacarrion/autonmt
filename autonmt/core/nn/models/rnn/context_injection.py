@@ -10,11 +10,12 @@ class ContextRNN(SimpleRNN):
     Unlike :class:`SimpleRNN`, the final encoder hidden state is concatenated
     to every decoder input and to the output projection — so the decoder never
     has to keep the whole source in its recurrent state. Default cell is GRU,
-    matching the paper.
+    matching the paper (which also introduced the GRU).
 
-    Reference: Cho et al., *Learning Phrase Representations using RNN
-    Encoder-Decoder for Statistical Machine Translation*, EMNLP 2014
-    (arXiv:1406.1078). This is also the paper introducing the GRU.
+    References
+    ----------
+    Cho et al. (2014). *Learning Phrase Representations using RNN Encoder-Decoder
+    for Statistical Machine Translation.* [arXiv:1406.1078](https://arxiv.org/abs/1406.1078)
     """
 
     def __init__(self, *args, base_rnn="gru", **kwargs):

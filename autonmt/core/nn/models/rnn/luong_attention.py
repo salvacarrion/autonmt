@@ -23,8 +23,10 @@ class LuongRNN(SimpleRNN):
     paper (a stacked LSTM); this implementation follows that default but the
     parent class exposes ``encoder_bidirectional`` if you want to experiment.
 
-    Reference: Luong, Pham & Manning, *Effective Approaches to Attention-based
-    Neural Machine Translation*, EMNLP 2015 (arXiv:1508.04025).
+    References
+    ----------
+    Luong, Pham & Manning (2015). *Effective Approaches to Attention-based
+    Neural Machine Translation.* [arXiv:1508.04025](https://arxiv.org/abs/1508.04025)
     """
 
     def __init__(self, *args, base_rnn="lstm", encoder_bidirectional=False, **kwargs):

@@ -42,7 +42,7 @@ pip install -e '.[all]'          # hf + hf-models + wandb + dev tooling
 | Extra        | Unlocks                                                                 |
 | ------------ | ---------------------------------------------------------------------- |
 | `hf`         | `download_hf_dataset(...)` (pull a corpus from the Hub) and `hg_*` metrics |
-| `hf-models`  | [`HuggingFaceTranslator`](../backends/huggingface.md) — load/fine-tune `AutoModelForSeq2SeqLM` |
+| `hf-models`  | [`HuggingFaceTranslator`](../guide/backends/huggingface.md) — load/fine-tune `AutoModelForSeq2SeqLM` |
 | `wandb`      | W&B logging via `fit(..., wandb_params=...)`                            |
 | `docs`       | MkDocs Material + `mkdocstrings` for `mkdocs serve` / `build`           |
 | `dev`        | `pytest`, `flake8`                                                      |
@@ -56,9 +56,9 @@ their own:
 pip install unbabel-comet      # COMET metric (downloads a ~2 GB model on first use)
 ```
 
-[Fairseq](../backends/fairseq.md) is intentionally **not** part of the default install and
-not in the `all` extra — it was archived upstream and is deprecated. If you need it for an
-existing flow:
+[Fairseq](../guide/backends/fairseq.md) is intentionally **not** part of the default
+install and not in the `all` extra — it was archived upstream and is deprecated. If you
+need it for an existing flow:
 
 ```bash
 pip install -e '.[fairseq]'    # deprecated; prefer AutonmtTranslator for new work
@@ -83,8 +83,8 @@ AutoNMT follows whatever PyTorch you install. The native engine and the HuggingF
 both resolve the device automatically (`accelerator="auto"` picks CUDA → MPS → CPU), so the
 same script runs on a GPU box, an Apple-silicon laptop, or CPU-only CI without changes. To
 pin a device explicitly, pass `accelerator=` / `devices=` through
-[`FitConfig`](../toolkit/training.md) / [`PredictConfig`](../toolkit/predict.md).
+[`FitConfig`](../guide/training/training.md) / [`PredictConfig`](../guide/translation/generating.md).
 
 ---
 
-Installed? Run your **[first experiment](first-experiment.md)**.
+Installed? Run your **[first experiment](quickstart.md)**.

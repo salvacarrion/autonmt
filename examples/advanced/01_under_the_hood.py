@@ -26,7 +26,7 @@ No new pipeline features — this script *exposes* the same pipeline you've
 already used. Where earlier tutorials called one-liner helpers like
 `AutonmtTranslator.from_dataset(...)`, `ds.build_vocabs(...)`,
 `Transformer.from_vocabs(...)`, `FitConfig(...)`, `trainer.predict(...)`, and
-`generate_report(...)`, this script unpacks each of them. Sections (3) and
+`Report(...)`, this script unpacks each of them. Sections (3) and
 (11) add research-grade best practices (leakage check, multi-seed variance)
 that you'd want before publishing results.
 
@@ -48,8 +48,8 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.leakage import warn_on_leakage
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.figures import plot_model_comparison
 from autonmt.reporting.report import (
+    Report,
     format_summary_table,
     scores_to_dataframe,
     summarize_scores,
@@ -255,7 +255,7 @@ def main():
         )
 
         # 7.c Parse the per-metric files on disk back into a dict matching
-        #     the schema `generate_report` expects.
+        #     the schema `Report` expects.
         run_scores = trainer.parse_metrics(
             eval_ds, beams=beams, metrics=metrics,
         )
@@ -264,26 +264,25 @@ def main():
     # -----------------------------------------------------------------------
     # (9) Build the report manually
     # -----------------------------------------------------------------------
-    # Shortcut:  df_report, df_summary = generate_report(scores=[scores], output_path=out)
-    # Manual:    transform → save → plot, step by step. Useful when you want to
-    #            merge `df_report` with another experiment, add custom columns,
-    #            or skip the disk artifacts entirely.
+    # Shortcut:  Report.from_predict(scores, output_path=out).save().plot_comparison("bleu")
+    # Manual:    `Report` is a thin facade over a few building blocks. Reach for
+    #            them when you want to merge experiments, add custom columns, or
+    #            write the disk artifacts yourself.
     out = f".outputs/07_manual/{datetime.datetime.now():%Y%m%d_%H%M%S}"
     reports_dir = os.path.join(out, "reports")
-    plots_dir = os.path.join(out, "plots")
-    fileio.make_dir([reports_dir, plots_dir])
+    fileio.make_dir(reports_dir)
 
-    df_report = scores_to_dataframe([scores])
-    df_summary = summarize_scores(df_report)
+    df_report = scores_to_dataframe([scores])   # == Report(...).df
+    df_summary = summarize_scores(df_report)     # == Report(...).summary
 
     fileio.save_json([scores], os.path.join(reports_dir, "report.json"))
     df_report.to_csv(os.path.join(reports_dir, "report.csv"), index=False)
     df_summary.to_csv(os.path.join(reports_dir, "report_summary.csv"), index=False)
 
-    plot_model_comparison(
-        df_report=df_report, out_dir=plots_dir,
-        metric="translations.beam5.sacrebleu_bleu_score",
-        xlabel="Run", ylabel="BLEU", title="Manual run (de→en)",
+    # Plotting recipes live on `Report` (the old figures layer folded in).
+    # Ask by metric name; the single beam is inferred.
+    Report.from_predict(scores, output_path=out).plot_comparison(
+        "bleu", xlabel="Run", ylabel="BLEU", title="Manual run (de→en)",
     )
 
     # -----------------------------------------------------------------------

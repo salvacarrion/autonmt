@@ -49,64 +49,61 @@ That snippet is the whole shape of an AutoNMT experiment: **describe the data, p
 backend, `fit`, `predict`.** Everything in these docs is about understanding what happens
 inside those four steps and how to bend each one to your research.
 
----
-
-## Where to go next
-
 <div class="grid cards" markdown>
 
--   :material-lightbulb-on:{ .lg .middle } **New here? Start with the idea**
+-   :material-rocket-launch:{ .lg .middle } **Get started**
 
     ---
 
-    Why AutoNMT exists, its design principles, and the mental model that makes the rest
-    click.
+    Install AutoNMT and run a complete experiment — train, translate, score, report — in
+    a few minutes.
 
-    [:octicons-arrow-right-24: Introduction](introduction/why.md)
+    [:octicons-arrow-right-24: Installation & quickstart](get-started/installation.md)
 
--   :material-rocket-launch:{ .lg .middle } **Just want to run something**
-
-    ---
-
-    Install AutoNMT and walk through your first end-to-end experiment, line by line.
-
-    [:octicons-arrow-right-24: Get started](get-started/installation.md)
-
--   :material-sitemap:{ .lg .middle } **Understand how it fits together**
+-   :material-book-open-page-variant:{ .lg .middle } **User guide**
 
     ---
 
-    The pipeline, the toolkit abstraction that lets backends swap, and the on-disk layout
-    behind reproducibility.
+    The pipeline, block by block: data, models, training, translation, evaluation — and
+    the backend you run them on.
 
-    [:octicons-arrow-right-24: Architecture](architecture/building-blocks.md)
+    [:octicons-arrow-right-24: The experiment workflow](guide/experiments/workflow.md)
 
--   :material-engine:{ .lg .middle } **Use the native engine in depth**
-
-    ---
-
-    The AutoNMT toolkit, from the high-level `fit`/`predict` down to models, decoding,
-    samplers — and full manual control.
-
-    [:octicons-arrow-right-24: The AutoNMT toolkit](toolkit/overview.md)
-
--   :material-swap-horizontal:{ .lg .middle } **Pick the right backend**
+-   :material-lightbulb-on:{ .lg .middle } **Concepts**
 
     ---
 
-    When to use AutoNMT's engine, when to fine-tune HuggingFace, and the deprecated
-    Fairseq path.
+    The mental model, the design philosophy, the toolkit abstraction, and the on-disk
+    layout behind reproducibility.
 
-    [:octicons-arrow-right-24: Backends](backends/index.md)
+    [:octicons-arrow-right-24: How AutoNMT thinks](concepts/mental-model.md)
 
--   :material-chart-bar:{ .lg .middle } **Evaluate and report**
+-   :material-swap-horizontal:{ .lg .middle } **Backends**
+
+    ---
+
+    When to use the native engine, when to fine-tune HuggingFace, and the deprecated
+    Fairseq path — all behind one `fit` / `predict`.
+
+    [:octicons-arrow-right-24: Choosing a backend](guide/backends/choosing.md)
+
+-   :material-chart-bar:{ .lg .middle } **Evaluation & reports**
 
     ---
 
     Metrics (BLEU, chrF, TER, COMET, BERTScore), significance testing, and comparable
-    reports.
+    reports with plots.
 
-    [:octicons-arrow-right-24: Evaluation & reports](evaluation/metrics.md)
+    [:octicons-arrow-right-24: Metrics](guide/evaluation/metrics.md)
+
+-   :material-api:{ .lg .middle } **API reference**
+
+    ---
+
+    Signatures, parameters, and public contracts for every module, generated from the
+    source docstrings.
+
+    [:octicons-arrow-right-24: Reference](reference/index.md)
 
 </div>
 

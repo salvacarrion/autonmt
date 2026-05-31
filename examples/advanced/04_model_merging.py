@@ -56,7 +56,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/adv_04_merge"
 DATASET = "multi30k"
@@ -222,9 +222,16 @@ def main():
     # (6) Report — BLEU vs α curve
     # -----------------------------------------------------------------------
     out = f".outputs/adv_04_merge/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    _, df_summary = generate_report(scores=all_scores, output_path=out)
-    print(f"\nReport saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    report = Report.from_runs(all_scores, output_path=out).save()
+    # BLEU-vs-α curve over the held-out test set: sweep over the `alpha` column
+    # we tagged onto each row. The single beam is inferred (no beam= needed).
+    report.plot_sweep(
+        "bleu", x="alpha",
+        xlabel="α (merge weight)", ylabel_left="BLEU",
+        title="BLEU vs merge weight α",
+    )
+    print(f"\nReport + plots saved to: {os.path.abspath(out)}\n")
+    print(report)
     print(
         "\nRead the table left → right (α: 0 → 1). A flat or concave curve\n"
         "means A and B landed in the same basin; a U-shape means they didn't\n"

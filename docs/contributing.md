@@ -56,7 +56,7 @@ A few conventions worth knowing (see also `CLAUDE.md` in the repo root):
   don't strip them.
 - **Examples are self-contained.** Each `examples/*.py` duplicates its boilerplate on purpose
   — don't extract shared helpers.
-- **Keep the core minimal.** Prefer [extension points](extending/index.md) (callable hooks,
+- **Keep the core minimal.** Prefer [extension points](how-to/index.md) (callable hooks,
   subclassing) over new built-in flags.
 - **Language code as the file extension.** Dataset files are `train.es` / `train.en`, never
   `es/train.txt`.

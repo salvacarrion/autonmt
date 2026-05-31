@@ -12,7 +12,7 @@ from autonmt.utils import fileio as utils
 from autonmt.utils.logger import get_logger
 from autonmt.backends._base.translation_engine import BaseTranslator
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
-from autonmt.reporting.report import RunMetadata
+from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
 

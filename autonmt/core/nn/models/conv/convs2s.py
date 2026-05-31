@@ -14,9 +14,6 @@ class ConvS2S(LitSeq2Seq):
     output at every layer (multi-step attention). Decoder convolutions are
     left-padded so the receptive field never crosses into future positions.
 
-    Reference: Gehring et al., *Convolutional Sequence to Sequence Learning*,
-    ICML 2017 (arXiv:1705.03122).
-
     Note on incremental decoding:
         Not supported (``supports_incremental_decoding`` left at the
         ``LitSeq2Seq`` default of False). Each decoder conv layer with kernel
@@ -26,6 +23,11 @@ class ConvS2S(LitSeq2Seq):
         step counter to drive ``decoder_pos_embedding`` without re-deriving
         it from ``tgt_len``. Search algorithms therefore fall back to the
         legacy full-prefix path — O(L^2) work per sentence, but correct.
+
+    References
+    ----------
+    Gehring et al. (2017). *Convolutional Sequence to Sequence Learning.*
+    [arXiv:1705.03122](https://arxiv.org/abs/1705.03122)
     """
 
     def __init__(self,

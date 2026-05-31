@@ -1,19 +1,26 @@
-"""Plot primitives.
+"""Plot primitives: a small :class:`BasePlot` template hierarchy.
 
-Thin, low-level wrappers over seaborn / matplotlib. They take a DataFrame plus
-the bare-minimum styling and handle one concern: produce one figure, save it in
-one or more formats, and close it. Anything domain-specific (which columns to
-read, how to label NMT runs, etc.) belongs in :mod:`autonmt.reporting.figures`.
+Thin, low-level wrappers over seaborn / matplotlib. Each concrete plot takes a
+DataFrame plus the bare-minimum styling and handles one concern: produce one
+figure, save it in one or more formats, and close it. Anything domain-specific
+(which columns to read, how to label NMT runs, etc.) belongs in the report
+classes (:class:`autonmt.reporting.report.Report` /
+:class:`~autonmt.reporting.report.DatasetReport`), not here.
 
-Two pieces of shared scaffolding:
+Design — template method:
+
+- :class:`BasePlot` owns the shared lifecycle (skip-if-exists, backend
+  validation, seaborn context, figure creation, title/labels, save+close).
+- Each subclass implements only :meth:`BasePlot._draw` (the seaborn call) and,
+  when its labelling differs, overrides :meth:`BasePlot._finish` / ``_make_fig``.
+
+Shared scaffolding:
 
 - :class:`PlotStyle`: default formats, sizes, dpi, font scale, save/show flags.
-  All primitives accept ``style=PlotStyle(...)`` and override individual fields
-  via kwargs only when needed.
+  Pass ``style=PlotStyle(...)`` (or per-instance ``figsize`` / ``font_scale``).
 - :func:`save_figure`: writes the active figure to ``<out_dir>/<ext>/<fname>.<ext>``
-  for each requested extension and closes it. Used by every primitive.
-
-The overwrite check is also shared (:func:`_all_figs_exist`).
+  for each requested extension and closes it.
+- :func:`_should_skip`: the shared overwrite check.
 """
 from __future__ import annotations
 
@@ -120,145 +127,198 @@ def save_figure(fig, out_dir, fname, style: PlotStyle):
 
 
 # ---------------------------------------------------------------------------
-# Primitives
+# Base plot (template method)
 # ---------------------------------------------------------------------------
 
-def catplot(data, x, y, hue, out_dir, fname,
-            title="", xlabel="", ylabel="", legend_title=None,
-            value_format: Optional[str] = "{:.0f}",
-            rotate_xlabels: float = 0, legend_loc: str = "upper right",
-            style: PlotStyle = DEFAULT_STYLE):
-    """Grouped bar plot via ``sns.catplot`` (kind='bar')."""
-    if _should_skip(out_dir, fname, style):
-        return
-    _validate(style)
-    _ensure_seaborn_defaults()
+class BasePlot:
+    """One figure, one lifecycle. Subclasses implement :meth:`_draw`.
 
-    # Widen figure for long category labels (rough heuristic, was previously inline).
-    max_label_length = max(data[x].astype(str).apply(len))
-    w, h = style.figsize
-    aspect = (w + max_label_length * 0.2) / h
+    The lifecycle (see :meth:`render`): skip-if-exists → validate backend →
+    seaborn context → create figure → ``_draw(ax)`` → ``_finish(fig, ax)`` →
+    save + close. ``figsize`` / ``font_scale`` override the ``style`` fields for
+    this single plot without mutating the shared :class:`PlotStyle`.
+    """
 
-    sns.set_context("notebook", font_scale=style.font_scale)
-    g = sns.catplot(data=data, x=x, y=y, hue=hue, kind="bar",
-                    height=h, aspect=aspect, legend_out=False, legend=True)
+    def __init__(self, data, *, title: str = "", xlabel: str = "", ylabel: str = "",
+                 style: PlotStyle = DEFAULT_STYLE,
+                 figsize: Optional[Tuple[float, float]] = None,
+                 font_scale: Optional[float] = None):
+        self.data = data
+        self.title = title
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+        self.style = style.merge(figsize=figsize, font_scale=font_scale)
 
-    for label in g.ax.get_xticklabels():
-        label.set_rotation(rotate_xlabels)
-        label.set_horizontalalignment('center' if rotate_xlabels == 0 else 'right')
+    def render(self, out_dir, fname) -> "BasePlot":
+        if _should_skip(out_dir, fname, self.style):
+            return self
+        _validate(self.style)
+        _ensure_seaborn_defaults()
+        sns.set_context("notebook", font_scale=self.style.font_scale)
 
-    if value_format:
-        for c in g.ax.containers:
-            labels = [value_format.format(float(v.get_height())) for v in c]
-            g.ax.bar_label(c, labels=labels, label_type='edge')
+        fig, ax = self._make_fig()
+        self._draw(ax)
+        self._finish(fig, ax)
+        save_figure(fig, out_dir, fname, self.style)
+        return self
 
-    g.set(xlabel=xlabel, ylabel=ylabel)
-    plt.title(title)
-    if hue:
-        plt.legend(title=legend_title, loc=legend_loc)
-    plt.tight_layout()
-    save_figure(g.fig, out_dir, fname, style)
+    # --- hooks ---------------------------------------------------------------
+    def _make_fig(self):
+        return plt.subplots(figsize=self.style.figsize)
+
+    def _draw(self, ax):
+        raise NotImplementedError
+
+    def _finish(self, fig, ax):
+        ax.set(xlabel=self.xlabel, ylabel=self.ylabel)
+        if self.title:
+            ax.set_title(self.title)
+        fig.tight_layout()
 
 
-def barplot(data, x, y, out_dir, fname,
-            title="", xlabel="x", ylabel="y",
-            style: PlotStyle = DEFAULT_STYLE):
+# ---------------------------------------------------------------------------
+# Concrete plots
+# ---------------------------------------------------------------------------
+
+class CatPlot(BasePlot):
+    """Grouped bar plot (categorical comparison).
+
+    Drawn with ``sns.barplot`` on a single axes (not ``sns.catplot``, whose
+    FacetGrid owns its own figure and wouldn't fit the shared lifecycle). The
+    figure is widened to fit long category labels.
+    """
+
+    def __init__(self, data, *, x, y, hue=None, legend_title=None,
+                 value_format: Optional[str] = "{:.0f}",
+                 rotate_xlabels: float = 0, legend_loc: str = "upper right", **kw):
+        super().__init__(data, **kw)
+        self.x, self.y, self.hue = x, y, hue
+        self.legend_title = legend_title
+        self.value_format = value_format
+        self.rotate_xlabels = rotate_xlabels
+        self.legend_loc = legend_loc
+
+    def _make_fig(self):
+        # Widen for long category labels (rough heuristic; matches the old aspect calc).
+        max_label_length = max(self.data[self.x].astype(str).apply(len))
+        w, h = self.style.figsize
+        return plt.subplots(figsize=(w + max_label_length * 0.2, h))
+
+    def _draw(self, ax):
+        sns.barplot(data=self.data, x=self.x, y=self.y, hue=self.hue, ax=ax)
+
+        for label in ax.get_xticklabels():
+            label.set_rotation(self.rotate_xlabels)
+            label.set_horizontalalignment('center' if self.rotate_xlabels == 0 else 'right')
+
+        if self.value_format:
+            for c in ax.containers:
+                labels = [self.value_format.format(float(v.get_height())) for v in c]
+                ax.bar_label(c, labels=labels, label_type='edge')
+
+    def _finish(self, fig, ax):
+        ax.set(xlabel=self.xlabel, ylabel=self.ylabel)
+        if self.title:
+            ax.set_title(self.title)
+        if self.hue:
+            ax.legend(title=self.legend_title, loc=self.legend_loc)
+        fig.tight_layout()
+
+
+class BarPlot(BasePlot):
     """Single-series bar plot, used for long-tailed vocabulary distributions."""
-    if _should_skip(out_dir, fname, style):
-        return
-    _validate(style)
-    _ensure_seaborn_defaults()
 
-    fig, ax = plt.subplots(figsize=style.figsize)
-    sns.set_context("notebook", font_scale=style.font_scale)
-    sns.barplot(ax=ax, data=data, x=x, y=y, edgecolor="none")
+    def __init__(self, data, *, x, y, **kw):
+        super().__init__(data, **kw)
+        self.x, self.y = x, y
 
-    ax.set(xlabel=xlabel, ylabel=ylabel)
-    ax.set_xticks([])  # too many bars to label
-    ax.tick_params(axis='y', which='major', labelsize=12)
-    ax.yaxis.set_major_formatter(human_format_int)
-
-    plt.title(title)
-    plt.tight_layout()
-    save_figure(fig, out_dir, fname, style)
+    def _draw(self, ax):
+        sns.barplot(ax=ax, data=self.data, x=self.x, y=self.y, edgecolor="none")
+        ax.set_xticks([])  # too many bars to label
+        ax.tick_params(axis='y', which='major', labelsize=12)
+        ax.yaxis.set_major_formatter(human_format_int)
 
 
-def histogram(data, x, out_dir, fname,
-              title="", xlabel="x", ylabel="y", bins="auto",
-              style: PlotStyle = DEFAULT_STYLE):
-    if _should_skip(out_dir, fname, style):
-        return
-    _validate(style)
-    _ensure_seaborn_defaults()
+class HistogramPlot(BasePlot):
+    """Distribution histogram (e.g. tokens-per-sentence)."""
 
-    fig, ax = plt.subplots(figsize=style.figsize)
-    sns.set_context("notebook", font_scale=style.font_scale)
-    sns.histplot(ax=ax, data=data, x=x, bins=bins)
+    def __init__(self, data, *, x, bins="auto", **kw):
+        super().__init__(data, **kw)
+        self.x, self.bins = x, bins
 
-    ax.set(xlabel=xlabel, ylabel=ylabel)
-    ax.tick_params(axis='x', which='major', labelsize=8 * style.font_scale)
-    ax.tick_params(axis='y', which='major', labelsize=8 * style.font_scale)
-    ax.yaxis.set_major_formatter(human_format_int)
-
-    plt.title(title)
-    plt.tight_layout()
-    save_figure(fig, out_dir, fname, style)
+    def _draw(self, ax):
+        sns.histplot(ax=ax, data=self.data, x=self.x, bins=self.bins)
+        ax.tick_params(axis='x', which='major', labelsize=8 * self.style.font_scale)
+        ax.tick_params(axis='y', which='major', labelsize=8 * self.style.font_scale)
+        ax.yaxis.set_major_formatter(human_format_int)
 
 
-def heatmap(data, xlabels, ylabels, out_dir, fname,
-            title="", annot=True, cbar=False, annot_format=".2f",
-            style: PlotStyle = DEFAULT_STYLE):
-    if _should_skip(out_dir, fname, style):
-        return
-    _validate(style)
-    _ensure_seaborn_defaults()
+class HeatmapPlot(BasePlot):
+    """Annotated matrix heatmap (e.g. a train × test metric grid)."""
 
-    fig, ax = plt.subplots(figsize=style.figsize)
-    sns.set_context("notebook", font_scale=style.font_scale)
-    sns.heatmap(data, ax=ax, annot=annot, cbar=cbar, fmt=annot_format)
-    ax.set_xticklabels([x.title() for x in xlabels], ha='center', minor=False)
-    ax.set_yticklabels([y.title() for y in ylabels], va='center', minor=False)
+    def __init__(self, data, *, xlabels, ylabels, annot=True, cbar=False,
+                 annot_format=".2f", **kw):
+        super().__init__(data, **kw)
+        self.xlabels, self.ylabels = xlabels, ylabels
+        self.annot, self.cbar, self.annot_format = annot, cbar, annot_format
 
-    if title:
-        plt.title(title, y=1.01)
-    plt.tight_layout()
-    save_figure(fig, out_dir, fname, style)
+    def _draw(self, ax):
+        sns.heatmap(self.data, ax=ax, annot=self.annot, cbar=self.cbar, fmt=self.annot_format)
+        ax.set_xticklabels([str(x).title() for x in self.xlabels], ha='center', minor=False)
+        ax.set_yticklabels([str(y).title() for y in self.ylabels], va='center', minor=False)
+
+    def _finish(self, fig, ax):
+        # Heatmaps label via ticks, not axis labels.
+        if self.title:
+            ax.set_title(self.title, y=1.01)
+        fig.tight_layout()
 
 
-def lineplot(data, x, y_left, out_dir, fname,
-             y_left_hue=None, y_right=None, y_right_hue=None,
-             title="", xlabel="", ylabel_left="", ylabel_right="",
-             legend_loc: str = "upper left",
-             style: PlotStyle = DEFAULT_STYLE):
-    """Line plot with an optional secondary axis on the right."""
-    if _should_skip(out_dir, fname, style):
-        return
-    _validate(style)
-    _ensure_seaborn_defaults()
+class LinePlot(BasePlot):
+    """Line plot with an optional secondary (right) y-axis.
 
-    fig, ax = plt.subplots(figsize=style.figsize)
-    sns.set_context("notebook", font_scale=style.font_scale)
+    ``y_left`` / ``y_right`` are column names; ``*_hue`` optionally split each
+    into multiple lines. The right axis is dashed/grey and shares the legend.
+    """
 
-    g1 = sns.lineplot(data=data, x=x, y=y_left, hue=y_left_hue, ax=ax,
-                      marker="o", legend=True)
-    g1.set(ylim=(0, None), xlabel=xlabel, ylabel=ylabel_left)
-    h1, l1 = g1.get_legend_handles_labels()
+    def __init__(self, data, *, x, y_left, y_left_hue=None,
+                 y_right=None, y_right_hue=None,
+                 ylabel_left: str = "", ylabel_right: str = "",
+                 legend_loc: str = "upper left", **kw):
+        super().__init__(data, **kw)
+        self.x = x
+        self.y_left, self.y_left_hue = y_left, y_left_hue
+        self.y_right, self.y_right_hue = y_right, y_right_hue
+        self.ylabel_left, self.ylabel_right = ylabel_left, ylabel_right
+        self.legend_loc = legend_loc
 
-    h2, l2 = [], []
-    legend_target = g1
-    if y_right:
-        ax2 = ax.twinx()
-        ax2.grid(False)
-        g2 = sns.lineplot(data=data, x=x, y=y_right, hue=y_right_hue, ax=ax2,
-                          color="grey", linestyle="dashed",
-                          label=ylabel_right, legend=False)
-        g2.set(xlabel=xlabel, ylabel=ylabel_right)
-        h2, l2 = g2.get_legend_handles_labels()
-        ax.get_legend().remove()
-        legend_target = g2
+    def _draw(self, ax):
+        g1 = sns.lineplot(data=self.data, x=self.x, y=self.y_left,
+                          hue=self.y_left_hue, ax=ax, marker="o", legend=True)
+        g1.set(ylim=(0, None), xlabel=self.xlabel, ylabel=self.ylabel_left)
+        h1, l1 = g1.get_legend_handles_labels()
 
-    legend_target.legend(loc=legend_loc, handles=h1 + h2, labels=l1 + l2)
+        h2, l2 = [], []
+        legend_target = g1
+        if self.y_right:
+            ax2 = ax.twinx()
+            ax2.grid(False)
+            g2 = sns.lineplot(data=self.data, x=self.x, y=self.y_right,
+                              hue=self.y_right_hue, ax=ax2,
+                              color="grey", linestyle="dashed",
+                              label=self.ylabel_right, legend=False)
+            g2.set(xlabel=self.xlabel, ylabel=self.ylabel_right)
+            h2, l2 = g2.get_legend_handles_labels()
+            leg = ax.get_legend()
+            if leg is not None:
+                leg.remove()
+            legend_target = g2
 
-    plt.title(title)
-    plt.tight_layout()
-    save_figure(fig, out_dir, fname, style)
+        if h1 + h2:  # nothing to label for a single unhued line
+            legend_target.legend(loc=self.legend_loc, handles=h1 + h2, labels=l1 + l2)
+
+    def _finish(self, fig, ax):
+        # Axis labels are set inside _draw (left/right differ).
+        if self.title:
+            ax.set_title(self.title)
+        fig.tight_layout()

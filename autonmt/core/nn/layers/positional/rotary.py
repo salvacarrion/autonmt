@@ -5,9 +5,6 @@ import torch.nn as nn
 class RotaryPositionalEmbedding(nn.Module):
     """Rotary Position Embedding (RoPE).
 
-    Reference: Su et al., *RoFormer: Enhanced Transformer with Rotary Position
-    Embedding*, 2021 (arXiv:2104.09864).
-
     Unlike additive positional embeddings, RoPE rotates query/key vectors
     inside attention by a position-dependent angle, so it has to be applied
     on Q and K *before* the dot product, not on the token embedding. Typical
@@ -23,6 +20,11 @@ class RotaryPositionalEmbedding(nn.Module):
 
     The "rotate-half" convention is used (LLaMA / HuggingFace), where pairs
     are formed by splitting the last dim in halves rather than interleaving.
+
+    References
+    ----------
+    Su et al. (2021). *RoFormer: Enhanced Transformer with Rotary Position
+    Embedding.* [arXiv:2104.09864](https://arxiv.org/abs/2104.09864)
     """
 
     def __init__(self, head_dim, max_seq_len=2048, base=10000.0):

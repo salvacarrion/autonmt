@@ -35,7 +35,9 @@ theme:
   features:
     - navigation.instant
     - navigation.tracking
+    - navigation.tabs
     - navigation.sections
+    - navigation.indexes
     - navigation.top
     - navigation.footer
     - toc.follow
@@ -47,39 +49,60 @@ theme:
 
 nav:
   - Home: index.md
-  - Introduction:
-      - Why AutoNMT: introduction/why.md
-      - Design philosophy: introduction/philosophy.md
-      - The mental model: introduction/mental-model.md
   - Get started:
       - Installation: get-started/installation.md
-      - Your first experiment: get-started/first-experiment.md
-  - Architecture:
-      - Building blocks & the pipeline: architecture/building-blocks.md
-      - The toolkit abstraction: architecture/toolkit-abstraction.md
-      - On-disk layout & reproducibility: architecture/layout-and-reproducibility.md
-  - Data & vocabularies:
-      - Datasets & the dataset builder: data/dataset-builder.md
-      - Preprocessing & subword encoding: data/preprocessing-and-encoding.md
-      - Vocabularies: data/vocabularies.md
-  - The AutoNMT toolkit:
-      - Overview & the experiment loop: toolkit/overview.md
-      - Training (fit): toolkit/training.md
-      - Translating & decoding (predict): toolkit/predict.md
-      - Models & the LitSeq2Seq contract: toolkit/models.md
-      - Decoding strategies: toolkit/decoding.md
-      - Samplers & the TranslationDataset: toolkit/data-pipeline.md
-      - Full manual control: toolkit/manual-control.md
-  - Backends:
-      - Choosing a backend: backends/index.md
-      - HuggingFace: backends/huggingface.md
-      - Fairseq (deprecated): backends/fairseq.md
-  - Evaluation & reports:
-      - Metrics & significance: evaluation/metrics.md
-      - Reports & plots: evaluation/reports.md
-  - Extending AutoNMT: extending/index.md
+      - "Quickstart: your first experiment": get-started/quickstart.md
+      - Understanding the output: get-started/understanding-the-output.md
+  - User guide:
+      - Experiments:
+          - The experiment workflow: guide/experiments/workflow.md
+          - Configuration & reproducibility: guide/experiments/configuration.md
+      - Data:
+          - Datasets & the builder: guide/data/datasets.md
+          - Preprocessing: guide/data/preprocessing.md
+          - Subword tokenization: guide/data/tokenization.md
+          - Vocabularies: guide/data/vocabularies.md
+      - Models:
+          - Using a model: guide/models/using-a-model.md
+          - Model catalog: guide/models/catalog.md
+          - Building blocks: guide/models/building-blocks.md
+          - Writing your own model: guide/models/custom-models.md
+      - Training:
+          - Training a model: guide/training/training.md
+          - Validation & checkpoints: guide/training/validation-checkpoints.md
+          - Bucketing & batching: guide/training/bucketing.md
+          - Advanced training control: guide/training/advanced.md
+      - Translation:
+          - Generating translations: guide/translation/generating.md
+          - Decoding strategies: guide/translation/decoding.md
+      - Evaluation:
+          - Metrics: guide/evaluation/metrics.md
+          - Statistical significance: guide/evaluation/significance.md
+          - Reports & plots: guide/evaluation/reports.md
+      - Toolkits & backends:
+          - Choosing a backend: guide/backends/choosing.md
+          - Native (PyTorch Lightning): guide/backends/native.md
+          - HuggingFace: guide/backends/huggingface.md
+          - Fairseq (deprecated): guide/backends/fairseq.md
+  - How-to guides:
+      - how-to/index.md
+      - Run a complete experiment: how-to/complete-experiment.md
+      - Compare multiple models: how-to/compare-models.md
+      - Use a custom dataset: how-to/custom-dataset.md
+      - Run with another backend: how-to/swap-backend.md
+      - Reproduce an experiment: how-to/reproduce.md
+      - Add a custom model: how-to/custom-model.md
+      - Change the decoding strategy: how-to/custom-decoding.md
+      - Add a custom metric: how-to/custom-metric.md
+      - Drive the pipeline manually: how-to/manual-pipeline.md
+  - Concepts:
+      - Design philosophy: concepts/philosophy.md
+      - The mental model: concepts/mental-model.md
+      - Architecture: concepts/architecture.md
+      - On-disk layout: concepts/on-disk-layout.md
+      - Reproducibility model: concepts/reproducibility.md
   - API reference:
-      - Overview: reference/index.md
+      - reference/index.md
       - Datasets: reference/datasets.md
       - Vocabularies: reference/vocabularies.md
       - Backends: reference/backends.md

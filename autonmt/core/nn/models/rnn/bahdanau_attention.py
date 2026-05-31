@@ -17,8 +17,10 @@ class BahdanauRNN(SimpleRNN):
     Contrast with :class:`LuongRNN`, which uses the *current* hidden state
     (post-RNN step) and a multiplicative score.
 
-    Reference: Bahdanau, Cho & Bengio, *Neural Machine Translation by Jointly
-    Learning to Align and Translate*, ICLR 2015 (arXiv:1409.0473).
+    References
+    ----------
+    Bahdanau, Cho & Bengio (2015). *Neural Machine Translation by Jointly
+    Learning to Align and Translate.* [arXiv:1409.0473](https://arxiv.org/abs/1409.0473)
     """
 
     def __init__(self, *args, base_rnn="gru", **kwargs):

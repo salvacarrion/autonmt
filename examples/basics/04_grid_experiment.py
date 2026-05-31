@@ -20,8 +20,8 @@ What's new vs tutorial 03
 - The `encoding` block lists *multiple* `vocab_sizes`, expanding the
   cross-product to N dataset variants.
 - We loop over `builder.get_train_ds()` and append per-cell scores into one
-  list, then hand that list to `generate_report` for a side-by-side report.
-- `plot_model_comparison` writes a grouped bar chart of BLEU per cell.
+  list, then hand that list to `Report.from_runs(...)` for a side-by-side report.
+- `report.plot_comparison(...)` writes a grouped bar chart of BLEU per cell.
 
 Run
 ---
@@ -39,8 +39,7 @@ from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.figures import plot_model_comparison
-from autonmt.reporting.report import format_summary_table, generate_report
+from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/04_grid"
 DATASET = "multi30k"
@@ -119,20 +118,19 @@ def main():
     # Report. `df_report` is the wide DataFrame; `df_summary` is a small subset
     # ready to print. Both are also saved as CSV under `reports/`.
     out = f".outputs/04_grid/{datetime.datetime.now():%Y%m%d_%H%M%S}"
-    df_report, df_summary = generate_report(scores=scores, output_path=out)
+    report = Report.from_runs(scores, output_path=out).save()
 
-    # Bar chart of BLEU per cell. The metric column name is `<tool>_<metric>_<field>`
-    # nested under `translations.beam<N>.`.
-    plot_model_comparison(
-        df_report=df_report,
-        out_dir=os.path.join(out, "plots"),
-        metric="translations.beam5.sacrebleu_bleu_score",
+    # Bar chart of BLEU per cell. Ask for the metric by short name — `Report`
+    # resolves it to the right `translations.beam<N>.<tool>_<metric>_<field>`
+    # column (here, two beams exist, so we pin beam=5).
+    report.plot_comparison(
+        "bleu", beam=5,
         xlabel="Vocab size variant", ylabel="BLEU",
         title=f"Vocab-size sweep on {DATASET} ({LANG_PAIR})",
     )
 
     print(f"\nReport + plots saved to: {os.path.abspath(out)}\n")
-    print(format_summary_table(df_summary))
+    print(report)
 
 
 if __name__ == "__main__":

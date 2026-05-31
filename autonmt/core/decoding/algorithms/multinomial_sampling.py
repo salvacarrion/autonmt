@@ -10,6 +10,11 @@ class MultinomialSampling(BaseStepSearch):
       * ``< 1`` sharpens the distribution (closer to argmax / greedy).
       * ``= 1`` is the model's native distribution.
       * ``> 1`` flattens it (closer to uniform).
+
+    This is plain ancestral (a.k.a. random / temperature) sampling — a classic
+    technique with no single founding paper. :class:`TopKSampling` and
+    :class:`TopPSampling` are truncated refinements of it.
+
     Output is non-deterministic — seed ``torch.manual_seed`` for reproducibility.
     """
 

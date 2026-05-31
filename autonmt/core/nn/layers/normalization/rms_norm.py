@@ -5,9 +5,6 @@ import torch.nn as nn
 class RMSNorm(nn.Module):
     """Root Mean Square Layer Normalization.
 
-    Reference: Zhang & Sennrich, *Root Mean Square Layer Normalization*, 2019
-    (arXiv:1910.07467).
-
     Like ``nn.LayerNorm`` but drops the mean-centering step and the bias
     parameter, normalizing only by the root mean square::
 
@@ -15,6 +12,11 @@ class RMSNorm(nn.Module):
 
     Faster than LayerNorm in practice and empirically comparable or better.
     Used in T5 and most modern LLMs (LLaMA, Mistral, Qwen, ...).
+
+    References
+    ----------
+    Zhang & Sennrich (2019). *Root Mean Square Layer Normalization.*
+    [arXiv:1910.07467](https://arxiv.org/abs/1910.07467)
     """
 
     def __init__(self, dim, eps=1e-6):

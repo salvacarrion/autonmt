@@ -32,11 +32,14 @@ class MLP(LitSeq2Seq):
     baseline for benchmarking — not expected to translate well past toy
     datasets.
 
-    In the spirit of Mikolov, Le & Sutskever, *Exploiting Similarities among
-    Languages for Machine Translation*, 2013 (arXiv:1309.4168), which framed
-    translation as a learned linear transformation between embedding spaces
-    (W·X ≈ Y) — this model generalises that idea to a non-linear MLP over
-    pooled source embeddings.
+    In the spirit of Mikolov et al. (2013), who framed translation as a learned
+    linear transformation between embedding spaces (W·X ≈ Y) — this model
+    generalises that idea to a non-linear MLP over pooled source embeddings.
+
+    References
+    ----------
+    Mikolov, Le & Sutskever (2013). *Exploiting Similarities among Languages
+    for Machine Translation.* [arXiv:1309.4168](https://arxiv.org/abs/1309.4168)
     """
 
     # Decoder output at position t depends only on ``y[:, t]`` and the (fixed)

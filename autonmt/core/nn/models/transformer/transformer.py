@@ -18,8 +18,10 @@ class Transformer(LitSeq2Seq):
     decoder adds masked self-attention and cross-attention to the encoder.
     Fully parallel during training, KV-cached during incremental decoding.
 
-    Reference: Vaswani et al., *Attention Is All You Need*, NeurIPS 2017
-    (arXiv:1706.03762).
+    References
+    ----------
+    Vaswani et al. (2017). *Attention Is All You Need.*
+    [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
     """
 
     # Search algorithms can pass ``incremental_state={}`` to enable KV-cached
@@ -45,6 +47,36 @@ class Transformer(LitSeq2Seq):
                  tie_embeddings=False,
                  norm_first=False,
                  **kwargs):
+        """Build a Transformer encoder-decoder.
+
+        Parameters
+        ----------
+        src_vocab_size, tgt_vocab_size : int
+            Source / target vocabulary sizes (usually inferred from the vocabs
+            via :meth:`~autonmt.core.nn.seq2seq.LitSeq2Seq.from_vocabs`).
+        encoder_embed_dim, decoder_embed_dim : int, default 256
+            Model (embedding) dimension on each side.
+        encoder_layers, decoder_layers : int, default 3
+            Number of stacked encoder / decoder blocks.
+        encoder_attention_heads, decoder_attention_heads : int, default 8
+            Number of attention heads per block.
+        encoder_ffn_embed_dim, decoder_ffn_embed_dim : int, default 512
+            Inner dimension of the position-wise feed-forward sublayer.
+        dropout : float, default 0.1
+            Dropout probability applied throughout.
+        activation_fn : str, default "relu"
+            Feed-forward activation (``"relu"`` or ``"gelu"``).
+        max_src_positions, max_tgt_positions : int, default 1024
+            Maximum sequence lengths supported by the positional embeddings.
+        padding_idx : int, optional
+            Padding token id (masked in attention and zeroed in the PE).
+        learned : bool, default False
+            Use learned absolute positional embeddings instead of sinusoidal.
+        tie_embeddings : bool, default False
+            Share weights between the target embedding and the output projection.
+        norm_first : bool, default False
+            Pre-norm (norm before each sublayer) instead of post-norm.
+        """
         super().__init__(src_vocab_size, tgt_vocab_size, padding_idx, architecture="transformer", **kwargs)
         self.max_src_positions = max_src_positions
         self.max_tgt_positions = max_tgt_positions

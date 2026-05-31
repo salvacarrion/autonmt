@@ -3,6 +3,22 @@
 In-memory helpers (``moses_tokenize`` / ``spm_encode`` / ``moses_detokenize`` /
 ``spm_decode``) operate on lists of strings. The ``*_file`` wrappers are thin
 "read → transform → write" adapters used by the build pipeline.
+
+References
+----------
+Koehn et al. (2007). *Moses: Open Source Toolkit for Statistical Machine
+Translation.* https://aclanthology.org/P07-2045/
+
+Sennrich, Haddow & Birch (2016). *Neural Machine Translation of Rare Words
+with Subword Units* (BPE). [arXiv:1508.07909](https://arxiv.org/abs/1508.07909)
+
+Kudo (2018). *Subword Regularization: Improving Neural Network Translation
+Models with Multiple Subword Candidates* (unigram LM).
+[arXiv:1804.10959](https://arxiv.org/abs/1804.10959)
+
+Kudo & Richardson (2018). *SentencePiece: A simple and language independent
+subword tokenizer and detokenizer for Neural Text Processing.*
+[arXiv:1808.06226](https://arxiv.org/abs/1808.06226)
 """
 from tqdm import tqdm
 

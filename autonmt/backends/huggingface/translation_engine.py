@@ -36,7 +36,7 @@ except ImportError:
 from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 from autonmt.backends._base.translation_engine import BaseTranslator
-from autonmt.reporting.report import RunMetadata
+from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
 

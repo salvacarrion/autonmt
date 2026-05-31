@@ -8,7 +8,7 @@
 # from autonmt.backends.autonmt.translation_engine import AutonmtTranslator
 # from autonmt.backends.fairseq.translation_engine import FairseqTranslator
 # from autonmt.datasets.dataset_builder import DatasetBuilder
-# from autonmt.reporting.report import generate_report, summarize_scores
+# from autonmt.reporting.report import Report
 #
 # import pytest
 #
@@ -108,14 +108,12 @@
 #
 #     # Create output path (debugging
 #     test_dir = pathlib.Path(__file__).parent.resolve()
-#     df_fairseq_report, _ = generate_report(scores=fairseq_scores,  output_path=os.path.join(test_dir, ".outputs/test/fairseq"))
-#     df_autonmt_report, _ = generate_report(scores=autonmt_scores,  output_path=os.path.join(test_dir, ".outputs/test/autonmt"))
+#     fairseq_report = Report.from_runs(fairseq_scores, output_path=os.path.join(test_dir, ".outputs/test/fairseq")).save()
+#     autonmt_report = Report.from_runs(autonmt_scores, output_path=os.path.join(test_dir, ".outputs/test/autonmt")).save()
 #
 #     # Summarize results
-#     df_summary = summarize_scores([df_fairseq_report, df_autonmt_report])
-#
 #     print("Summary:")
-#     print(df_summary.to_string(index=False))
+#     print(autonmt_report)
 #
 #     assert True  # Analyze the results manually
 #

@@ -35,7 +35,7 @@ from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSample
 from autonmt.core.decoding import BeamSearch, GreedySearch
 from autonmt.backends._base.translation_engine import BaseTranslator
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
-from autonmt.reporting.report import RunMetadata
+from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
 

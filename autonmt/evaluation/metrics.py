@@ -9,6 +9,26 @@ dict. ``BaseTranslator`` consumes the :data:`METRIC_BACKENDS` registry directly
 Backends that need optional dependencies (``comet``, ``evaluate``) raise at
 *call time*, not at import time, so the package keeps importing on machines
 without them.
+
+References
+----------
+Papineni et al. (2002). *BLEU: a Method for Automatic Evaluation of Machine
+Translation.* https://aclanthology.org/P02-1040/
+
+Popović (2015). *chrF: character n-gram F-score for automatic MT evaluation.*
+https://aclanthology.org/W15-3049/
+
+Snover et al. (2006). *A Study of Translation Edit Rate with Targeted Human
+Annotation* (TER). https://aclanthology.org/2006.amta-papers.25/
+
+Post (2018). *A Call for Clarity in Reporting BLEU Scores* (sacrebleu).
+[arXiv:1804.08771](https://arxiv.org/abs/1804.08771)
+
+Zhang et al. (2020). *BERTScore: Evaluating Text Generation with BERT.*
+[arXiv:1904.09675](https://arxiv.org/abs/1904.09675)
+
+Rei et al. (2020). *COMET: A Neural Framework for MT Evaluation.*
+[arXiv:2009.09025](https://arxiv.org/abs/2009.09025)
 """
 from __future__ import annotations
 

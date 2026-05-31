@@ -5,9 +5,6 @@ import torch.nn.functional as F
 class SwiGLU(nn.Module):
     """SwiGLU feed-forward block.
 
-    Reference: Shazeer, *GLU Variants Improve Transformer*, 2020
-    (arXiv:2002.05202).
-
     Replaces the standard transformer FFN (Linear-ReLU-Linear) with a gated
     variant::
 
@@ -19,6 +16,11 @@ class SwiGLU(nn.Module):
     To keep parameter count comparable to a matching ReLU FFN, ``hidden_dim``
     is typically reduced by ~2/3 (e.g. ``int(2/3 * 4 * dim)`` rounded to a
     convenient multiple). Caller decides — this module just takes the value.
+
+    References
+    ----------
+    Shazeer (2020). *GLU Variants Improve Transformer.*
+    [arXiv:2002.05202](https://arxiv.org/abs/2002.05202)
     """
 
     def __init__(self, dim, hidden_dim, bias=False):
