@@ -1,4 +1,4 @@
-# Models & decoding
+# Core
 
 AutoNMT's in-house neural engine: the Lightning base class, built-in architectures, the layer
 library, decoding strategies, samplers, and the torch dataset. For the narrative version, see

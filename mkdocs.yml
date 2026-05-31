@@ -106,7 +106,7 @@ nav:
       - Datasets: reference/datasets.md
       - Vocabularies: reference/vocabularies.md
       - Backends: reference/backends.md
-      - Models & decoding: reference/core.md
+      - Core: reference/core.md
       - Evaluation: reference/evaluation.md
       - Reporting: reference/reporting.md
   - Contributing: contributing.md

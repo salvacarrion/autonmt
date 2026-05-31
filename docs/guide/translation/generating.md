@@ -1,4 +1,4 @@
-# Translating & decoding (`predict`)
+# Generating translations
 
 `predict` takes a trained model and turns the test set into scores. Under the hood it runs
 three stages — **translate → score → parse** — for every evaluation set, beam width, and
@@ -26,7 +26,7 @@ flowchart TD
     P["predict(eval_datasets, PredictConfig)"] --> F["filter_eval_datasets(eval_mode)"]
     F --> L{"for each eval_ds × beam × subset"}
     L --> T["translate → decode with a BaseSearch → hyp.txt"]
-    T --> S["score_translations → MetricBackend writes <backend>_scores.json"]
+    T --> S["score_translations → MetricBackend writes &lt;backend&gt;_scores.json"]
     S --> PM["parse_metrics → flat score dict"]
     PM --> R["score dict per (run, eval_ds)"]
 ```
@@ -37,8 +37,8 @@ flowchart TD
 - **parse** reads the score artifacts back into a flat dict and assembles the per-run report
   entry.
 
-You get one list entry per evaluation dataset; pass the whole list to
-[`generate_report`](../evaluation/reports.md).
+You get one list entry per evaluation dataset; wrap the whole list in a
+[`Report`](../evaluation/reports.md).
 
 ## `PredictConfig`
 
@@ -112,14 +112,14 @@ to *this* model:
 | `"compatible"` | any variant with the same language pair |
 | `"all"` | every variant passed |
 
-This is what makes grid evaluation clean: train each model, pass them all the same test list,
-and each model evaluates the subset that makes sense for it.
+This is what makes grid evaluation clean: train each model, pass them all the same test
+list, and each model evaluates the subset that makes sense for it.
 
 ## Predict-time preprocessing
 
-If you cleaned the training data with a [hook](../data/preprocessing-and-encoding.md#hooks),
-apply the equivalent normalization to the test source via `preprocess_fn`, so you measure
-model quality and not a preprocessing mismatch:
+If you cleaned the training data with a [hook](../data/preprocessing.md#hooks), apply the
+equivalent normalization to the test source via `preprocess_fn`, so you measure model
+quality and not a preprocessing mismatch:
 
 ```python
 def clean_source(data, ds):
@@ -133,7 +133,7 @@ trainer.predict(test_variants, config=PredictConfig(preprocess_fn=clean_source))
 `predict` runs translate → score → parse together, but each is a public method
 (`translate`, `score_translations`, `parse_metrics`). Splitting them lets you, for example,
 **re-score with a new metric without re-decoding**, or plug a custom decoder per call. That's
-covered in [Full manual control](manual-control.md#split-stages).
+covered in [How-to → Drive the pipeline manually](../../how-to/manual-pipeline.md).
 
 ---
 

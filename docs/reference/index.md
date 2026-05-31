@@ -26,7 +26,7 @@ parameters, contracts; for how-and-why, follow the links back into the User guid
 
     `BaseTranslator`, the three concrete translators, and `FitConfig` / `PredictConfig`.
 
--   :material-brain:{ .lg .middle } **[Models & decoding](core.md)**
+-   :material-brain:{ .lg .middle } **[Core](core.md)**
 
     ---
 

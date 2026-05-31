@@ -1,6 +1,6 @@
 # HuggingFace
 
-[`HuggingFaceTranslator`](../reference/backends.md) lets you **evaluate** any pretrained
+[`HuggingFaceTranslator`](../../reference/backends.md) lets you **evaluate** any pretrained
 seq2seq checkpoint on your test set, or **fine-tune** it on your splits — through the same
 `fit` / `predict` flow as every other backend. Reach for it when you'd rather start from a
 strong pretrained model (Marian/OPUS, mBART, NLLB, T5…) than train from scratch.
@@ -12,13 +12,13 @@ pip install -e '.[hf-models]'    # transformers + accelerate
 ## How it differs from the native engine
 
 The HuggingFace backend brings its **own tokenizer**, so it runs in [direct
-mode](../architecture/toolkit-abstraction.md#direct-mode-huggingface) (`_spm = None`): it
-reads the preprocessed splits, tokenizes the source itself, calls `model.generate`, and
-writes `src.txt` / `ref.txt` / `hyp.txt` straight to disk. Two implications:
+mode](choosing.md#two-translate-modes) (`_spm = None`): it reads the preprocessed splits,
+tokenizes the source itself, calls `model.generate`, and writes `src.txt` / `ref.txt` /
+`hyp.txt` straight to disk. Two implications:
 
 - The `subword_models` / `vocab_sizes` you declared in `encoding=` are used only for the
   AutoNMT-side dataset **identity and stats** — HF ignores the SentencePiece model entirely.
-- Decoding uses HF's `generate`, not AutoNMT's [search strategies](../toolkit/decoding.md).
+- Decoding uses HF's `generate`, not AutoNMT's [search strategies](../translation/decoding.md).
   The `beams` you pass become `num_beams`; `max_len_a`/`max_len_b` become `max_new_tokens`.
 
 The output artifacts and the [report schema](../evaluation/reports.md) are identical to the
@@ -40,8 +40,8 @@ trainer = HuggingFaceTranslator.from_dataset(
 ```
 
 `from_dataset` auto-fills `src_lang` / `tgt_lang` from the dataset (used for
-[`eval_mode`](../toolkit/predict.md#eval-mode) filtering and target-language metrics). The
-model and tokenizer load **lazily** on first use, so you can construct the translator and
+[`eval_mode`](../translation/generating.md#eval-mode) filtering and target-language metrics).
+The model and tokenizer load **lazily** on first use, so you can construct the translator and
 inspect paths without paying the download cost.
 
 | Argument | Meaning |
@@ -70,7 +70,7 @@ This is the quickest way to get a strong baseline number on your data.
 ## Fine-tune the same checkpoint
 
 `fit` fine-tunes via `transformers.Seq2SeqTrainer`. AutoNMT maps
-[`FitConfig`](../toolkit/training.md#fitconfig) onto `Seq2SeqTrainingArguments`:
+[`FitConfig`](../training/training.md) onto `Seq2SeqTrainingArguments`:
 
 | `FitConfig` | `Seq2SeqTrainingArguments` |
 | --- | --- |
@@ -104,10 +104,10 @@ After training, the best model + tokenizer are saved to the run's `checkpoints/`
 (unless `force_overwrite=True`).
 
 !!! note "HF-only training knobs win on collision"
-    Anything specific to the HF `Trainer` (label smoothing, mixed precision, custom schedulers)
-    goes through `hf_training_args=dict(...)`. On collision with a `FitConfig`-derived value,
-    the explicit `hf_training_args` value wins — same "extras override" rule the
-    [contract](../architecture/toolkit-abstraction.md) uses everywhere.
+    Anything specific to the HF `Trainer` (label smoothing, mixed precision, custom
+    schedulers) goes through `hf_training_args=dict(...)`. On collision with a
+    `FitConfig`-derived value, the explicit `hf_training_args` value wins — same "extras
+    override" rule the [contract](choosing.md) uses everywhere.
 
 ## HuggingFace metrics (`hg_*`)
 
@@ -126,7 +126,7 @@ trainer.predict(test_datasets, config=PredictConfig(metrics={"bleu", "hg_meteor"
 `HuggingFaceTranslator` wraps a standard `AutoModelForSeq2SeqLM`, so parameter-efficient
 techniques like **LoRA** apply to the underlying model the usual way (e.g. wrapping it with
 `peft` before training). AutoNMT doesn't add a built-in flag for it — that's a deliberate
-[minimal-core](../introduction/philosophy.md#extensible) choice — but the runnable
+[minimal-core](../../concepts/philosophy.md#extensible) choice — but the runnable
 [`examples/advanced/`](https://github.com/salvacarrion/autonmt/tree/main/examples/advanced)
 scripts show LoRA, catastrophic-forgetting, and model-merging recipes on top of this backend.
 

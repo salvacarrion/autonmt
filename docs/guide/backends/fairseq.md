@@ -3,16 +3,15 @@
 !!! warning "Deprecated — use the AutoNMT backend for new work"
     Fairseq was [archived by its maintainers on
     2026-03-20](https://github.com/facebookresearch/fairseq) and no longer receives updates.
-    [`FairseqTranslator`](../reference/backends.md) is kept working for existing flows, but
-    new projects should use the native [AutoNMT engine](../toolkit/overview.md), which gives
-    you the same `fit` / `predict` surface with a maintained toolkit, in-process models, and
-    [custom-architecture support](../extending/index.md#a-custom-model).
+    [`FairseqTranslator`](../../reference/backends.md) is kept working for existing flows, but
+    new projects should use the native [AutoNMT engine](native.md), which gives you the same
+    `fit` / `predict` surface with a maintained toolkit, in-process models, and
+    [custom-architecture support](../models/custom-models.md).
 
 `FairseqTranslator` **shells out to the Fairseq CLI** (`fairseq-train`, `fairseq-generate`).
-AutoNMT prepares the data, encodes the eval splits with the dataset's SentencePiece model
-(it runs in [SPM-pipeline
-mode](../architecture/toolkit-abstraction.md#spm-pipeline-mode-autonmt-fairseq)), translates
-your `fit` kwargs into Fairseq flags, runs the subprocess, and parses the BLEU it reports.
+AutoNMT prepares the data, encodes the eval splits with the dataset's SentencePiece model (it
+runs in [SPM-pipeline mode](choosing.md#two-translate-modes)), translates your `fit` kwargs
+into Fairseq flags, runs the subprocess, and parses the BLEU it reports.
 
 Fairseq is **not** a default dependency:
 
@@ -68,12 +67,12 @@ Anything Fairseq supports that isn't in the table you pass directly through `fai
 
 !!! danger "`fairseq_args` always win on collision"
     If you set `max_epochs=10` *and* `--max-epoch 15` in `fairseq_args`, the run uses **15**.
-    This is intentional — it lets you express anything Fairseq supports without AutoNMT needing
-    to model it — but it means you must avoid setting the same thing two ways by accident. A
-    handful of flags AutoNMT manages itself (`--save-dir`, `--tensorboard-logdir`, `--bpe`,
-    `--remove-bpe`, …) are **reserved** and rejected if you pass them.
+    This is intentional — it lets you express anything Fairseq supports without AutoNMT
+    needing to model it — but it means you must avoid setting the same thing two ways by
+    accident. A handful of flags AutoNMT manages itself (`--save-dir`, `--tensorboard-logdir`,
+    `--bpe`, `--remove-bpe`, …) are **reserved** and rejected if you pass them.
 
 ## When you'd still use it
 
-Only to reproduce or extend an existing Fairseq-based result. For anything new, the
-[AutoNMT backend](../toolkit/overview.md) is the maintained path.
+Only to reproduce or extend an existing Fairseq-based result. For anything new, the native
+[AutoNMT backend](native.md) is the maintained path.

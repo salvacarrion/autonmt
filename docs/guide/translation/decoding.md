@@ -6,8 +6,8 @@ anymore, so the model must build the translation one token at a time from its ow
 *How* you pick each token — and how much of the search space you explore — is the decoding
 strategy, and it can change BLEU by several points without touching the model.
 
-This page explains each strategy from first principles, with the math where it clarifies, and
-shows how to select one in [`predict`](predict.md).
+This page explains each strategy from first principles, with the math where it clarifies,
+and shows how to select one in [`predict`](generating.md).
 
 ## The decoding problem
 
@@ -32,7 +32,7 @@ sequence do we actually return?"
 ## The contract: `BaseSearch`
 
 All strategies implement
-[`BaseSearch.decode(...)`](../reference/core.md#autonmt.core.decoding), returning
+[`BaseSearch.decode(...)`](../../reference/core.md#autonmt.core.decoding), returning
 `(token_id_lists, optional_scores)`. Greedy and the sampling strategies share a thinner base,
 `BaseStepSearch`, which implements the whole loop (DataLoader, encoder call, EOS handling,
 length cap) and asks the subclass for just **one** method:
@@ -66,8 +66,8 @@ trainer.predict(test, config=PredictConfig(beams=[1]))   # → greedy
 
 Beam search keeps the **$k$ best partial hypotheses** (the *beam*) alive at every step
 instead of one. At each step it expands all $k$ hypotheses by every possible next token,
-scores the $k \times V$ candidates by cumulative log-probability, and keeps the top $k$. When
-a hypothesis emits `</s>` it's finished; at the end the best completed hypothesis wins.
+scores the $k \times V$ candidates by cumulative log-probability, and keeps the top $k$.
+When a hypothesis emits `</s>` it's finished; at the end the best completed hypothesis wins.
 
 ```mermaid
 flowchart LR
@@ -105,16 +105,17 @@ trainer.predict(test, config=PredictConfig(beams=[5], decoder=BeamSearch(length_
 
 !!! note "Beam search is the default for width > 1"
     If you pass `beams=[5]` without a `decoder`, AutoNMT uses `BeamSearch()` automatically.
-    Pass a `decoder=BeamSearch(length_penalty=...)` only to change the penalty. AutoNMT's beam
-    search is **batched** and supports the [KV-cached incremental decoding](models.md) of the
+    Pass a `decoder=BeamSearch(length_penalty=...)` only to change the penalty. AutoNMT's
+    beam search is **batched** and supports the [KV-cached incremental
+    decoding](../models/building-blocks.md#the-incremental-autoregressive-decoder) of the
     Transformer, so width-5 search is fast.
 
 ## Sampling strategies
 
-Beam search seeks the *most likely* translation — ideal for MT, where you want the single best
-answer. But sometimes you want **diversity** (data augmentation, exploring model behavior,
-back-translation). Sampling draws from the distribution instead of maximizing it. All three
-samplers share a **temperature** knob.
+Beam search seeks the *most likely* translation — ideal for MT, where you want the single
+best answer. But sometimes you want **diversity** (data augmentation, exploring model
+behavior, back-translation). Sampling draws from the distribution instead of maximizing it.
+All three samplers share a **temperature** knob.
 
 !!! info "What temperature does"
     Temperature $T$ rescales the logits before the softmax, $p_i \propto \exp(z_i / T)$:
@@ -147,8 +148,8 @@ trainer.predict(test, config=PredictConfig(beams=[1], decoder=TopKSampling(top_k
 ```
 
 This caps the worst-case mistake (a token outside the top $k$ can never be drawn) while
-keeping variety. The drawback: a fixed $k$ is too generous when the model is confident and too
-restrictive when it's uncertain — which nucleus sampling fixes.
+keeping variety. The drawback: a fixed $k$ is too generous when the model is confident and
+too restrictive when it's uncertain — which nucleus sampling fixes.
 
 ### Top-p / nucleus sampling
 
@@ -181,9 +182,8 @@ one run.
 
 Because decoders are just `BaseSearch` / `BaseStepSearch` subclasses, writing your own (a
 diverse beam search, a constrained decoder, a length-controlled sampler) is a small class —
-see [Extending AutoNMT](../extending/index.md#a-custom-decoder).
+see [How-to → Change the decoding strategy](../../how-to/custom-decoding.md).
 
 ---
 
-Next: the torch-side plumbing that feeds both training and decoding —
-**[Samplers & the TranslationDataset](data-pipeline.md)**.
+The decoded `hyp.txt` now needs scoring: **[Evaluation → Metrics](../evaluation/metrics.md)**.

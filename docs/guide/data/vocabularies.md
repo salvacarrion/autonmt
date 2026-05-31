@@ -9,8 +9,8 @@ translator.
 
 | Class | Role |
 | --- | --- |
-| [`BaseVocabulary`](../reference/vocabularies.md) | Abstract base: the four special tokens + `encode`/`decode` contract |
-| [`Vocabulary`](../reference/vocabularies.md) | The concrete whitespace-backed vocabulary used everywhere |
+| [`BaseVocabulary`](../../reference/vocabularies.md) | Abstract base: the four special tokens + `encode`/`decode` contract |
+| [`Vocabulary`](../../reference/vocabularies.md) | The concrete whitespace-backed vocabulary used everywhere |
 | `vocab_builder` | Creates the on-disk vocab artifacts during `DatasetBuilder.build()` |
 
 Every vocabulary shares **four special tokens** with fixed default ids:
@@ -69,13 +69,13 @@ src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)
 
     When sharing, the model can also **tie embeddings** (share the decoder input embedding
     with the output projection) via `Transformer(..., tie_embeddings=True)` — see
-    [Models](../toolkit/models.md).
+    [Models](../models/using-a-model.md).
 
 ## Encoding and decoding
 
 A `Vocabulary` is also a runtime encoder/decoder. You rarely call it directly — the
-[`TranslationDataset`](../toolkit/data-pipeline.md) encodes batches and the
-[decoder](../toolkit/decoding.md) decodes outputs — but the surface is simple:
+[`TranslationDataset`](../training/bucketing.md) encodes batches and the
+[decoder](../translation/decoding.md) decodes outputs — but the surface is simple:
 
 ```python
 ids = tgt_vocab.encode("a clean sentence")          # → [sos, .., eos] token ids
@@ -108,11 +108,11 @@ distribution.
 
 Because `Vocabulary` subclasses `BaseVocabulary`, you can build your own (a different
 tokenization scheme, a domain lexicon) and pass it straight to the model and translator —
-`build_vocabs` is a convenience, not a requirement. See [Extending
-AutoNMT](../extending/index.md#a-custom-vocabulary) for the pattern.
+`build_vocabs` is a convenience, not a requirement. Implement the
+[`BaseVocabulary`](../../reference/vocabularies.md) contract (the four special-token ids plus
+`encode`/`decode`) and the rest of the framework treats it like any other vocabulary.
 
 ---
 
-That's the input side complete. The prepared, encoded, vocab'd data now flows into the
-engine: **[The AutoNMT toolkit](../toolkit/overview.md)** (or another
-[backend](../backends/index.md)).
+That's the input side complete. The prepared, encoded, vocab'd data now flows into a
+**[model](../models/using-a-model.md)** and a **[backend](../backends/choosing.md)**.

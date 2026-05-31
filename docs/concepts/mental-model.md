@@ -20,8 +20,8 @@ translator's scores become a report.**
 ### 1. The grid → dataset variants
 
 You declare the **axes** of your experiment. The
-[`DatasetBuilder`](../data/dataset-builder.md) computes the cross-product and turns each
-cell into a [`Dataset`](../data/dataset-builder.md#the-dataset-object) object. A `Dataset`
+[`DatasetBuilder`](../guide/data/datasets.md) computes the cross-product and turns each
+cell into a [`Dataset`](../guide/data/datasets.md#the-dataset-object) object. A `Dataset`
 is not a PyTorch dataset — it's an **identity + a path engine**. Given *(name, language
 pair, size, subword model, vocab size)* it knows where every file for that cell lives on
 disk, and the builder materializes those files (clean → split → encode → build vocab).
@@ -34,8 +34,8 @@ test_variants  = builder.get_test_ds()
 
 ### 2. Dataset variants → translator
 
-A [translator](../backends/index.md) is the thing that turns a dataset variant into a
-trained model and then into translations. It exposes exactly two verbs:
+A [translator](../guide/backends/choosing.md) is the thing that turns a dataset variant into
+a trained model and then into translations. It exposes exactly two verbs:
 
 - **`fit(train_ds, ...)`** — train (or fine-tune) on a variant.
 - **`predict(eval_datasets, ...)`** — translate the test set(s) and score the output.
@@ -46,8 +46,8 @@ the [Keras-style abstraction](philosophy.md#keras): the loop you write is backen
 
 ### 3. Translator → report
 
-`predict()` returns a list of score dicts (one per run × evaluation set). Feed that list
-to [`generate_report`](../evaluation/reports.md) and you get JSON + CSV summaries and
+`predict()` returns a list of score dicts (one per run × evaluation set). Wrap those in a
+[`Report`](../guide/evaluation/reports.md) and you get JSON + CSV summaries and
 comparison plots — every cell scored identically, side by side.
 
 ## A whole experiment is a flat loop
@@ -56,7 +56,7 @@ Because the builder already unrolled the grid, your experiment is **iteration, n
 nesting**:
 
 ```python
-from autonmt.reporting.report import generate_report
+from autonmt.reporting.report import Report
 
 scores = []
 for train_ds in builder.get_train_ds():          # one cell of the grid
@@ -70,7 +70,7 @@ for train_ds in builder.get_train_ds():          # one cell of the grid
     trainer.fit(train_ds, config=FitConfig(max_epochs=10))
     scores.append(trainer.predict(builder.get_test_ds(), config=PredictConfig(metrics={"bleu", "chrf"})))
 
-generate_report(scores=scores, output_path="outputs/sweep", plot_metric="translations.beam5.sacrebleu_bleu_score")
+Report.from_runs(scores, output_path="outputs/sweep").save().plot_comparison("bleu", beam=5)
 ```
 
 No matter how many axes you added to the grid, the loop body is the same. That's the whole
@@ -78,28 +78,25 @@ point: **the complexity lives in the declaration, not in your control flow.**
 
 ## Why the docs are organized the way they are
 
-The pipeline is also the table of contents. Reading the diagram left to right:
+The pipeline is also the table of contents. Reading the diagram left to right, the
+[User guide](../guide/experiments/workflow.md) walks the same path:
 
-- **Data goes in** → [Data & vocabularies](../data/dataset-builder.md) covers the input
-  side: the builder, preprocessing/encoding (subwords), and vocabularies.
-- **The middle swaps** → [The AutoNMT toolkit](../toolkit/overview.md) documents the
-  native engine in depth, and [Backends](../backends/index.md) covers choosing/configuring
+- **Data goes in** → [Data](../guide/data/datasets.md): the builder, preprocessing,
+  tokenization, vocabularies.
+- **The middle swaps** → [Models](../guide/models/using-a-model.md) /
+  [Training](../guide/training/training.md) / [Translation](../guide/translation/generating.md)
+  document the native engine, and [Backends](../guide/backends/choosing.md) covers running
   HuggingFace or Fairseq instead. Only this stage changes between backends.
-- **Reports come out** → [Evaluation & reports](../evaluation/metrics.md) covers the output
-  side: metrics, significance testing, and the report itself.
+- **Reports come out** → [Evaluation](../guide/evaluation/metrics.md): metrics, significance
+  testing, and the report itself.
 
-Wrapping all of it: [Architecture](../architecture/building-blocks.md) shows how the pieces
-compose and how a backend plugs in, and explains the on-disk layout that makes the whole
-thing reproducible.
-
-!!! tip "Where do datasets / vocab / metrics / reporting live in these docs?"
-    They're split along the pipeline rather than grouped into one section. Datasets and
-    vocabularies sit **before** the engine (they're the input you need first); metrics and
-    reports sit **after** it (they're the output). That ordering mirrors the diagram — and
+!!! tip "Input and output are shared; only the toolkit swaps"
+    Datasets and vocabularies sit **before** the engine (the input you need first); metrics
+    and reports sit **after** it (the output). That ordering mirrors the diagram — and
     reinforces the key idea that input and output are shared while only the toolkit in the
     middle is interchangeable.
 
 ---
 
 Ready to run it? Head to **[Get started → Installation](../get-started/installation.md)**.
-Want the structural view first? Go to **[Architecture](../architecture/building-blocks.md)**.
+Want the structural view? Go to **[Architecture](architecture.md)**.

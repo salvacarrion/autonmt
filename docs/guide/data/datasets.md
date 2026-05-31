@@ -2,8 +2,8 @@
 
 This is the **input side** of the pipeline. Before any model trains, AutoNMT has to turn
 raw parallel text into clean, split, encoded files with matching vocabularies — once per
-cell of your grid. The [`DatasetBuilder`](../reference/datasets.md) owns that, and it's
-where the [grid-first idea](../introduction/philosophy.md#grid-first) becomes real code.
+cell of your grid. The [`DatasetBuilder`](../../reference/datasets.md) owns that, and it's
+where the [grid-first idea](../../concepts/philosophy.md#grid-first) becomes real code.
 
 ## Declaring the grid
 
@@ -55,12 +55,12 @@ dataset variants**, materialized on disk under `data/multi30k/<pair>/<size>/…`
 | `random_seed` | Seeds the shuffles inside `build()` so builds are reproducible (default `42`) |
 
 The two `preprocess_*` hooks are how you inject custom cleaning — covered in
-[Preprocessing & subword encoding](preprocessing-and-encoding.md#hooks).
+[Preprocessing](preprocessing.md#hooks).
 
 ## What `build()` does
 
 `.build()` runs the data stages for every cell, writing to the [numbered
-folders](../architecture/layout-and-reproducibility.md):
+folders](../../concepts/on-disk-layout.md):
 
 ```mermaid
 flowchart LR
@@ -70,7 +70,7 @@ flowchart LR
 
 Each stage is **skipped if already present** (unless `force_overwrite=True`), so re-running
 a grid only builds what's new. Plotting is intentionally *not* part of `build()` — call
-`autonmt.reporting.figures.plot_dataset_diagnostics(ds, ...)` afterward if you want
+`autonmt.reporting.report.DatasetReport(ds).generate(...)` afterward if you want
 sentence-length and vocab-distribution figures.
 
 ## Iterating the variants
@@ -86,14 +86,14 @@ test_variants = builder.get_test_ds()        # evaluate against these
 `get_train_ds()` and `get_test_ds()` return the **full cross-product** of `Dataset`
 objects (the same list — they're aliases for the variant list, named for how you use them).
 You typically train on each in turn and evaluate against the test variants, letting
-[`eval_mode`](../toolkit/predict.md#eval-mode) pick the relevant test sets per model.
+[`eval_mode`](../translation/generating.md#eval-mode) pick the relevant test sets per model.
 
 ## The `Dataset` object { #the-dataset-object }
 
-Each cell is a [`Dataset`](../reference/datasets.md#autonmt.datasets.dataset.Dataset). It is
-**not** a PyTorch dataset — it's an *identity + path engine*. Given *(name, language pair,
-size, subword model, vocab size)* it computes where every file for that cell lives, and
-exposes disk-inspection and vocab helpers:
+Each cell is a [`Dataset`](../../reference/datasets.md#autonmt.datasets.dataset.Dataset). It
+is **not** a PyTorch dataset — it's an *identity + path engine*. Given *(name, language
+pair, size, subword model, vocab size)* it computes where every file for that cell lives,
+and exposes disk-inspection and vocab helpers:
 
 ```python
 ds = builder.get_train_ds()[0]
@@ -110,7 +110,7 @@ ds.build_vocabs(max_tokens=8000)  # → (src_vocab, tgt_vocab)
 Because the `Dataset` knows its own paths, the rest of the framework never does string
 surgery on directories — you pass the object around and ask it where things are. (The torch
 `Dataset` used at train time is a separate class,
-[`TranslationDataset`](../toolkit/data-pipeline.md), built from these paths.)
+[`TranslationDataset`](../training/bucketing.md), built from these paths.)
 
 ### Building vocabularies
 
@@ -182,6 +182,6 @@ the builder will create the splits for you.
 
 ---
 
-Next: how the text is actually cleaned and split into subwords —
-**[Preprocessing & subword encoding](preprocessing-and-encoding.md)** — then
+Next: how the text is actually cleaned — **[Preprocessing](preprocessing.md)** — then split
+into subwords in **[Subword tokenization](tokenization.md)** and turned into
 **[Vocabularies](vocabularies.md)**.

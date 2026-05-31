@@ -1,10 +1,8 @@
-# Metrics & significance
+# Metrics
 
-This is the **output side** of the pipeline. Once a model has translated the test set,
-AutoNMT scores the hypotheses against the references and (optionally) tells you whether a
-difference between two systems is real. Scoring is wired into
-[`predict`](../toolkit/predict.md) — you just list the metrics — but it's worth understanding
-what each one measures and how to report results responsibly.
+Once a model has translated the test set, AutoNMT scores the hypotheses against the
+references. Scoring is wired into [`predict`](../translation/generating.md) — you just list
+the metrics — but it's worth understanding what each one measures.
 
 ## Requesting metrics
 
@@ -13,7 +11,7 @@ trainer.predict(test_datasets, config=PredictConfig(metrics={"bleu", "chrf", "co
 ```
 
 `metrics` is a set of metric names. Each name is routed to the backend that owns it via the
-[`MetricBackend` registry](../reference/evaluation.md), which knows how to both **compute**
+[`MetricBackend` registry](../../reference/evaluation.md), which knows how to both **compute**
 the score (writing a `<backend>_scores.json` artifact) and **parse** it back — so there's no
 parallel parser to keep in sync.
 
@@ -31,17 +29,19 @@ parallel parser to keep in sync.
 !!! info "BLEU, chrF, TER — the intuition"
     - **BLEU** counts how many n-grams (1- to 4-grams) of the hypothesis appear in the
       reference, with a brevity penalty so you can't game it by translating less. It's the
-      long-standing default for MT; **higher is better** (0–100). Because tokenization changes
-      the score, AutoNMT uses **sacreBLEU**, which fixes tokenization so numbers are comparable
-      across papers.
+      long-standing default for MT; **higher is better** (0–100). Because tokenization
+      changes the score, AutoNMT uses **sacreBLEU**, which fixes tokenization so numbers are
+      comparable across papers.
     - **chrF** does the same at the **character** n-gram level. It's more forgiving of
       morphology and word-order variation, which makes it a better fit for agglutinative or
       richly inflected languages.
-    - **TER** (Translation Edit Rate) measures the fraction of edits (insert/delete/substitute/
-      shift) needed to turn the hypothesis into the reference — so **lower is better**.
+    - **TER** (Translation Edit Rate) measures the fraction of edits (insert/delete/
+      substitute/shift) needed to turn the hypothesis into the reference — so **lower is
+      better**.
 
-These three need only `ref` and `hyp`, are fast, and have no extra dependencies. BLEU records
-its full sacreBLEU **signature** in the artifact so the exact configuration is reproducible.
+These three need only `ref` and `hyp`, are fast, and have no extra dependencies. BLEU
+records its full sacreBLEU **signature** in the artifact so the exact configuration is
+reproducible.
 
 ## Neural metrics (BERTScore, COMET)
 
@@ -94,36 +94,13 @@ The parsed values are flattened into keys like `sacrebleu_bleu_score`,
 [report](reports.md) consumes. Unsupported metric names are warned about and skipped, not
 fatal.
 
-## Statistical significance { #significance }
-
-A **+0.4 BLEU** improvement means little without knowing whether it's within run-to-run noise.
-Reviewers in ACL/EMNLP/WMT increasingly require a significance test. AutoNMT provides a paired
-bootstrap directly on the `hyp.txt` / `ref.txt` files `predict` produced:
-
-```python
-from autonmt.evaluation.significance import paired_bootstrap_bleu
-from autonmt.utils import fileio
-
-hyp_a = fileio.read_file_lines("…/baseline/…/beam5/hyp.txt", autoclean=True)
-hyp_b = fileio.read_file_lines("…/yours/…/beam5/hyp.txt",   autoclean=True)
-ref   = fileio.read_file_lines("…/yours/…/beam5/ref.txt",   autoclean=True)
-
-result = paired_bootstrap_bleu(hyp_a, hyp_b, ref, n_samples=1000)
-print(result)  # {bleu_a, bleu_b, delta, p_value, n_samples}
-```
-
-!!! info "What a paired bootstrap tells you"
-    It resamples the test set with replacement many times and re-scores **both** systems on each
-    resample. Because they see the *same* resamples, the variance isolates the systems'
-    difference from the noise of the test set itself. The returned `p_value` is the fraction of
-    resamples where system B did **not** beat A (one-sided H₀: `score(B) ≤ score(A)`). A small
-    `p_value` (e.g. < 0.05) means the improvement is unlikely to be noise. Use `n_samples ≥
-    1000` for reportable results.
-
-Pair this with the [multi-seed pattern](../toolkit/manual-control.md#multi-seed) — report
-mean ± std across seeds, and a significance test for close comparisons — for publication-grade
-results.
+!!! note "Adding your own metric"
+    Because metrics live behind the `MetricBackend` registry, a new metric is a small
+    registration — compute + parse — not a fork. See
+    [How-to → Add a custom metric](../../how-to/custom-metric.md).
 
 ---
 
-Next: collecting these scores into a comparable report — **[Reports & plots](reports.md)**.
+A single number isn't enough to claim an improvement — check it's real with
+**[Statistical significance](significance.md)**, then collect everything into
+**[Reports & plots](reports.md)**.

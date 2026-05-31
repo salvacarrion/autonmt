@@ -1,8 +1,8 @@
-# Full manual control
+# Drive the pipeline manually
 
-Everything you've used so far is a **convenience layer**. `AutonmtTranslator.from_dataset`,
+Everything in the User guide is a **convenience layer**. `AutonmtTranslator.from_dataset`,
 `ds.build_vocabs`, `Transformer.from_vocabs`, `FitConfig`, `trainer.predict`,
-`generate_report` — each one wraps a few lower-level steps. This page expands those shortcuts
+`Report` — each wraps a few lower-level steps. This recipe unpacks those shortcuts
 so you can drive the engine piece by piece, which is what you need when you want to:
 
 - swap one component (custom decoder, custom model dims, custom callbacks),
@@ -10,15 +10,11 @@ so you can drive the engine piece by piece, which is what you need when you want
 - assemble the report yourself (extra columns, merge with another experiment),
 - run multi-seed experiments for publication-grade variance.
 
-There are no new features here — it's the *same* pipeline, unpacked. Think of it as a
-spectrum from one-liners to full control, and reach for the rung you need.
+There are no new features here — it's the *same* pipeline, unpacked.
 
 ## Manual vocabularies
 
 Shortcut → `src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)`.
-
-Manual — build each side yourself (e.g. different `max_tokens` per side, or a custom
-`Vocabulary` subclass):
 
 ```python
 from autonmt.vocabularies import Vocabulary
@@ -30,9 +26,6 @@ tgt_vocab = Vocabulary(max_tokens=150).build_from_ds(ds=train_ds, lang=train_ds.
 ## Manual model construction
 
 Shortcut → `Transformer.from_vocabs(src_vocab, tgt_vocab)`.
-
-Manual — set every dimension explicitly so you can override depth, width, heads, dropout, or
-max positions:
 
 ```python
 from autonmt.core.nn.models import Transformer
@@ -48,12 +41,12 @@ model = Transformer(
 )
 ```
 
-## Manual translator construction { #manual-translator }
+## Manual translator construction
 
 Shortcut → `AutonmtTranslator.from_dataset(train_ds, ..., run_prefix="exp")`.
 
-Manual — compute the run location and name yourself. This is where you'd tag a run with a
-custom name or override the directory scheme:
+Compute the run location and name yourself — this is where you tag a run with a custom name
+or override the directory scheme:
 
 ```python
 from autonmt.backends import AutonmtTranslator
@@ -73,8 +66,8 @@ trainer = AutonmtTranslator(
 Shortcut → `trainer.fit(train_ds, config=FitConfig(...))`.
 
 The two styles are equivalent (precedence: defaults < `config=` < kwargs). Raw kwargs are
-handy when iterating in a notebook; `FitConfig` is handy for type-checked, shareable configs.
-Toolkit extras (`strategy`, `wandb_params`, `use_bucketing`) ride along either way:
+handy in a notebook; `FitConfig` is handy for type-checked, shareable configs. Toolkit extras
+(`strategy`, `wandb_params`, `use_bucketing`) ride along either way:
 
 ```python
 trainer.fit(
@@ -85,7 +78,7 @@ trainer.fit(
 )
 ```
 
-## Split the pipeline: translate → score → parse { #split-stages }
+## Split the pipeline: translate → score → parse
 
 Shortcut → `scores = trainer.predict(test_datasets, config=PredictConfig(...))`.
 
@@ -119,35 +112,30 @@ for eval_ds in eval_datasets:
 ```
 
 !!! tip "Re-scoring is cheap; re-decoding isn't"
-    Decoding a test set with beam search is the expensive step. Because `translate` caches
-    `hyp.txt`, you can iterate on metrics by calling only `score_translations` +
-    `parse_metrics` afterward. Add COMET to an already-decoded run for the price of the metric,
-    not the decode.
+    Decoding with beam search is the expensive step. Because `translate` caches `hyp.txt`, you
+    can iterate on metrics by calling only `score_translations` + `parse_metrics` afterward.
+    Add COMET to an already-decoded run for the price of the metric, not the decode.
 
 ## Build the report by hand
 
-Shortcut → `generate_report(scores=[scores], output_path=out)`.
-
-Manual — transform → save → plot step by step, so you can merge with another experiment or add
-custom columns:
+Shortcut → `Report.from_predict(scores, output_path=out).save().plot_comparison("bleu")`.
 
 ```python
-import os
 from autonmt.utils import fileio
-from autonmt.reporting.report import scores_to_dataframe, summarize_scores, format_summary_table
-from autonmt.reporting.figures import plot_model_comparison
+from autonmt.reporting.report import Report, scores_to_dataframe, summarize_scores
 
-df_report = scores_to_dataframe([scores])
-df_summary = summarize_scores(df_report)
+# `Report` wraps these transforms — reach for them to add columns or skip disk.
+df_report = scores_to_dataframe([scores])      # == Report(...).df
+df_summary = summarize_scores(df_report)       # == Report(...).summary
 
-fileio.make_dir([f"{out}/reports", f"{out}/plots"])
+fileio.make_dir(f"{out}/reports")
 fileio.save_json([scores], f"{out}/reports/report.json")
 df_report.to_csv(f"{out}/reports/report.csv", index=False)
 
-plot_model_comparison(df_report=df_report, out_dir=f"{out}/plots",
-                      metric="translations.beam5.sacrebleu_bleu_score",
-                      xlabel="Run", ylabel="BLEU", title="Manual run")
-print(format_summary_table(df_summary))
+# Plotting recipes live on `Report`; ask by metric name (beam inferred).
+Report.from_predict(scores, output_path=out).plot_comparison(
+    "bleu", xlabel="Run", ylabel="BLEU", title="Manual run")
+print(Report.from_predict(scores))             # tidy summary table
 ```
 
 ## Inspect checkpoints
@@ -157,47 +145,8 @@ ckpt_path = trainer.get_checkpoint_path(mode="best")   # path without loading
 trainer.load_checkpoint("best")                        # load best/last/filename/abs-path into the model
 ```
 
-## Multi-seed for variance estimation { #multi-seed }
-
-Neural training is stochastic — random init, data-order, dropout, GPU non-determinism. Two
-runs of the *same* config on standard benchmarks routinely differ by **0.5–1.5 BLEU**, often
-more than the "improvement" a paper claims. Reviewers increasingly expect 3–5 seeds with mean
-± std.
-
-AutoNMT deliberately doesn't bake multi-seed into the grid (it would force layout decisions on
-you). The pattern is a plain loop where each seed gets its own `run_name`, so checkpoints and
-reports land in separate folders:
-
-```python
-import statistics
-
-SEEDS = [42, 43, 44]
-seed_bleu = []
-for seed in SEEDS:
-    seed_model = Transformer.from_vocabs(src_vocab, tgt_vocab)   # fresh weights per seed
-    seed_trainer = AutonmtTranslator(
-        model=seed_model, src_vocab=src_vocab, tgt_vocab=tgt_vocab,
-        runs_dir=runs_dir, run_name=train_ds.get_run_name(run_prefix=f"exp_s{seed}"),
-    )
-    seed_trainer.fit(train_ds, max_epochs=10, seed=seed, save_best=True)
-    s = seed_trainer.predict(test_datasets, beams=[5], metrics={"bleu"},
-                             eval_mode="compatible", load_checkpoint="best")
-    seed_bleu.append(s[0]["translations"]["beam5"]["sacrebleu_bleu_score"])
-
-print(f"BLEU: mean={statistics.mean(seed_bleu):.2f}, "
-      f"std={statistics.stdev(seed_bleu):.2f}")
-```
-
-For comparing two systems on the *same* test set, follow up with a paired significance test —
-see [Metrics & significance](../evaluation/metrics.md#significance):
-
-```python
-from autonmt.evaluation.significance import paired_bootstrap_bleu
-result = paired_bootstrap_bleu(hyp_baseline, hyp_yours, ref, n_samples=1000)
-print(result["delta"], result["p_value"])
-```
-
 ---
 
-That completes the AutoNMT toolkit. To run a *different* engine with the same script, head to
-**[Backends](../backends/index.md)**.
+For multi-seed variance and significance testing, see
+[Reproduce an experiment](reproduce.md). To run a *different* engine with the same script,
+[Run with another backend](swap-backend.md).

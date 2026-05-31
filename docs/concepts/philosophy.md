@@ -3,6 +3,17 @@
 Four principles shape every API decision in AutoNMT. If you understand these, the rest of
 the framework will feel predictable — because it was designed to.
 
+## The problem it solves
+
+A real NMT experiment is rarely *one* model on *one* dataset. It's a question — *does
+byte-level encoding beat BPE on low-resource German→English, at which vocab size, and does it
+hold across two test sets?* — answered by running the **same pipeline** many times, changing
+one knob at a time: clean → split → tokenize → build vocab → **train** → decode → score →
+tabulate. Every step except *train* is identical each time, yet that scaffolding is where the
+time goes and where the silent bugs hide (a leaked test set, a vocab/checkpoint mismatch, a
+BLEU computed with a different tokenizer than last week). **AutoNMT automates that repetitive
+half** so the only thing you think about is the model.
+
 ## 1. Grid-first { #grid-first }
 
 Most training code is written as **loops**: `for dataset in ...: for vocab_size in ...:
@@ -37,7 +48,7 @@ swept. That's the difference between "I ran some experiments" and "I ran a contr
 comparison."
 
 → See it in depth: [The mental model](mental-model.md) and [Datasets & the dataset
-builder](../data/dataset-builder.md).
+builder](../guide/data/datasets.md).
 
 ## 2. A minimal, extensible core { #extensible }
 
@@ -48,11 +59,11 @@ AutoNMT takes the opposite bet: **keep the core small, and make extension the de
 path.** Every layer is designed to be *subclassed, replaced, or hooked* rather than
 configured into oblivion:
 
-- Need a new architecture? Subclass [`LitSeq2Seq`](../toolkit/models.md) and implement
-  three methods.
-- Need a different decoding rule? Subclass [`BaseSearch`](../toolkit/decoding.md) (or the
-  one-method `BaseStepSearch`).
-- Need a custom metric? Register a [`MetricBackend`](../evaluation/metrics.md).
+- Need a new architecture? Subclass the seq2seq base and implement
+  [three methods](../guide/models/custom-models.md).
+- Need a different decoding rule? Subclass [`BaseSearch`](../guide/translation/decoding.md)
+  (or the one-method `BaseStepSearch`).
+- Need a custom metric? Register a [`MetricBackend`](../guide/evaluation/metrics.md).
 - Need bespoke data cleaning? Pass a **callable hook** (`preprocess_raw_fn`,
   `preprocess_splits_fn`, `preprocess_fn`) — you write a function, AutoNMT calls it at the
   right stage.
@@ -72,7 +83,7 @@ Keras let you write one model and run it on TensorFlow, Theano, or CNTK. AutoNMT
 the same idea one level up: **write one experiment and run it on any NMT toolkit.**
 
 Underneath `fit()` / `predict()` is a single contract,
-[`BaseTranslator`](../architecture/toolkit-abstraction.md). Three backends implement it:
+[`BaseTranslator`](../guide/backends/choosing.md). Three backends implement it:
 
 | You want to…                                  | Backend                  |
 | --------------------------------------------- | ------------------------ |
@@ -91,7 +102,7 @@ trainer = HuggingFaceTranslator.from_dataset(train_ds, model_id="Helsinki-NLP/op
 This is why the docs split the way they do: **data goes in and reports come out the same
 way no matter the backend; only the middle swaps.**
 
-→ How the contract works: [The toolkit abstraction](../architecture/toolkit-abstraction.md).
+→ How the contract works: [Choosing a backend](../guide/backends/choosing.md).
 
 ## 4. Reproducibility by construction { #reproducible }
 
@@ -111,7 +122,8 @@ of how the pipeline is built:
 The result: months later you can look at a results folder and know exactly what produced
 it — and re-running the script reconstructs only what's missing.
 
-→ The full picture: [On-disk layout & reproducibility](../architecture/layout-and-reproducibility.md).
+→ The full picture: [On-disk layout](on-disk-layout.md) and [Reproducibility
+model](reproducibility.md).
 
 ---
 
