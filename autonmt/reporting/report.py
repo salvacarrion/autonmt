@@ -453,7 +453,13 @@ class DatasetReport:
 
             df = pd.DataFrame(tokens, columns=["frequency"])
             title = f"Sentence length distribution ({split_name.title()} - {split_lang})"
-            HistogramPlot(df, x="frequency", bins=100,
+            # Token counts are integers; capping the bin count at the value range
+            # keeps every bin >= 1 token wide. A fixed bins=100 over a short-sentence
+            # corpus makes sub-unit bins that fall between integers and render empty
+            # ("gaps" between bars).
+            span = int(tokens.max() - tokens.min()) if tokens.size else 0
+            n_bins = min(100, span) or 1
+            HistogramPlot(df, x="frequency", bins=n_bins,
                           title=_maybe_titled(ds_title, title, add_dataset_title),
                           xlabel="Tokens per sentence", ylabel="Frequency",
                           style=self.style, figsize=(6, 4), font_scale=1.5

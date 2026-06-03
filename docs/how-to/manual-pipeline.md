@@ -33,11 +33,11 @@ from autonmt.core.nn.models import Transformer
 model = Transformer(
     src_vocab_size=len(src_vocab), tgt_vocab_size=len(tgt_vocab),
     padding_idx=src_vocab.pad_id,
-    encoder_embed_dim=512, decoder_embed_dim=512,
-    encoder_layers=6, decoder_layers=6,
+    encoder_embed_dim=512, decoder_embed_dim=512,        # model (hidden) width
+    encoder_layers=6, decoder_layers=6,                  # stack depth per side
     encoder_attention_heads=8, decoder_attention_heads=8,
     encoder_ffn_embed_dim=2048, decoder_ffn_embed_dim=2048,
-    dropout=0.1, max_src_positions=1024, max_tgt_positions=1024,
+    dropout=0.1, max_src_positions=1024, max_tgt_positions=1024,   # regularization + max length
 )
 ```
 

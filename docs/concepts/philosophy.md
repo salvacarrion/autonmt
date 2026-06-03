@@ -27,10 +27,10 @@ framework owns the cross-product:
 ```python
 DatasetBuilder(
     base_path="data",
-    datasets=[
+    datasets=[                                    # data axes
         {"name": "multi30k", "languages": ["de-en", "fr-en"], "sizes": [("original", None), ("50k", 50000)]},
     ],
-    encoding=[
+    encoding=[                                    # encoding axes
         {"subword_models": ["bpe", "unigram"], "vocab_sizes": [4000, 8000]},
     ],
 )

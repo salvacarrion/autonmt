@@ -22,6 +22,16 @@ drives both the tokenizer and the on-disk path (`4_encoded/<subword>/<vocab>/`).
     → the opposite. Sweeping `vocab_sizes` is exactly how you find the trade-off for your data
     — which is why it's a grid axis.
 
+That trade-off is concrete: sweep the BPE vocabulary and BLEU climbs then plateaus, while the
+model keeps growing (the embedding tables scale with the vocab). The sweet spot is the knee,
+not the largest vocab you can fit.
+
+<figure markdown="span">
+  ![BLEU vs BPE vocabulary size, with model parameters on a secondary axis](../../images/reports/report_sweep.svg){ width="620" }
+  <figcaption>A <code>vocab_sizes</code> sweep (illustrative). Plot it yourself with
+  <a href="../../evaluation/reports/#metric-sweeps"><code>Report.plot_sweep</code></a>.</figcaption>
+</figure>
+
 ## The subword models
 
 AutoNMT supports six schemes plus an orthogonal byte-fallback flag:
@@ -38,6 +48,16 @@ AutoNMT supports six schemes plus an orthogonal byte-fallback flag:
 You can also append **`+bytes`** to a SentencePiece model (`"bpe+bytes"`,
 `"unigram+bytes"`) to enable SentencePiece's **byte fallback**: any character the subword
 model can't represent decomposes into raw bytes instead of becoming `<unk>`.
+
+Which one wins is an empirical question — make it a [grid axis](datasets.md) and let the
+report decide. On a typical small corpus the subword models (`bpe`/`unigram`) lead, `char`
+trails them, and `word` (capped vocabulary, more `<unk>`) trails further:
+
+<figure markdown="span">
+  ![Bar chart of BLEU for word, char, bpe and unigram tokenizations](../../images/reports/report_comparison.svg){ width="620" }
+  <figcaption>Same corpus, same model — only the tokenization changes (illustrative
+  numbers).</figcaption>
+</figure>
 
 !!! quote "Where these come from"
     - **`bpe`** — [Sennrich, Haddow & Birch (2016)](https://arxiv.org/abs/1508.07909),

@@ -131,6 +131,11 @@ The full manual workflow (transform → save → plot, step by step) is in
 All plot methods return the `Report`, take an optional `out_dir` / `fname`, and resolve the
 metric by short name.
 
+!!! note "About the figures below"
+    The plots on this page are rendered by AutoNMT's actual reporting code, but from
+    **illustrative synthetic scores** — they show the *shape* of each chart, not a measured
+    result. Regenerate them with `python tools/gen_doc_figures.py`.
+
 ### Model comparison
 
 A grouped bar chart comparing one metric across runs:
@@ -141,6 +146,12 @@ report.plot_comparison(
     xlabel="Model", ylabel="BLEU", title="de→en comparison",
 )
 ```
+
+<figure markdown="span">
+  ![Grouped bar chart comparing BLEU across four tokenizations](../../images/reports/report_comparison.svg){ width="640" }
+  <figcaption>One bar per run (here, four tokenizations of the same corpus). The
+  group label is <code>&lt;subword&gt; - &lt;vocab&gt;</code> over the training set.</figcaption>
+</figure>
 
 ### Metric sweeps
 
@@ -154,6 +165,23 @@ report.plot_sweep(
 )
 ```
 
+Pass `y_right=` to overlay a second quantity on a dashed right axis — e.g. the model's
+parameter count, which grows with the vocabulary while BLEU plateaus:
+
+```python
+report.plot_sweep(
+    "bleu", x="vocab__size", y_right="model__total_params",
+    ylabel_left="BLEU", ylabel_right="Model parameters",
+    title="Vocabulary-size sweep",
+)
+```
+
+<figure markdown="span">
+  ![BLEU vs BPE vocabulary size with model parameters on a secondary axis](../../images/reports/report_sweep.svg){ width="620" }
+  <figcaption>BLEU (solid) against the swept axis, with parameter count (dashed,
+  right) for context. BLEU climbs then plateaus; the model keeps growing.</figcaption>
+</figure>
+
 ### Metric matrix
 
 A heatmap of one metric over a `rows` × `cols` grid — e.g. a train × test cross-evaluation:
@@ -161,6 +189,12 @@ A heatmap of one metric over a `rows` × `cols` grid — e.g. a train × test cr
 ```python
 report.plot_matrix("bleu", rows="train_dataset", cols="test_dataset")
 ```
+
+<figure markdown="span">
+  ![Train × test BLEU heatmap across three domains](../../images/reports/report_matrix.svg){ width="560" }
+  <figcaption>Each model (row) scored on every test set (column). The diagonal is
+  in-domain; off-diagonal cells read as "how well does a model trained on A do on B?".</figcaption>
+</figure>
 
 ### Dataset diagnostics { #dataset-diagnostics }
 
@@ -173,6 +207,30 @@ from autonmt.reporting.report import DatasetReport
 for ds in builder.get_train_ds():
     DatasetReport(ds).generate(merge_vocabs=False)   # writes into ds.get_plots_path()
 ```
+
+`generate()` emits three families of figure per variant:
+
+<div class="grid" markdown>
+
+<figure markdown="span">
+  ![Right-skewed histogram of tokens per sentence](../../images/reports/dataset_length_distribution.svg)
+  <figcaption><strong>Sentence lengths</strong> — one histogram per (split, language).
+  Watch for a heavy right tail that your <code>max_len</code> would clip.</figcaption>
+</figure>
+
+<figure markdown="span">
+  ![Bar chart of sentence counts per split and language](../../images/reports/dataset_split_sizes.svg)
+  <figcaption><strong>Split sizes</strong> — train/val/test counts by language, so an
+  accidental imbalance is obvious at a glance.</figcaption>
+</figure>
+
+</div>
+
+<figure markdown="span">
+  ![Zipfian token-frequency distribution](../../images/reports/dataset_vocab_distribution.svg){ width="640" }
+  <figcaption><strong>Vocabulary distribution</strong> — a sampled token-frequency bar
+  chart. The long Zipfian tail is the expected shape for a healthy subword vocabulary.</figcaption>
+</figure>
 
 This is intentionally **not** part of `DatasetBuilder.build()` (plotting isn't a build
 responsibility) — call it after building when you want the figures. They're useful for

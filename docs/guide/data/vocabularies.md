@@ -102,7 +102,14 @@ src_vocab.get_tokens()[:10]  # the first pieces, in id order
 
 The `.vocabf` file alongside the vocab stores **token frequencies**, which the
 [dataset diagnostics](../evaluation/reports.md#dataset-diagnostics) use to plot the vocab
-distribution.
+distribution — a long Zipfian tail is the healthy shape (a handful of very frequent pieces,
+many rare ones):
+
+<figure markdown="span">
+  ![Zipfian token-frequency bar chart for a BPE vocabulary](../../images/reports/dataset_vocab_distribution.svg){ width="620" }
+  <figcaption>Sampled token frequencies from a <code>.vocabf</code> file (illustrative).
+  Rendered by <code>DatasetReport.plot_vocab_distribution</code>.</figcaption>
+</figure>
 
 ## Custom vocabularies
 

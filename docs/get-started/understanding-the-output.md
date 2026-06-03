@@ -88,6 +88,16 @@ outputs/first/reports/
 That flat schema is what the [reporting](../guide/evaluation/reports.md) plots and tables
 consume, and it's stable across runs so you can diff or concatenate reports.
 
+Once you've run a *grid* of cells, that same flat schema is what feeds the comparison plots —
+one bar (or line, or heatmap cell) per run, every run scored identically:
+
+<figure markdown="span">
+  ![Grouped bar chart comparing BLEU across tokenizations](../images/reports/report_comparison.svg){ width="620" }
+  <figcaption>A grid's payoff: cells compared side by side. See
+  <a href="../../guide/evaluation/reports/">Reports &amp; plots</a> for the full gallery
+  (sweeps, cross-evaluation matrices, dataset diagnostics).</figcaption>
+</figure>
+
 ## What makes this reproducible
 
 Three properties, all visible in the trees above:

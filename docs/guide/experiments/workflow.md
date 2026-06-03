@@ -18,14 +18,14 @@ from autonmt.datasets import DatasetBuilder
 
 builder = DatasetBuilder(
     base_path="data",
-    datasets=[
+    datasets=[                                    # data axes: corpus, language pairs, sizes
         {"name": "multi30k", "languages": ["de-en", "fr-en"],
          "sizes": [("original", None), ("50k", 50000)]},
     ],
-    encoding=[
+    encoding=[                                    # encoding axes: subword models, vocab sizes
         {"subword_models": ["bpe", "unigram"], "vocab_sizes": [4000, 8000]},
     ],
-).build()
+).build()                                         # cross-product → 16 cells, all built on disk
 ```
 
 That declaration describes **2 language pairs × 2 sizes × 2 subword models × 2 vocab sizes
@@ -60,8 +60,9 @@ from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
 
 train_ds = train_variants[0]
-src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)
+src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)   # one vocab per side
 
+# Bind a model + vocabs to a backend; from_dataset derives the run's on-disk location.
 trainer = AutonmtTranslator.from_dataset(
     train_ds,
     model=Transformer.from_vocabs(src_vocab, tgt_vocab),
@@ -69,8 +70,8 @@ trainer = AutonmtTranslator.from_dataset(
     run_prefix="sweep",
 )
 
-trainer.fit(train_ds, config=FitConfig(max_epochs=10, batch_size=128))
-scores = trainer.predict(test_variants, config=PredictConfig(beams=[5], metrics={"bleu", "chrf"}))
+trainer.fit(train_ds, config=FitConfig(max_epochs=10, batch_size=128))                   # train
+scores = trainer.predict(test_variants, config=PredictConfig(beams=[5], metrics={"bleu", "chrf"}))  # translate + score
 ```
 
 !!! info "`from_dataset` resolves the run location for you"

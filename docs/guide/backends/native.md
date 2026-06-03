@@ -25,9 +25,9 @@ src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)
 
 trainer = AutonmtTranslator.from_dataset(
     train_ds,
-    model=Transformer.from_vocabs(src_vocab, tgt_vocab),
+    model=Transformer.from_vocabs(src_vocab, tgt_vocab),   # model sized to the vocabs
     src_vocab=src_vocab, tgt_vocab=tgt_vocab,
-    run_prefix="exp",
+    run_prefix="exp",                                       # runs land in models/autonmt/runs/exp_*
 )
 ```
 

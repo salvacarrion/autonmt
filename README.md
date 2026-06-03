@@ -57,20 +57,24 @@ from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.models import Transformer
 
+# 1. Pull a parallel corpus from the Hub into AutoNMT's on-disk layout.
 download_hf_dataset(
     hf_id="bentrevett/multi30k", base_path="datasets/quickstart",
     dataset_name="multi30k", lang_pair="de-en", src_field="de", tgt_field="en",
 )
 
+# 2. Declare the grid (one cell here) and materialize it: clean, tokenize, encode.
 builder = DatasetBuilder(
     base_path="datasets/quickstart",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
 ).build()
 
+# 3. Take the single variant and build its source/target vocabularies.
 train_ds = builder.get_train_ds()[0]
 src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)
 
+# 4. Bind a Transformer to the native backend, then train and score.
 trainer = AutonmtTranslator.from_dataset(
     train_ds,
     model=Transformer.from_vocabs(src_vocab, tgt_vocab),

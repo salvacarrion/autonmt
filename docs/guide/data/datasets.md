@@ -15,17 +15,17 @@ from autonmt.datasets import DatasetBuilder
 
 builder = DatasetBuilder(
     base_path="data",
-    datasets=[
+    datasets=[                                    # data axes: what corpus, which pairs, how much
         {
             "name": "multi30k",
             "languages": ["de-en", "fr-en"],
             "sizes": [("original", None), ("50k", 50000)],
         },
     ],
-    encoding=[
+    encoding=[                                    # encoding axes: how to tokenize it
         {"subword_models": ["bpe", "unigram"], "vocab_sizes": [4000, 8000]},
     ],
-).build()
+).build()                                         # run every cell's data pipeline, skip what's on disk
 ```
 
 - **`datasets`** — a list of dataset specs. Each has a `name` (the folder under
@@ -71,7 +71,23 @@ flowchart LR
 Each stage is **skipped if already present** (unless `force_overwrite=True`), so re-running
 a grid only builds what's new. Plotting is intentionally *not* part of `build()` — call
 `autonmt.reporting.report.DatasetReport(ds).generate(...)` afterward if you want
-sentence-length and vocab-distribution figures.
+sentence-length and vocab-distribution figures (a quick sanity check before spending GPU
+time):
+
+<div class="grid" markdown>
+
+<figure markdown="span">
+  ![Bar chart of sentence counts per split and language](../../images/reports/dataset_split_sizes.svg)
+  <figcaption>Split sizes by language — spot an accidental imbalance at a glance.</figcaption>
+</figure>
+
+<figure markdown="span">
+  ![Right-skewed histogram of tokens per sentence](../../images/reports/dataset_length_distribution.svg)
+  <figcaption>Sentence-length distribution — watch the right tail your <code>max_len</code>
+  would clip.</figcaption>
+</figure>
+
+</div>
 
 ## Iterating the variants
 
