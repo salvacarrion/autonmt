@@ -2,7 +2,7 @@
 
 <img src="https://github.com/salvacarrion/autonmt/raw/main/docs/images/logos/logo_with_name.png" alt="AutoNMT" width="280"/>
 
-**A framework to streamline the research of neural machine translation models.**
+**A framework to streamline the research of neural sequence models, from machine translation to LLMs.**
 
 [![Build](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml/badge.svg)](https://github.com/salvacarrion/autonmt/actions/workflows/python-package.yml)
 [![License: MIT](https://img.shields.io/github/license/salvacarrion/autonmt)](LICENSE)

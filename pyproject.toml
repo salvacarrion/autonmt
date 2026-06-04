@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "autonmt"
 dynamic = ["version"]
-description = "A framework to streamline the research of neural machine translation models."
+description = "A framework to streamline the research of neural sequence models, from machine translation to LLMs."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

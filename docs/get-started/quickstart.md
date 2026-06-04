@@ -1,8 +1,10 @@
-# Quickstart: your first experiment
+# Quickstart: your first translation
 
-This page runs a complete, minimal AutoNMT experiment end to end — **fetch a corpus, train
-a small Transformer, score it, and write a report** — explaining each block as we go. It
-uses the HuggingFace dataset loader, so install the `hf` extra first:
+This page runs a complete, minimal AutoNMT translation experiment end to end — **fetch a
+corpus, train a small Transformer, score it, and write a report** — explaining each block as
+we go. For the decoder-only language-model version of this loop, see
+[Quickstart: train a GPT](quickstart-gpt.md). It uses the HuggingFace dataset loader, so
+install the `hf` extra first:
 
 ```bash
 pip install -e '.[hf]'

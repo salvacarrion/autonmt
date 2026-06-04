@@ -18,6 +18,13 @@ concepts already and want the recipe.
 - [**Reproduce an experiment**](reproduce.md) — seeds, multi-seed variance, and significance
   testing for publication-grade results.
 
+## Language models
+
+- [**Train a language model**](train-language-model.md) — build a corpus, fit a `GPT`,
+  measure perplexity, and generate.
+- [**Instruction-tune a model**](instruction-tune.md) — train on prompt→completion pairs with
+  the prompt masked out of the loss.
+
 ## Extending the framework
 
 - [**Add a custom model**](custom-model.md) — a new architecture as a small subclass.

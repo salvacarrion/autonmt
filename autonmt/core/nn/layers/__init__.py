@@ -9,6 +9,7 @@ from autonmt.core.nn.layers.feedforward import SwiGLU
 from autonmt.core.nn.layers.transformer import (
     IncrementalTransformerDecoder,
     IncrementalTransformerDecoderLayer,
+    CausalSelfAttention,
     pos_embedding_at,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "SwiGLU",
     "IncrementalTransformerDecoder",
     "IncrementalTransformerDecoderLayer",
+    "CausalSelfAttention",
     "pos_embedding_at",
 ]

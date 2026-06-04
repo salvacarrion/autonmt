@@ -3,7 +3,9 @@
 The native engine ships seven encoder–decoder architectures, all under
 `autonmt.core.nn.models` and all subclasses of the same seq2seq base, so they share the
 [`from_vocabs`](using-a-model.md) constructor and the whole training loop. Pick by the
-research question you're asking.
+research question you're asking. It also ships a decoder-only **[`GPT`](#gpt)** for
+[language modelling](../data/lm-corpora.md) — same engine, a different base (it's trained with
+[`LMTrainer`](../../reference/backends.md) rather than `AutonmtTranslator`).
 
 | Class | Family | Reach for it when… |
 | --- | --- | --- |
@@ -96,6 +98,42 @@ non-recurrent, non-self-attention point of comparison.
 A minimal feed-forward seq2seq with no recurrence or attention. It exists as a tiny,
 fast baseline and as a fixture for tests — not a serious translation model, but handy when
 you want to exercise the *pipeline* without waiting on a real architecture.
+
+## GPT
+
+A nanoGPT-style **decoder-only** Transformer for language modelling
+([Radford et al., 2019](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)).
+Unlike the models above, it has no encoder and no cross-attention — a single causal stack
+predicts the next token — so it subclasses the LM base (`LitLM`, not the seq2seq base) and is
+trained with [`LMTrainer`](../../reference/backends.md). Defaults follow the modern
+([LLaMA, Touvron et al., 2023](https://arxiv.org/abs/2302.13971)) recipe:
+
+```python
+GPT(
+    vocab_size, padding_idx=None,
+    embed_dim=256, num_layers=4, num_heads=8,
+    ffn_dim=None,            # SwiGLU hidden dim; defaults to ~2/3·4·embed_dim
+    dropout=0.1,
+    max_seq_len=1024,        # longest context (bounds positions); block_size must be ≤ this
+    use_rope=True,           # rotary positions (else learned absolute)
+    tie_embeddings=True,     # share token embedding with the output projection
+    norm_eps=1e-6,
+)
+```
+
+- **Modern stack.** [Rotary positions (RoPE)](building-blocks.md#positional-encodings),
+  [RMSNorm](building-blocks.md#normalization-feed-forward), and
+  [SwiGLU](building-blocks.md#normalization-feed-forward) feed-forwards in a pre-norm block —
+  the same [building blocks](building-blocks.md) the catalog shares, assembled around the new
+  [`CausalSelfAttention`](building-blocks.md#causal-self-attention).
+- **Weight tying.** `tie_embeddings=True` shares the input embedding with the output
+  projection ([Press & Wolf, 2017](https://arxiv.org/abs/1608.05859)).
+- **KV-cached decoding.** `supports_incremental_decoding = True`, so
+  [generation](../translation/text-generation.md) feeds one token per step and reuses cached
+  keys/values — $O(L)$ per step instead of $O(L^2)$.
+
+Build it sized to a corpus with `GPT.from_corpus(corpus, ...)`, which reads the vocabulary size
+and pad id from the corpus's tokenizer. See [Train a language model](../../how-to/train-language-model.md).
 
 ---
 

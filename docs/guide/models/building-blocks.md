@@ -13,7 +13,8 @@ them. All are importable from `autonmt.core.nn.layers`.
 | `RotaryPositionalEmbedding` | rotary positions (RoPE) — applied inside attention |
 | `RMSNorm` | RMS normalization, a lighter LayerNorm variant |
 | `SwiGLU` | gated feed-forward activation |
-| `IncrementalTransformerDecoder` / `IncrementalTransformerDecoderLayer` | KV-cache-aware decoder |
+| `IncrementalTransformerDecoder` / `IncrementalTransformerDecoderLayer` | KV-cache-aware encoder–decoder block |
+| `CausalSelfAttention` | decoder-only self-attention with KV cache (the GPT block) |
 
 ## Positional encodings
 
@@ -71,6 +72,33 @@ KV-cache-aware decoding for the Transformer
   pass an `incremental_state={}` dict that the decoder fills and threads through steps; a
   model advertises support via `supports_incremental_decoding = True`. The `Transformer` and
   the RNN family both set it.
+
+## Causal self-attention
+
+The incremental decoder above couples self-attention to **cross-attention** over an encoder —
+exactly what an encoder–decoder translation model needs. A **decoder-only** model
+([`GPT`](catalog.md#gpt)) has no encoder, so it needs a self-attention-only block.
+`CausalSelfAttention` is that block, and it's the one genuinely new primitive the LM path
+adds.
+
+!!! info "Causal masking, briefly"
+    A language model must never peek at future tokens — position $i$ may attend only to
+    positions $\le i$. A **causal mask** enforces that, so the same parallel forward used in
+    training is still a valid left-to-right model.
+
+Two paths, chosen by `incremental_state`:
+
+- **Parallel (training).** One causal `scaled_dot_product_attention` over the whole block.
+- **Incremental (generation).** Each step appends the new token's keys/values to a per-layer
+  cache and attends over all cached positions — the same KV-cache idea as the encoder–decoder
+  case, so [generation](../translation/text-generation.md) is $O(L)$ per step.
+
+It applies [RoPE](#positional-encodings) to the query/key vectors when `use_rope=True` (which
+is why rotary positions live *inside* attention, not on the embeddings), and uses the
+`(batch, length, dim)` convention. Stacked with [`RMSNorm`](#normalization-feed-forward) and
+[`SwiGLU`](#normalization-feed-forward) in a pre-norm block, it *is* a GPT layer
+([Vaswani et al., 2017](https://arxiv.org/abs/1706.03762);
+[Su et al., 2021](https://arxiv.org/abs/2104.09864)).
 
 ---
 

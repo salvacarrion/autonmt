@@ -1,5 +1,5 @@
 site_name: AutoNMT
-site_description: A framework to streamline the research of neural machine translation models.
+site_description: A framework to streamline the research of neural sequence models, from machine translation to LLMs.
 site_author: Salva Carrión
 site_url: https://salvacarrion.github.io/autonmt/
 
@@ -52,7 +52,8 @@ nav:
       - Overview: index.md
       - How NMT works: get-started/how-nmt-works.md
       - Installation: get-started/installation.md
-      - "Quickstart: your first experiment": get-started/quickstart.md
+      - "Quickstart: your first translation": get-started/quickstart.md
+      - "Quickstart: train a GPT": get-started/quickstart-gpt.md
       - Understanding the output: get-started/understanding-the-output.md
   - User guide:
       - Experiments:
@@ -60,6 +61,7 @@ nav:
           - Configuration & reproducibility: guide/experiments/configuration.md
       - Data:
           - Building datasets: guide/data/datasets.md
+          - "LM corpora: single-stream & instruct": guide/data/lm-corpora.md
           - Preprocessing: guide/data/preprocessing.md
           - Subword tokenization: guide/data/tokenization.md
           - Vocabularies: guide/data/vocabularies.md
@@ -73,11 +75,13 @@ nav:
           - Validation & checkpoints: guide/training/validation-checkpoints.md
           - Bucketing & batching: guide/training/bucketing.md
           - Advanced training control: guide/training/advanced.md
-      - Translation:
+      - Generation:
           - Generating translations: guide/translation/generating.md
+          - Text generation & sampling: guide/translation/text-generation.md
           - Decoding strategies: guide/translation/decoding.md
       - Evaluation:
           - Metrics: guide/evaluation/metrics.md
+          - Perplexity & LM evaluation: guide/evaluation/perplexity.md
           - Statistical significance: guide/evaluation/significance.md
           - Reports & plots: guide/evaluation/reports.md
       - Backends:
@@ -92,6 +96,8 @@ nav:
       - Use a custom dataset: how-to/custom-dataset.md
       - Run with another backend: how-to/swap-backend.md
       - Reproduce an experiment: how-to/reproduce.md
+      - Train a language model: how-to/train-language-model.md
+      - Instruction-tune a model: how-to/instruction-tune.md
       - Add a custom model: how-to/custom-model.md
       - Change the decoding strategy: how-to/custom-decoding.md
       - Add a custom metric: how-to/custom-metric.md

@@ -4,14 +4,30 @@ AutoNMT's in-house neural engine: the Lightning base class, built-in architectur
 library, decoding strategies, samplers, and the torch dataset. For the narrative version, see
 [Models](../guide/models/using-a-model.md).
 
+## LitBase
+
+The modality-agnostic Lightning base (optimizer/scheduler/criterion plumbing) shared by both
+the seq2seq and the language-model heads.
+
+::: autonmt.core.nn.base.LitBase
+
 ## LitSeq2Seq
 
-The base every custom model inherits. See [Writing your own
+The base every custom encoder–decoder model inherits. See [Writing your own
 model](../guide/models/custom-models.md).
 
 ::: autonmt.core.nn.seq2seq.LitSeq2Seq
 
+## LitLM
+
+The base for decoder-only language models. See [LM corpora](../guide/data/lm-corpora.md) and
+[Train a language model](../how-to/train-language-model.md).
+
+::: autonmt.core.nn.lm.LitLM
+
 ## Built-in models
+
+Encoder–decoder architectures and the decoder-only `GPT`.
 
 ::: autonmt.core.nn.models
 
@@ -28,12 +44,26 @@ See [Decoding strategies](../guide/translation/decoding.md) for the intuition an
 
 ::: autonmt.core.decoding
 
+## LM generation
+
+Prompt-conditioned autoregressive generation for decoder-only models, reusing the decoding
+strategies above. See [Text generation & sampling](../guide/translation/text-generation.md).
+
+::: autonmt.core.decoding.lm_generate
+
 ## Translation dataset
 
 The torch `Dataset` used internally by the AutoNMT backend. See [Bucketing &
 batching](../guide/training/bucketing.md).
 
 ::: autonmt.core.data.translation_dataset
+
+## LM dataset
+
+The torch `Dataset` for packed single-stream language modelling. See
+[LM corpora](../guide/data/lm-corpora.md).
+
+::: autonmt.core.data.lm_dataset
 
 ## Samplers
 

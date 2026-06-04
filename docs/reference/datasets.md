@@ -11,6 +11,17 @@ subword-agnostic / subword-dependent preprocessing layers.
 
 ::: autonmt.datasets.dataset.Dataset
 
+## LMCorpusBuilder
+
+The single-stream / instruct sibling of `DatasetBuilder`. See
+[LM corpora](../guide/data/lm-corpora.md).
+
+::: autonmt.datasets.lm_corpus.LMCorpusBuilder
+
+## LMCorpus
+
+::: autonmt.datasets.lm_corpus.LMCorpus
+
 ## Preprocessing
 
 Subword-agnostic cleanup: filter, normalize, dedupe.

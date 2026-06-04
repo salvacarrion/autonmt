@@ -3,13 +3,14 @@
 </p>
 
 <p style="font-size: 1.15rem; opacity: 0.85; text-align: center;">
-A framework to streamline the research of neural machine translation models.
+A framework to streamline the research of neural sequence models, from machine translation to LLMs.
 </p>
 
-AutoNMT takes the **repetitive half** of NMT research off your hands — tokenization,
-training, decoding, scoring, logging, plotting, and the file bookkeeping that ties them
-together — so the hours you spend are the hours that actually move your research: the
-model.
+AutoNMT takes the **repetitive half** of sequence-model research off your hands —
+tokenization, training, decoding, scoring, logging, plotting, and the file bookkeeping that
+ties them together — so the hours you spend are the hours that actually move your research:
+the model. It started life as a neural machine translation toolkit; the same pipeline now
+drives decoder-only **language models** too.
 
 You don't write loops over datasets and hyper-parameters. You **declare a grid** —
 datasets × language pairs × subword models × vocabulary sizes — and AutoNMT walks the
@@ -49,6 +50,13 @@ That snippet is the whole shape of an AutoNMT experiment: **describe the data, p
 backend, `fit`, `predict`.** Everything in these docs is about understanding what happens
 inside those four steps and how to bend each one to your research.
 
+!!! tip "Training a language model instead?"
+    The same loop drives decoder-only LMs. You swap the parallel `DatasetBuilder` for a
+    single-stream [`LMCorpusBuilder`](reference/datasets.md), the `Transformer` for a
+    [`GPT`](reference/core.md), and `AutonmtTranslator` for an `LMTrainer` whose verbs are
+    `fit` / `evaluate` / `generate` — pretraining and instruction-tuning share one code
+    path. Start at [Quickstart: train a GPT](get-started/quickstart-gpt.md).
+
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch:{ .lg .middle } **Get started**
@@ -64,7 +72,7 @@ inside those four steps and how to bend each one to your research.
 
     ---
 
-    The pipeline, block by block: data, models, training, translation, evaluation — and
+    The pipeline, block by block: data, models, training, generation, evaluation — and
     the backend you run them on.
 
     [:octicons-arrow-right-24: The experiment workflow](guide/experiments/workflow.md)

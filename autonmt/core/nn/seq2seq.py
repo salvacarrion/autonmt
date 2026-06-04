@@ -1,10 +1,9 @@
 from abc import abstractmethod
 from collections import defaultdict
 
-import pytorch_lightning as pl
 import torch
-from torch import nn
 
+from autonmt.core.nn.base import LitBase
 from autonmt.evaluation.metrics import score_sacrebleu
 from autonmt.datasets.encoding import decode_lines
 
@@ -13,24 +12,7 @@ from autonmt.utils.logger import get_logger
 log = get_logger(__name__)
 
 
-_OPTIMIZERS = {
-    "adadelta": torch.optim.Adadelta,
-    "adagrad": torch.optim.Adagrad,
-    "adam": torch.optim.Adam,
-    "adamax": torch.optim.Adamax,
-    "adamw": torch.optim.AdamW,
-    "asgd": torch.optim.ASGD,
-    "lbfgs": torch.optim.LBFGS,
-    "nadam": torch.optim.NAdam,
-    "radam": torch.optim.RAdam,
-    "rmsprop": torch.optim.RMSprop,
-    "rprop": torch.optim.Rprop,
-    "sgd": torch.optim.SGD,
-    "sparseadam": torch.optim.SparseAdam,
-}
-
-
-class LitSeq2Seq(pl.LightningModule):
+class LitSeq2Seq(LitBase):
 
     def __init__(self, src_vocab_size, tgt_vocab_size, padding_idx, packed_sequence=False, architecture=None, **kwargs):
         super().__init__()
@@ -40,15 +22,8 @@ class LitSeq2Seq(pl.LightningModule):
         self.packed_sequence = packed_sequence  # Use for RNNs and to "sort within batches"
         self.architecture = architecture if architecture else self.__class__.__name__
 
-        # Hyperparams (PyTorch Lightning stuff)
-        self.strategy = None
-        self.optimizer = None
-        self.learning_rate = None
-        self.weight_decay = None
-        self.scheduler = None
-        self.warmup_steps = None
-        self.criterion_fn = None
-        self.regularization_fn = None
+        # Optimizer/scheduler/criterion hyperparam attributes are initialised by
+        # LitBase.__init__ (set later by the translator before fit()).
 
         # Other
         self.save_hyperparameters()
@@ -90,82 +65,8 @@ class LitSeq2Seq(pl.LightningModule):
     def forward_enc_dec(self, x, x_len, y, y_len, **kwargs):
         pass
 
-    def count_parameters(self):
-        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        no_trainable_params = sum(p.numel() for p in self.parameters() if not p.requires_grad)
-        total_params = trainable_params + no_trainable_params
-        return total_params, trainable_params, no_trainable_params
-
-    def configure_optimizers(self):
-        if isinstance(self.optimizer, str):
-            key = self.optimizer.lower().strip()
-            if key not in _OPTIMIZERS:
-                raise ValueError(f"Unknown value '{self.optimizer}' for optimizer")
-            optimizer = _OPTIMIZERS[key](self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
-        else:
-            optimizer = self.optimizer
-
-        scheduler = self._build_scheduler(optimizer)
-        if scheduler is None:
-            return optimizer
-        return {
-            "optimizer": optimizer,
-            # interval="step" so noam/inverse_sqrt update LR per optimizer step,
-            # not per epoch — they're step-based by definition.
-            "lr_scheduler": {"scheduler": scheduler, "interval": "step", "frequency": 1},
-        }
-
-    def _build_scheduler(self, optimizer):
-        """Resolve ``self.scheduler`` into a torch LR scheduler.
-
-        Accepts the string presets ``"noam"`` and ``"inverse_sqrt"``, a callable
-        ``(optimizer) -> scheduler``, or an already-built scheduler instance.
-
-        References
-        ----------
-        Vaswani et al. (2017). *Attention Is All You Need.* (noam schedule, §5.3)
-        [arXiv:1706.03762](https://arxiv.org/abs/1706.03762)
-
-        Ott et al. (2019). *fairseq: A Fast, Extensible Toolkit for Sequence
-        Modeling.* (inverse-sqrt schedule)
-        [arXiv:1904.01038](https://arxiv.org/abs/1904.01038)
-        """
-        s = self.scheduler
-        if s is None:
-            return None
-        if isinstance(s, str):
-            key = s.lower().strip()
-            warmup = max(self.warmup_steps or 4000, 1)
-            if key == "noam":
-                # Vaswani et al. (2017) §5.3: factor peaks at 1.0 at step=warmup,
-                # decays as step^-0.5 afterwards. Multiplies the optimizer's base lr.
-                def lr_lambda(step):
-                    step = max(step, 1)
-                    return (warmup ** 0.5) * min(step ** -0.5, step * warmup ** -1.5)
-                return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
-            if key == "inverse_sqrt":
-                # Fairseq default: linear warmup to 1.0, then 1/sqrt decay.
-                def lr_lambda(step):
-                    if step < warmup:
-                        return step / warmup
-                    return (warmup / step) ** 0.5
-                return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
-            raise ValueError(
-                f"Unknown scheduler '{s}'. Use 'noam', 'inverse_sqrt', or pass a callable "
-                f"that takes (optimizer) and returns a torch.optim.lr_scheduler."
-            )
-        if callable(s):
-            return s(optimizer)
-        return s  # assume already a torch lr_scheduler instance
-
-    def configure_criterion(self, criterion):
-        if isinstance(criterion, str):
-            key = criterion.lower().strip()
-            if key != "cross_entropy":
-                raise ValueError(f"Unknown value '{criterion}' for criterion")
-            self.criterion_fn = nn.CrossEntropyLoss(ignore_index=self.padding_idx)
-        else:
-            self.criterion_fn = criterion
+    # Optimizer/scheduler/criterion plumbing and ``count_parameters`` live in
+    # :class:`~autonmt.core.nn.base.LitBase` (shared with the decoder-only LM).
 
     def training_step(self, batch, batch_idx, dataloader_idx=None):
         loss, _ = self._step(batch, batch_idx, log_prefix=f"train")
