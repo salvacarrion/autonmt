@@ -19,14 +19,15 @@
 
 ---
 
-AutoNMT is a modular research toolkit that takes the repetitive half of NMT experimentation - tokenization, training, scoring, logging, plotting, file management - off your hands so you can focus on the model. Declare a grid of datasets × language pairs × subword models × vocab sizes, and AutoNMT runs the cross-product, persists every intermediate artifact on disk, and produces a single comparable report at the end.
+AutoNMT is a modular research toolkit that takes the repetitive half of sequence-model experimentation - tokenization, training, scoring, logging, plotting, file management - off your hands so you can focus on the model. Declare a grid of datasets × language pairs × subword models × vocab sizes, and AutoNMT runs the cross-product, persists every intermediate artifact on disk, and produces a single comparable report at the end. It started as a neural machine translation toolkit; the same pipeline now also trains decoder-only LLMs and encoder-only masked LMs.
 
 Every layer - datasets, vocabularies, models, decoding, metrics, reports - is designed to be subclassed, replaced, or extended via callable hooks, so researchers can plug in custom components without forking the core. The same script can train AutoNMT's own PyTorch Lightning models, fine-tune HuggingFace seq2seq checkpoints, or shell out to Fairseq - backends are swapped by changing one class.
 
 ## Highlights
 
 - **Grid-first API** - describe an experiment as a cross-product, not a for-loop.
-- **Pluggable backends** - `AutonmtTranslator` (Lightning), `HuggingFaceTranslator`, `FairseqTranslator` (deprecated).
+- **Three model families** - encoder-decoder (translation), decoder-only LLMs (`GPT`), and encoder-only masked LMs (`MLMTransformer`), on one pipeline - trained in-house or fine-tuned from HuggingFace.
+- **Pluggable backends** - `AutonmtTranslator` (Lightning), `HuggingFaceTranslator`, `FairseqTranslator` (deprecated); plus `LMTrainer` / `MLMTrainer` for language models.
 - **Reproducible by construction** - every stage writes to a numbered folder; re-runs skip completed steps.
 - **Subword variants out of the box** - `word`, `char`, `bytes`, `bpe`, `unigram`, with optional byte fallback.
 - **Built-in evaluation** - sacreBLEU, BERTScore, COMET, HuggingFace metrics, wired into the report.
@@ -39,7 +40,7 @@ Requires Python 3.12+.
 ```bash
 pip install -e .                       # core
 pip install -e '.[hf]'                 # HuggingFace dataset loader
-pip install -e '.[hf-models]'          # HuggingFace translator backend
+pip install -e '.[hf-models]'          # HuggingFace model backends (seq2seq + LLM/MLM)
 pip install -e '.[wandb]'              # W&B logger
 pip install -e '.[all]'                # everything above
 ```
@@ -55,7 +56,7 @@ from autonmt.datasets import DatasetBuilder
 from autonmt.datasets.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
-from autonmt.core.models import Transformer
+from autonmt.core.nn.models import Transformer
 
 # 1. Pull a parallel corpus from the Hub into AutoNMT's on-disk layout.
 download_hf_dataset(
@@ -92,7 +93,7 @@ Full walkthroughs live in [`examples/`](examples) - a step-by-step tutorial that
 Full docs are published at **[salvacarrion.github.io/autonmt](https://salvacarrion.github.io/autonmt/)**:
 
 - [Get started](https://salvacarrion.github.io/autonmt/get-started/installation/) - install, first experiment, understanding the output.
-- [User guide](https://salvacarrion.github.io/autonmt/guide/experiments/workflow/) - data, models, training, translation, evaluation, backends.
+- [User guide](https://salvacarrion.github.io/autonmt/guide/experiments/workflow/) - data, models, training, generation, evaluation, backends.
 - [How-to guides](https://salvacarrion.github.io/autonmt/how-to/) - task-oriented recipes for common workflows.
 - [Concepts](https://salvacarrion.github.io/autonmt/concepts/philosophy/) - design philosophy, mental model, architecture, on-disk layout, reproducibility.
 - [API reference](https://salvacarrion.github.io/autonmt/reference/) - autodoc from docstrings.

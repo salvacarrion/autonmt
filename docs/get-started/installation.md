@@ -33,7 +33,7 @@ extras you add in brackets:
 
 ```bash
 pip install -e '.[hf]'           # download HF datasets + HuggingFace metrics (hg_*)
-pip install -e '.[hf-models]'    # the HuggingFaceTranslator backend (fine-tune / evaluate)
+pip install -e '.[hf-models]'    # HuggingFace model backends: seq2seq + LLM/MLM (fine-tune / evaluate)
 pip install -e '.[wandb]'        # Weights & Biases logger
 pip install -e '.[docs]'         # build this documentation site locally
 pip install -e '.[all]'          # hf + hf-models + wandb + dev tooling
@@ -42,7 +42,7 @@ pip install -e '.[all]'          # hf + hf-models + wandb + dev tooling
 | Extra        | Unlocks                                                                 |
 | ------------ | ---------------------------------------------------------------------- |
 | `hf`         | `download_hf_dataset(...)` (pull a corpus from the Hub) and `hg_*` metrics |
-| `hf-models`  | [`HuggingFaceTranslator`](../guide/backends/huggingface.md) — load/fine-tune `AutoModelForSeq2SeqLM` |
+| `hf-models`  | HuggingFace [model backends](../guide/backends/huggingface.md): `HuggingFaceTranslator` (seq2seq), `HuggingFaceCausalLM` (LLM), `HuggingFaceMaskedLM` |
 | `wandb`      | W&B logging via `fit(..., wandb_params=...)`                            |
 | `docs`       | MkDocs Material + `mkdocstrings` for `mkdocs serve` / `build`           |
 | `dev`        | `pytest`, `flake8`                                                      |
