@@ -7,10 +7,12 @@ layout. It *reuses* the v1.0 SentencePiece machinery
 (:func:`autonmt.datasets.tokenizers.spm_train_file` and the ``sentencepiece``
 runtime) — only the ingest/split/pack stages are LM-specific.
 
-Two modes:
-  * ``"text"``   — one document per line; trains an LM on the raw stream.
+Three modes:
+  * ``"text"``   — one document per line; trains a (decoder-only) LM on the raw stream.
   * ``"instruct"`` — parallel ``prompt`` / ``completion`` lines; the prompt span
     is masked out of the loss so the model only learns the completion.
+  * ``"mlm"``    — like ``"text"`` (single stream), but reserves a ``<mask>`` token in the
+    vocabulary for masked language modelling (BERT-style encoder-only training).
 
 On-disk layout (under ``base_path/<name>/<size>/``)::
 
@@ -51,7 +53,7 @@ log = get_logger(__name__)
 # packed stream agree with what the model's embedding table expects.
 UNK_ID, SOS_ID, EOS_ID, PAD_ID = 0, 1, 2, 3
 
-TEXT, INSTRUCT = "text", "instruct"
+TEXT, INSTRUCT, MLM = "text", "instruct", "mlm"
 
 
 class LMCorpus:
@@ -60,8 +62,8 @@ class LMCorpus:
     def __init__(self, base_path, name, size_name, mode, subword_model, vocab_size,
                  byte_fallback=False, train_name="train", val_name="val",
                  engine="lm"):
-        if mode not in (TEXT, INSTRUCT):
-            raise ValueError(f"Unknown LM corpus mode {mode!r} (expected {TEXT!r} or {INSTRUCT!r})")
+        if mode not in (TEXT, INSTRUCT, MLM):
+            raise ValueError(f"Unknown LM corpus mode {mode!r} (expected {TEXT!r}, {INSTRUCT!r} or {MLM!r})")
         sw, sugar_bf = SubwordModel.parse_with_byte_fallback(subword_model, default_byte_fallback=byte_fallback)
         if sw is None or not sw.uses_sentencepiece:
             raise ValueError(
@@ -82,6 +84,9 @@ class LMCorpus:
 
         # Special-token ids (mirrors the trained SentencePiece model).
         self.unk_id, self.sos_id, self.eos_id, self.pad_id = UNK_ID, SOS_ID, EOS_ID, PAD_ID
+        # Reserved whole-piece mask token for MLM mode (trained into the vocab via
+        # user_defined_symbols); its id is looked up from the model — see ``mask_id``.
+        self.mask_piece = "<mask>"
 
         self._sp = None  # lazily loaded SentencePiece processor
 
@@ -122,13 +127,13 @@ class LMCorpus:
     # --- Stage filenames -------------------------------------------------
 
     def raw_files(self):
-        """Raw filenames for this corpus mode: one for text, two for instruct."""
-        if self.mode == TEXT:
+        """Raw filenames: one stream for text/mlm, two (prompt/completion) for instruct."""
+        if self.mode != INSTRUCT:
             return ["data.txt"]
         return ["data.prompt", "data.completion"]
 
     def split_files(self, split):
-        if self.mode == TEXT:
+        if self.mode != INSTRUCT:
             return [f"{split}.txt"]
         return [f"{split}.prompt", f"{split}.completion"]
 
@@ -160,6 +165,20 @@ class LMCorpus:
     def model_vocab_size(self):
         """Number of pieces in the trained model — the model's vocab dimension."""
         return self.load_spm().get_piece_size()
+
+    @property
+    def mask_id(self):
+        """Id of the reserved ``<mask>`` piece (MLM mode only); ``None`` otherwise."""
+        if self.mode != MLM:
+            return None
+        return self.load_spm().piece_to_id(self.mask_piece)
+
+    def special_ids(self):
+        """Special-token ids to exclude from MLM masking candidates."""
+        ids = {self.unk_id, self.sos_id, self.eos_id, self.pad_id}
+        if self.mode == MLM:
+            ids.add(self.mask_id)
+        return ids
 
     def encode(self, text, add_sos=True, add_eos=False):
         ids = self.load_spm().encode(text, out_type=int)
@@ -297,7 +316,7 @@ class LMCorpusBuilder:
             return
         make_dir(corpus.get_raw_path())
 
-        if corpus.mode == TEXT:
+        if corpus.mode != INSTRUCT:
             lines = decl.get("text")
             if lines is None:
                 if not os.path.exists(raw_paths[0]):
@@ -359,7 +378,7 @@ class LMCorpusBuilder:
 
     def _spm_train_input(self, corpus):
         """Text file SentencePiece is trained on (completion+prompt concatenated for instruct)."""
-        if corpus.mode == TEXT:
+        if corpus.mode != INSTRUCT:
             return corpus.get_splits_path(f"{corpus.train_name}.txt")
         # Instruct: train the tokenizer on both sides so prompt vocabulary is covered.
         merged = corpus.get_vocab_path("_spm_train_input.txt")
@@ -383,6 +402,8 @@ class LMCorpusBuilder:
             character_coverage=self.character_coverage,
             split_digits=self.split_digits,
             byte_fallback=corpus.byte_fallback,
+            # MLM needs a dedicated whole-piece [MASK]; reserve it in the vocab.
+            user_defined_symbols=[corpus.mask_piece] if corpus.mode == MLM else None,
         )
         assert os.path.exists(corpus.spm_model_path())
 
@@ -396,7 +417,7 @@ class LMCorpusBuilder:
             tokens_path = corpus.tokens_file(split)
             if not force_overwrite and os.path.exists(tokens_path):
                 continue
-            if corpus.mode == TEXT:
+            if corpus.mode != INSTRUCT:
                 self._pack_text(corpus, sp, split, tokens_path, dtype)
             else:
                 self._pack_instruct(corpus, sp, split, tokens_path, dtype)

@@ -98,6 +98,7 @@ nav:
       - Reproduce an experiment: how-to/reproduce.md
       - Train a language model: how-to/train-language-model.md
       - Instruction-tune a model: how-to/instruction-tune.md
+      - Pretrain a masked LM: how-to/pretrain-masked-lm.md
       - Add a custom model: how-to/custom-model.md
       - Change the decoding strategy: how-to/custom-decoding.md
       - Add a custom metric: how-to/custom-metric.md

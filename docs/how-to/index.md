@@ -24,6 +24,8 @@ concepts already and want the recipe.
   measure perplexity, and generate.
 - [**Instruction-tune a model**](instruction-tune.md) — train on prompt→completion pairs with
   the prompt masked out of the loss.
+- [**Pretrain a masked LM**](pretrain-masked-lm.md) — a BERT-style encoder-only model:
+  predict randomly masked tokens, then `fill_mask`.
 
 ## Extending the framework
 

@@ -25,9 +25,16 @@ The base for decoder-only language models. See [LM corpora](../guide/data/lm-cor
 
 ::: autonmt.core.nn.lm.LitLM
 
+## LitMLM
+
+The base for encoder-only masked language models. See [LM corpora](../guide/data/lm-corpora.md#mlm-mode)
+and [Pretrain a masked LM](../how-to/pretrain-masked-lm.md).
+
+::: autonmt.core.nn.mlm.LitMLM
+
 ## Built-in models
 
-Encoder–decoder architectures and the decoder-only `GPT`.
+Encoder–decoder architectures, the decoder-only `GPT`, and the encoder-only `MLMTransformer`.
 
 ::: autonmt.core.nn.models
 
@@ -64,6 +71,13 @@ The torch `Dataset` for packed single-stream language modelling. See
 [LM corpora](../guide/data/lm-corpora.md).
 
 ::: autonmt.core.data.lm_dataset
+
+## MLM dataset
+
+The torch `Dataset` for masked language modelling (packed blocks + dynamic masking). See
+[LM corpora → MLM mode](../guide/data/lm-corpora.md#mlm-mode).
+
+::: autonmt.core.data.mlm_dataset
 
 ## Samplers
 

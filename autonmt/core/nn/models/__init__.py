@@ -3,5 +3,6 @@ from autonmt.core.nn.models.rnn import SimpleRNN, ContextRNN, BahdanauRNN, Luong
 from autonmt.core.nn.models.conv import ConvS2S
 from autonmt.core.nn.models.transformer import Transformer
 from autonmt.core.nn.models.gpt import GPT
+from autonmt.core.nn.models.mlm import MLMTransformer
 
-__all__ = ["MLP", "SimpleRNN", "ContextRNN", "BahdanauRNN", "LuongRNN", "ConvS2S", "Transformer", "GPT"]
+__all__ = ["MLP", "SimpleRNN", "ContextRNN", "BahdanauRNN", "LuongRNN", "ConvS2S", "Transformer", "GPT", "MLMTransformer"]

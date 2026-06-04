@@ -112,10 +112,7 @@ class LMTrainer:
         manual_seed(seed=cfg["seed"])
         self._configure_model(cfg)
 
-        train_ds = LMDataset(corpus.tokens_file(corpus.train_name), block_size=block_size,
-                             supervise_file=self._sup_file(corpus, corpus.train_name))
-        val_ds = LMDataset(corpus.tokens_file(corpus.val_name), block_size=block_size,
-                           supervise_file=self._sup_file(corpus, corpus.val_name))
+        train_ds, val_ds = self._make_datasets(corpus, block_size)
         log.info(f"\t- Blocks: train={len(train_ds)}, val={len(val_ds)} (block_size={block_size})")
 
         common = dict(batch_size=cfg["batch_size"], num_workers=cfg["num_workers"],
@@ -134,6 +131,19 @@ class LMTrainer:
         start = time.time()
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loader)
         log.info(f"\t- Training time: {datetime.timedelta(seconds=time.time() - start)}")
+
+    def _make_datasets(self, corpus, block_size):
+        """Build the ``(train, val)`` torch datasets for :meth:`fit`.
+
+        Overridden by :class:`~autonmt.backends.lm.mlm_trainer.MLMTrainer` to
+        build masked-LM datasets instead.
+        """
+        return (
+            LMDataset(corpus.tokens_file(corpus.train_name), block_size=block_size,
+                      supervise_file=self._sup_file(corpus, corpus.train_name)),
+            LMDataset(corpus.tokens_file(corpus.val_name), block_size=block_size,
+                      supervise_file=self._sup_file(corpus, corpus.val_name)),
+        )
 
     @staticmethod
     def _sup_file(corpus, split):

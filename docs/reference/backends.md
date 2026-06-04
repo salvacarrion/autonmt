@@ -23,6 +23,13 @@ The trainer for decoder-only language models (`fit` / `evaluate` / `generate`). 
 
 ::: autonmt.backends.lm.trainer.LMTrainer
 
+## MLMTrainer
+
+The trainer for encoder-only masked language models (`fit` / `evaluate` / `fill_mask`). See
+[Pretrain a masked LM](../how-to/pretrain-masked-lm.md).
+
+::: autonmt.backends.lm.mlm_trainer.MLMTrainer
+
 ## HuggingFaceTranslator
 
 ::: autonmt.backends.huggingface.translation_engine.HuggingFaceTranslator

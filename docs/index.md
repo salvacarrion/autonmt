@@ -55,7 +55,9 @@ inside those four steps and how to bend each one to your research.
     single-stream [`LMCorpusBuilder`](reference/datasets.md), the `Transformer` for a
     [`GPT`](reference/core.md), and `AutonmtTranslator` for an `LMTrainer` whose verbs are
     `fit` / `evaluate` / `generate` — pretraining and instruction-tuning share one code
-    path. Start at [Quickstart: train a GPT](get-started/quickstart-gpt.md).
+    path. There's also an encoder-only `MLMTransformer` (BERT-style masked LM) on the same
+    pipeline, so all three Transformer families are covered. Start at
+    [Quickstart: train a GPT](get-started/quickstart-gpt.md).
 
 <div class="grid cards" markdown>
 

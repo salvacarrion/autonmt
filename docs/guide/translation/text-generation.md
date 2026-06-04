@@ -1,6 +1,6 @@
 # Text generation & sampling
 
-For a language model there's no test set to *translate* — you give it a prompt and it
+For a language model there's no test set to _translate_ — you give it a prompt and it
 **continues** it. That's what [`LMTrainer.generate`](../../reference/backends.md) does: it
 tokenizes the prompt, runs autoregressive decoding with a KV cache, and detokenizes the
 result back to text.
@@ -46,29 +46,29 @@ after `max_new_tokens`.
 The `sampler` is exactly the same family of [`BaseSearch`](decoding.md) strategies used for
 translation — there's nothing LM-specific to learn:
 
-| Sampler | Behaviour | Reach for it when… |
-| --- | --- | --- |
-| `GreedySearch()` | always the argmax token | you want deterministic, reproducible output |
-| `TopKSampling(top_k=k)` | sample from the `k` most likely | you want variety but bounded |
-| `TopPSampling(top_p=p)` | sample from the smallest set covering prob. mass `p` (nucleus) | the usual default for open-ended text |
-| `MultinomialSampling()` | sample from the full distribution | maximum diversity (and risk) |
+| Sampler                 | Behaviour                                                      | Reach for it when…                          |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------- |
+| `GreedySearch()`        | always the argmax token                                        | you want deterministic, reproducible output |
+| `TopKSampling(top_k=k)` | sample from the `k` most likely                                | you want variety but bounded                |
+| `TopPSampling(top_p=p)` | sample from the smallest set covering prob. mass `p` (nucleus) | the usual default for open-ended text       |
+| `MultinomialSampling()` | sample from the full distribution                              | maximum diversity (and risk)                |
 
 `temperature` (on the sampling strategies) flattens (`>1`) or sharpens (`<1`) the distribution
 before sampling. The intuition and math for each strategy live in
 [Decoding strategies](decoding.md).
 
 !!! info "Why not always greedy?"
-    Greedy decoding is deterministic but repetitive — it can loop or collapse onto generic
-    continuations. **Nucleus (top-p) sampling** keeps only the most probable tokens whose
-    cumulative mass reaches `p` and samples among them, trading a little coherence for variety
-    and avoiding the long tail of bad tokens ([Holtzman et al., 2019](https://arxiv.org/abs/1904.09751)).
-    For a deterministic task (e.g. the reversal example) prefer greedy; for open-ended text,
-    prefer top-p.
+Greedy decoding is deterministic but repetitive — it can loop or collapse onto generic
+continuations. **Nucleus (top-p) sampling** keeps only the most probable tokens whose
+cumulative mass reaches `p` and samples among them, trading a little coherence for variety
+and avoiding the long tail of bad tokens ([Holtzman et al., 2019](https://arxiv.org/abs/1904.09751)).
+For a deterministic task (e.g. the reversal example) prefer greedy; for open-ended text,
+prefer top-p.
 
 ## Instruct models: prompt formatting matters
 
 A model fine-tuned on an [instruct corpus](../data/lm-corpora.md#instruct-mode) learned to
-continue a **specific prompt shape**. Generate with the *same* shape you trained on:
+continue a **specific prompt shape**. Generate with the _same_ shape you trained on:
 
 ```python
 # trained on pairs like ("reverse: a b c", "c b a")
@@ -96,6 +96,20 @@ print(corpus.decode(out_ids))
 
 It reuses the same `pick_next_token` strategies as translation decoding — no separate sampling
 code.
+
+## Masked language models
+
+This page is about **autoregressive** generation (encoder–decoder and decoder-only models). An
+**encoder-only** [masked LM](../data/lm-corpora.md#mlm-mode) is bidirectional and does not
+generate left to right — there is no `generate`. Instead, [`MLMTrainer`](../../reference/backends.md)
+exposes `fill_mask`, which predicts the token(s) at `<mask>` positions:
+
+```python
+mlm_trainer.fill_mask("the <mask> fox jumps", top_k=5)
+# -> [["quick", "lazy", "bright", "small", "green"]]
+```
+
+See [Pretrain a masked LM](../../how-to/pretrain-masked-lm.md).
 
 ---
 

@@ -15,9 +15,9 @@ of supervised tokens it was averaged over.
 ## What perplexity is
 
 !!! info "Perplexity in one paragraph"
-    A language model assigns a probability to each next token. Its quality on a held-out
-    sequence is the average **cross-entropy** (negative log-likelihood) it pays per token;
-    **perplexity** is the exponential of that:
+A language model assigns a probability to each next token. Its quality on a held-out
+sequence is the average **cross-entropy** (negative log-likelihood) it pays per token;
+**perplexity** is the exponential of that:
 
     $$\text{PPL} = \exp\!\left(-\frac{1}{N}\sum_{i=1}^{N} \log p_\theta(x_i \mid x_{<i})\right)$$
 
@@ -34,21 +34,21 @@ model, and averages cross-entropy over the **supervised** positions:
 - For a **text** corpus, every position is supervised — standard LM perplexity.
 - For an **instruct** corpus, only the **completion** positions count (the prompt is masked,
   exactly as in [training](../data/lm-corpora.md#instruct-mode)), so the number measures how
-  well the model predicts *responses*, not instructions.
+  well the model predicts _responses_, not instructions.
 
 That's why the result reports `tokens`: the denominator $N$ is the count of supervised tokens,
 not raw positions.
 
 !!! warning "Perplexity only compares like with like"
-    Perplexity depends on the **tokenizer and vocabulary**: a model over 4 000 BPE pieces and
-    one over 32 000 are not directly comparable, because they're predicting over different
-    units. Compare perplexities only across models that share the *same* tokenizer and the
-    *same* evaluation split. To compare across tokenizers, fall back on a downstream task or a
-    bits-per-character normalization.
+Perplexity depends on the **tokenizer and vocabulary**: a model over 4 000 BPE pieces and
+one over 32 000 are not directly comparable, because they're predicting over different
+units. Compare perplexities only across models that share the _same_ tokenizer and the
+_same_ evaluation split. To compare across tokenizers, fall back on a downstream task or a
+bits-per-character normalization.
 
 ## Perplexity isn't everything
 
-Perplexity measures next-token likelihood, not whether generations are *useful*. Two
+Perplexity measures next-token likelihood, not whether generations are _useful_. Two
 complements:
 
 - **Eyeball samples.** [Generate](../translation/text-generation.md) from a few held-out
@@ -57,6 +57,21 @@ complements:
 - **Score a downstream task.** If your LM produces something checkable (translations, answers,
   reversed sequences…), score it with the regular [metric backends](metrics.md) and roll it
   into a [report](reports.md), exactly as for translation.
+
+## Masked language models
+
+An encoder-only [masked LM](../data/lm-corpora.md#mlm-mode) is evaluated differently:
+[`MLMTrainer.evaluate`](../../reference/backends.md) reports **masked-token accuracy** (the
+fraction of masked positions the model recovers) alongside a pseudo-perplexity over those
+positions:
+
+```python
+metrics = mlm_trainer.evaluate(corpus)        # {"loss", "ppl", "masked_acc", "tokens"}
+```
+
+Because masking is dynamic (re-sampled each call), the number wobbles slightly run-to-run. For
+a qualitative check, [`fill_mask`](../translation/text-generation.md#masked-language-models)
+predicts the tokens at `<mask>` positions directly.
 
 ---
 

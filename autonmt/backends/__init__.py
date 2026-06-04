@@ -3,7 +3,7 @@
 ``from autonmt.backends import AutonmtTranslator`` keeps working, but importing
 ``autonmt.backends._base.config`` doesn't pull in torch / pytorch_lightning.
 """
-__all__ = ["AutonmtTranslator", "FairseqTranslator", "HuggingFaceTranslator", "LMTrainer"]
+__all__ = ["AutonmtTranslator", "FairseqTranslator", "HuggingFaceTranslator", "LMTrainer", "MLMTrainer"]
 
 
 def __getattr__(name):
@@ -13,6 +13,9 @@ def __getattr__(name):
     if name == "LMTrainer":
         from autonmt.backends.lm.trainer import LMTrainer
         return LMTrainer
+    if name == "MLMTrainer":
+        from autonmt.backends.lm.mlm_trainer import MLMTrainer
+        return MLMTrainer
     if name == "FairseqTranslator":
         from autonmt.backends.fairseq.translation_engine import FairseqTranslator
         return FairseqTranslator

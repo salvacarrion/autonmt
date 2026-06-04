@@ -107,14 +107,18 @@ def truncate_file(input_file, output_file, max_tokens):
 # ---------------------------------------------------------------------------
 
 def spm_train_file(input_file, model_prefix, subword_model, vocab_size, input_sentence_size,
-                   character_coverage, split_digits, byte_fallback=False):
+                   character_coverage, split_digits, byte_fallback=False,
+                   user_defined_symbols=None):
     # Numbers are not included in the vocabulary (...and digits are not split, even with: --split_digits)
+    # ``user_defined_symbols`` reserves extra whole-piece tokens (e.g. "<mask>" for
+    # masked language modelling); they get ids right after the unk/bos/eos/pad specials.
+    extra = {"user_defined_symbols": list(user_defined_symbols)} if user_defined_symbols else {}
     spm.SentencePieceTrainer.train(
         input=input_file, model_prefix=model_prefix,
         model_type=str(subword_model), vocab_size=vocab_size,
         input_sentence_size=input_sentence_size, byte_fallback=byte_fallback,
         character_coverage=character_coverage, split_digits=split_digits,
-        pad_id=3,
+        pad_id=3, **extra,
     )
 
 

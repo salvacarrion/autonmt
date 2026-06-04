@@ -10,7 +10,7 @@ import random
 import numpy as np
 import pytest
 
-from autonmt.datasets.lm_corpus import LMCorpusBuilder, TEXT, INSTRUCT
+from autonmt.datasets.lm_corpus import LMCorpusBuilder, TEXT, INSTRUCT, MLM
 
 
 WORDS = ("the quick brown fox jumps over lazy dog cat runs fast slow under "
@@ -23,12 +23,12 @@ def _sentence(rng):
 
 def _build(tmp_path, mode):
     rng = random.Random(0)
-    if mode == TEXT:
-        decl = {"name": "tt", "mode": TEXT, "sizes": [("original", None)],
-                "text": [_sentence(rng) for _ in range(200)]}
-    else:
+    if mode == INSTRUCT:
         decl = {"name": "qa", "mode": INSTRUCT, "sizes": [("original", None)],
                 "pairs": [(f"q: {_sentence(rng)}", _sentence(rng)) for _ in range(150)]}
+    else:  # text / mlm: a single stream of documents
+        decl = {"name": "tt", "mode": mode, "sizes": [("original", None)],
+                "text": [_sentence(rng) for _ in range(200)]}
     builder = LMCorpusBuilder(
         base_path=str(tmp_path), corpus=[decl],
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": [120]}],
@@ -59,6 +59,19 @@ def test_build_instruct_corpus(tmp_path):
         assert len(tokens) == len(supervise)
         # Some positions are masked (prompt) and some supervised (completion).
         assert supervise.min() == 0 and supervise.max() == 1
+
+
+def test_build_mlm_corpus(tmp_path):
+    corpus = _build(tmp_path, MLM)
+    assert corpus.mode == MLM
+    # MLM reserves a dedicated <mask> piece beyond unk/sos/eos/pad.
+    assert corpus.mask_id is not None and corpus.mask_id > corpus.pad_id
+    assert corpus.mask_id in corpus.special_ids()
+    for split in corpus.splits:
+        tokens = np.load(corpus.tokens_file(split))
+        assert tokens.ndim == 1 and len(tokens) > 0
+        # Masking is dynamic at train time → no supervise file on disk.
+        assert not os.path.exists(corpus.supervise_file(split))
 
 
 def test_encode_decode_roundtrip(tmp_path):

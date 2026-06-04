@@ -7,15 +7,15 @@ research question you're asking. It also ships a decoder-only **[`GPT`](#gpt)** 
 [language modelling](../data/lm-corpora.md) — same engine, a different base (it's trained with
 [`LMTrainer`](../../reference/backends.md) rather than `AutonmtTranslator`).
 
-| Class | Family | Reach for it when… |
-| --- | --- | --- |
-| `Transformer` | self-attention enc–dec | the default; almost always your starting point |
-| `SimpleRNN` | RNN enc–dec | you want a plain recurrent baseline (no attention) |
-| `ContextRNN` | RNN enc–dec | you want the encoder context injected at every step |
-| `BahdanauRNN` | RNN + additive attention | classic attention baseline (Bahdanau et al.) |
-| `LuongRNN` | RNN + multiplicative attention | the other classic attention baseline (Luong et al.) |
-| `ConvS2S` | convolutional enc–dec | a fully-convolutional, attention-free-ish baseline |
-| `MLP` | feed-forward | a tiny non-recurrent toy/baseline, handy for tests |
+| Class         | Family                         | Reach for it when…                                  |
+| ------------- | ------------------------------ | --------------------------------------------------- |
+| `Transformer` | self-attention enc–dec         | the default; almost always your starting point      |
+| `SimpleRNN`   | RNN enc–dec                    | you want a plain recurrent baseline (no attention)  |
+| `ContextRNN`  | RNN enc–dec                    | you want the encoder context injected at every step |
+| `BahdanauRNN` | RNN + additive attention       | classic attention baseline (Bahdanau et al.)        |
+| `LuongRNN`    | RNN + multiplicative attention | the other classic attention baseline (Luong et al.) |
+| `ConvS2S`     | convolutional enc–dec          | a fully-convolutional, attention-free-ish baseline  |
+| `MLP`         | feed-forward                   | a tiny non-recurrent toy/baseline, handy for tests  |
 
 ## Transformer
 
@@ -52,11 +52,11 @@ A few choices worth understanding:
   $O(L^2)$ to $O(L)$. Transparent to you; it just makes beam search fast.
 
 !!! info "Positional encodings, briefly"
-    Attention is order-agnostic — without help, a Transformer sees a *set* of tokens, not a
-    sequence. **Positional embeddings** add per-position information so word order matters.
-    `learned=False` uses **sinusoidal** (fixed, generalizes to longer sequences); `True`
-    uses **learned** (trainable). A **rotary** variant is also available — see
-    [Building blocks](building-blocks.md).
+Attention is order-agnostic — without help, a Transformer sees a _set_ of tokens, not a
+sequence. **Positional embeddings** add per-position information so word order matters.
+`learned=False` uses **sinusoidal** (fixed, generalizes to longer sequences); `True`
+uses **learned** (trainable). A **rotary** variant is also available — see
+[Building blocks](building-blocks.md).
 
 ## The RNN family
 
@@ -66,26 +66,26 @@ with `base_rnn="rnn" | "lstm" | "gru"`:
 
 - **`SimpleRNN`** ([Sutskever et al., 2014](https://arxiv.org/abs/1409.3215)) — the encoder compresses the source into a final
   hidden state; the decoder is seeded with it and generates token by token. No attention:
-  the decoder sees the source *only* through that fixed-size state.
+  the decoder sees the source _only_ through that fixed-size state.
 - **`ContextRNN`** ([Cho et al., 2014](https://arxiv.org/abs/1406.1078)) — like `SimpleRNN`,
   but the encoder context is **injected at every decode step**, not just used as the initial
   state, so it doesn't have to survive in the hidden state alone. (This is the RNN
   Encoder–Decoder that also introduced the GRU.)
 - **`BahdanauRNN`** ([Bahdanau et al., 2015](https://arxiv.org/abs/1409.0473)) — adds **additive attention**: at each step the
-  decoder computes a weighted read over *all* encoder states, learning where to look.
+  decoder computes a weighted read over _all_ encoder states, learning where to look.
 - **`LuongRNN`** ([Luong et al., 2015](https://arxiv.org/abs/1508.04025)) — the same idea with **multiplicative (dot-product)
   attention**, the other canonical formulation.
 
 !!! info "Why attention mattered (and still does)"
-    A plain RNN forces the entire source meaning through one fixed-size vector — a
-    bottleneck that hurts long sentences. **Attention** lets the decoder look back at every
-    source position with learned weights at each step, removing the bottleneck. It's the
-    idea the Transformer later took to its logical extreme (attention *only*, no recurrence).
+A plain RNN forces the entire source meaning through one fixed-size vector — a
+bottleneck that hurts long sentences. **Attention** lets the decoder look back at every
+source position with learned weights at each step, removing the bottleneck. It's the
+idea the Transformer later took to its logical extreme (attention _only_, no recurrence).
 
 !!! note "RNNs and bucketing"
-    Recurrent models benefit from packed sequences (`packed_sequence=True`), which AutoNMT
-    only allows together with length [bucketing](../training/bucketing.md). The catalog
-    classes set this up for you when you opt in.
+Recurrent models benefit from packed sequences (`packed_sequence=True`), which AutoNMT
+only allows together with length [bucketing](../training/bucketing.md). The catalog
+classes set this up for you when you opt in.
 
 ## ConvS2S
 
@@ -97,7 +97,7 @@ non-recurrent, non-self-attention point of comparison.
 
 A minimal feed-forward seq2seq with no recurrence or attention. It exists as a tiny,
 fast baseline and as a fixture for tests — not a serious translation model, but handy when
-you want to exercise the *pipeline* without waiting on a real architecture.
+you want to exercise the _pipeline_ without waiting on a real architecture.
 
 ## GPT
 
@@ -134,6 +134,37 @@ GPT(
 
 Build it sized to a corpus with `GPT.from_corpus(corpus, ...)`, which reads the vocabulary size
 and pad id from the corpus's tokenizer. See [Train a language model](../../how-to/train-language-model.md).
+
+## MLMTransformer
+
+A BERT-style **encoder-only** masked language model
+([Devlin et al., 2019](https://arxiv.org/abs/1810.04805)). Where `GPT` is causal and
+generates, this is **bidirectional** — every position attends to the whole sequence — and
+predicts randomly _masked_ tokens. It reuses PyTorch's `nn.TransformerEncoder` (the same
+bidirectional stack the built-in `Transformer`'s encoder uses), so the only thing new on the
+encoder-only path is the objective, not the attention. Like `GPT` it subclasses an LM base
+(`LitMLM`) and trains with a dedicated trainer ([`MLMTrainer`](../../reference/backends.md)).
+
+```python
+MLMTransformer(
+    vocab_size, padding_idx=None,
+    embed_dim=256, num_layers=4, num_heads=8,
+    ffn_dim=None,            # defaults to 4 * embed_dim
+    dropout=0.1,
+    max_seq_len=1024,        # block_size must be ≤ this
+    activation="gelu",       # BERT's FFN activation
+    tie_embeddings=True,     # share token embedding with the MLM head
+    norm_first=False,        # Pre-LN vs BERT's Post-LN
+)
+```
+
+- **No generation.** An MLM doesn't decode left to right; instead of `generate` you call
+  `MLMTrainer.fill_mask("the <mask> fox …")` to predict the masked positions.
+- **Reserved `<mask>`.** Build it from a [`mode="mlm"` corpus](../data/lm-corpora.md#mlm-mode)
+  via `MLMTransformer.from_corpus(corpus, ...)`; the corpus reserves the `<mask>` piece and the
+  [`MLMDataset`](../../reference/core.md) applies the dynamic 80/10/10 masking.
+
+See [Pretrain a masked LM](../../how-to/pretrain-masked-lm.md).
 
 ---
 
