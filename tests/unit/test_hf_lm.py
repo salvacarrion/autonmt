@@ -72,3 +72,17 @@ def test_fit_config_maps_to_training_arguments():
     import inspect
     valid = set(inspect.signature(TrainingArguments.__init__).parameters)
     assert set(mapped).issubset(valid)
+    # fp32 default sets no half-precision flag.
+    assert mapped.get("fp16") is not True and mapped.get("bf16") is not True
+
+
+@pytest.mark.skipif(not HAS_TRANSFORMERS, reason="transformers not installed")
+def test_precision_maps_to_hf_flag():
+    from autonmt.backends import HuggingFaceCausalLM
+    from autonmt.backends._base.config import FitConfig
+    m = HuggingFaceCausalLM(model_id="gpt2", device="cpu")
+    mapped = m._build_training_args_dict(
+        FitConfig(max_epochs=1, precision="bf16").as_kwargs(),
+        output_dir="/out", logs_dir="/logs", force_overwrite=False)
+    assert mapped.get("bf16") is True
+    assert mapped.get("fp16") is not True

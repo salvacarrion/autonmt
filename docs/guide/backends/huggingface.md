@@ -91,10 +91,10 @@ trainer.fit(
     train_ds,
     config=FitConfig(
         max_epochs=3, batch_size=8, learning_rate=2e-5,
-        weight_decay=0.01, gradient_clip_val=1.0,
+        weight_decay=0.01, gradient_clip_val=1.0, precision="fp16",
         patience=2, seed=42, save_best=True, monitor="eval_loss",
     ),
-    hf_training_args={"label_smoothing_factor": 0.1, "fp16": True},  # HF-only knobs
+    hf_training_args={"label_smoothing_factor": 0.1},  # HF-only knobs
 )
 scores = trainer.predict(test_datasets, config=PredictConfig(metrics={"bleu"}, beams=[5]))
 ```
@@ -105,10 +105,12 @@ After training, the best model + tokenizer are saved to the run's `checkpoints/`
 (unless `force_overwrite=True`).
 
 !!! note "HF-only training knobs win on collision"
-    Anything specific to the HF `Trainer` (label smoothing, mixed precision, custom
-    schedulers) goes through `hf_training_args=dict(...)`. On collision with a
-    `FitConfig`-derived value, the explicit `hf_training_args` value wins — same "extras
-    override" rule the [contract](choosing.md) uses everywhere.
+    Mixed precision is a unified `FitConfig` field — `precision="fp16"` / `"bf16"` maps to
+    HF's `fp16=`/`bf16=` for you (see [Mixed precision](../training/advanced.md#mixed-precision)).
+    Anything *specific* to the HF `Trainer` with no AutoNMT equivalent (label smoothing, custom
+    schedulers) still goes through `hf_training_args=dict(...)`. On collision with a
+    `FitConfig`-derived value — including `precision` — the explicit `hf_training_args` value
+    wins, the same "extras override" rule the [contract](choosing.md) uses everywhere.
 
 ## Language models (decoder-only & encoder-only) { #language-models }
 

@@ -36,6 +36,7 @@ except ImportError:
 from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 from autonmt.backends._base.translation_engine import BaseTranslator
+from autonmt.backends._base.precision import to_hf_kwargs
 from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
@@ -377,6 +378,10 @@ class HuggingFaceTranslator(BaseTranslator):
             "save_total_limit": 2,
             "predict_with_generate": False,
         }
+
+        # Unified precision knob → HF fp16/bf16 (no-op for fp32). Set before the
+        # user overrides so hf_training_args can still win on collision.
+        mapped.update(to_hf_kwargs(fit_kwargs.get("precision")))
 
         # User-supplied hf_training_args win on collision (mirrors fairseq_args).
         user_overrides = fit_kwargs.get("hf_training_args") or {}

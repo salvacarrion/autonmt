@@ -44,6 +44,7 @@ except ImportError:
     _TORCH_AVAILABLE = False
 
 from autonmt.backends._base.config import FitConfig, merge_config
+from autonmt.backends._base.precision import to_hf_kwargs
 from autonmt.backends._base.run_layout import RunLayout
 from autonmt.utils.fileio import make_dir, read_file_lines
 from autonmt.utils.logger import get_logger
@@ -260,6 +261,11 @@ class _HuggingFaceLMBase:
             "report_to": ["tensorboard"],
             "save_total_limit": 2,
         }
+
+        # Unified precision knob → HF fp16/bf16 (no-op for fp32). Set before the
+        # user overrides so hf_training_args can still win on collision.
+        mapped.update(to_hf_kwargs(fit_kwargs.get("precision")))
+
         user_overrides = fit_kwargs.get("hf_training_args") or {}
         for k in set(mapped) & set(user_overrides):
             log.warning(f"\t- hf_training_args override: {k}={mapped[k]!r} → {user_overrides[k]!r}")

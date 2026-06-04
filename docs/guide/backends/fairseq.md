@@ -63,8 +63,11 @@ AutoNMT maps common `FitConfig` fields onto Fairseq flags via an internal
 | `seed` | `--seed` |
 | `monitor` | `--best-checkpoint-metric` |
 | `num_workers` | `--num-workers` |
+| `precision` | `--fp16` / `--bf16` (see [Mixed precision](../training/advanced.md#mixed-precision)) |
 
 Anything Fairseq supports that isn't in the table you pass directly through `fairseq_args`.
+Exotic precision variants like `--memory-efficient-fp16` go there too (leave `precision` at its
+default then).
 
 !!! danger "`fairseq_args` always win on collision"
     If you set `max_epochs=10` *and* `--max-epoch 15` in `fairseq_args`, the run uses **15**.

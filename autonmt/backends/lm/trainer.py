@@ -29,6 +29,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 
 from autonmt.backends._base.config import FitConfig, merge_config
+from autonmt.backends._base.precision import to_lightning
 from autonmt.backends._base.run_layout import RunLayout
 from autonmt.core.data.lm_dataset import LMDataset
 from autonmt.core.decoding.lm_generate import lm_generate
@@ -126,6 +127,8 @@ class LMTrainer:
 
         pl_whitelist = set(inspect.signature(pl.Trainer.__init__).parameters)
         pl_params = {k: v for k, v in cfg.items() if k in pl_whitelist}
+        if "precision" in pl_params:
+            pl_params["precision"] = to_lightning(pl_params["precision"])
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)
 
         start = time.time()

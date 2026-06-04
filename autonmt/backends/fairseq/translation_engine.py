@@ -12,6 +12,7 @@ from autonmt.utils import fileio as utils
 from autonmt.utils.logger import get_logger
 from autonmt.backends._base.translation_engine import BaseTranslator
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
+from autonmt.backends._base.precision import to_fairseq_args
 from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
@@ -111,6 +112,7 @@ def _parse_args(**kwargs) -> list:
 
     user_keys = {arg.split(' ')[0] for arg in fairseq_args}
     proposed = _translate_autonmt_args(kwargs)
+    proposed += to_fairseq_args(kwargs.get("precision"))
     cmd = [arg for arg in proposed if arg.split(' ')[0] not in user_keys]
     cmd += list(fairseq_args)
     return cmd

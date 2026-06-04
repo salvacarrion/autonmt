@@ -60,6 +60,13 @@ class FitConfig:
     monitor: str = "val_loss"
     devices: Union[str, int, List[int]] = "auto"
     accelerator: str = "auto"
+    # Mixed-precision regime, unified across backends: "fp32" (default), "fp16",
+    # "bf16". Mapped per backend (Lightning precision= / HF fp16|bf16 / fairseq
+    # --fp16|--bf16); see autonmt.backends._base.precision. The native backend
+    # also accepts Lightning-native strings ("16-true", "64", ...) as a
+    # passthrough. The same label is NOT bit-identical across toolkits — it
+    # selects the dtype regime, not exact numerics. "bf16" needs Ampere+ / TPU.
+    precision: str = "fp32"
     num_workers: int = 0
     seed: Optional[int] = None
     force_overwrite: bool = False

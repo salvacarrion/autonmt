@@ -174,6 +174,52 @@ class TestInstantiationWithTransformers:
         # HF-only kwarg passes through (if the installed transformers accepts it).
         assert mapped.get("label_smoothing_factor") == 0.1
 
+    @pytest.mark.parametrize("precision,flag", [("fp16", "fp16"), ("bf16", "bf16")])
+    def test_precision_maps_to_hf_flag(self, tmp_path, precision, flag):
+        """The unified precision knob sets the matching HF bool; fp32 sets neither."""
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
+        trans = HuggingFaceTranslator(
+            model_id="any/model", src_lang="de", tgt_lang="en",
+            runs_dir=str(tmp_path), run_name="test_precision",
+        )
+        mapped = trans._build_training_args_dict(
+            fit_kwargs=dict(max_epochs=1, precision=precision),
+            output_dir=tmp_path / "ckpt", logs_dir=tmp_path / "logs",
+            force_overwrite=False,
+        )
+        assert mapped.get(flag) is True
+        other = "bf16" if flag == "fp16" else "fp16"
+        assert mapped.get(other) is not True  # only one half-precision flag set
+
+    def test_precision_fp32_sets_no_half_flag(self, tmp_path):
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
+        trans = HuggingFaceTranslator(
+            model_id="any/model", src_lang="de", tgt_lang="en",
+            runs_dir=str(tmp_path), run_name="test_precision_fp32",
+        )
+        mapped = trans._build_training_args_dict(
+            fit_kwargs=dict(max_epochs=1, precision="fp32"),
+            output_dir=tmp_path / "ckpt", logs_dir=tmp_path / "logs",
+            force_overwrite=False,
+        )
+        assert mapped.get("fp16") is not True
+        assert mapped.get("bf16") is not True
+
+    def test_precision_hf_override_wins(self, tmp_path):
+        """hf_training_args can still override the precision-derived flag."""
+        from autonmt.backends.huggingface.translation_engine import HuggingFaceTranslator
+        trans = HuggingFaceTranslator(
+            model_id="any/model", src_lang="de", tgt_lang="en",
+            runs_dir=str(tmp_path), run_name="test_precision_override",
+        )
+        mapped = trans._build_training_args_dict(
+            fit_kwargs=dict(max_epochs=1, precision="fp16",
+                            hf_training_args={"fp16": False}),
+            output_dir=tmp_path / "ckpt", logs_dir=tmp_path / "logs",
+            force_overwrite=False,
+        )
+        assert mapped.get("fp16") is False  # escape hatch wins
+
     def test_build_run_report_without_loaded_model(self):
         """Report builder must tolerate an unloaded model + missing AutoNMT vocab.
 

@@ -35,6 +35,7 @@ from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSample
 from autonmt.core.decoding import BeamSearch, GreedySearch
 from autonmt.backends._base.translation_engine import BaseTranslator
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
+from autonmt.backends._base.precision import to_lightning
 from autonmt.reporting.schema import RunMetadata
 
 log = get_logger(__name__)
@@ -217,6 +218,8 @@ class AutonmtTranslator(BaseTranslator):
 
         pl_whitelist = set(inspect.signature(pl.Trainer.__init__).parameters)
         pl_params = {k: v for k, v in kwargs.items() if k in pl_whitelist}
+        if "precision" in pl_params:
+            pl_params["precision"] = to_lightning(pl_params["precision"])
         trainer = pl.Trainer(logger=loggers, callbacks=callbacks, **pl_params)
         trainer.fit(self.model, train_dataloaders=train_loader, val_dataloaders=val_loaders)
 

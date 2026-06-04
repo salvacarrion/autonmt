@@ -68,6 +68,16 @@ class TestMerge:
         )
         assert isinstance(cfg["decoder"], TopKSampling)
 
+    def test_precision_defaults_to_fp32(self):
+        cfg, _ = merge_config(None, FitConfig, {})
+        assert cfg["precision"] == "fp32"
+
+    def test_precision_kwarg_overrides_config(self):
+        cfg, _ = merge_config(
+            FitConfig(precision="fp16"), FitConfig, {"precision": "bf16"},
+        )
+        assert cfg["precision"] == "bf16"  # explicit kwarg wins
+
     def test_wrong_config_type_raises(self):
         with pytest.raises(TypeError, match="FitConfig"):
             merge_config(PredictConfig(), FitConfig, {})

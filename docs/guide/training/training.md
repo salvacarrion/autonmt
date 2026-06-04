@@ -39,7 +39,7 @@ do these pages:
 | Optimization & LR schedule | `optimizer`, `learning_rate`, `scheduler`, … | this page |
 | Validation & checkpoints | `monitor`, `patience`, `save_best`, … | [Validation & checkpoints](validation-checkpoints.md) |
 | Batching & bucketing | `batch_size`, `max_tokens`, `use_bucketing` | [Bucketing & batching](bucketing.md) |
-| Hardware, loggers, extras | `accelerator`, `devices`, `wandb_params`, … | [Advanced training control](advanced.md) |
+| Hardware, loggers, extras | `accelerator`, `devices`, `precision`, `wandb_params`, … | [Advanced training control](advanced.md) |
 
 The complete field list with defaults is in the [API reference](../../reference/backends.md).
 
