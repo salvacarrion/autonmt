@@ -48,6 +48,10 @@ print(trainer.generate("Once upon a time", sampler=TopPSampling(top_p=0.9), max_
   process.
 - **Real data on disk.** Instead of `text=[...]`, drop a `data.txt` under the corpus's
   `data/0_raw/` and omit the inline field — see [LM corpora](../guide/data/lm-corpora.md#bring-your-own-data).
+- **Pretrained instead of from scratch?** To fine-tune a Hub checkpoint (GPT-2, Llama…)
+  rather than train `GPT` from zero, swap `LMTrainer` for
+  [`HuggingFaceCausalLM`](../guide/backends/huggingface.md#language-models) — same
+  `fit` / `evaluate` / `generate`.
 
 ---
 

@@ -34,6 +34,19 @@ The trainer for encoder-only masked language models (`fit` / `evaluate` / `fill_
 
 ::: autonmt.backends.huggingface.translation_engine.HuggingFaceTranslator
 
+## HuggingFaceCausalLM
+
+Decoder-only HF backend (`AutoModelForCausalLM`). See
+[HuggingFace → Language models](../guide/backends/huggingface.md#language-models).
+
+::: autonmt.backends.huggingface.lm.HuggingFaceCausalLM
+
+## HuggingFaceMaskedLM
+
+Encoder-only HF backend (`AutoModelForMaskedLM`).
+
+::: autonmt.backends.huggingface.lm.HuggingFaceMaskedLM
+
 ## FairseqTranslator
 
 ::: autonmt.backends.fairseq.translation_engine.FairseqTranslator

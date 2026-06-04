@@ -44,8 +44,10 @@ dependencies = [
 [project.optional-dependencies]
 # Pull HuggingFace datasets into AutoNMT layout via autonmt.preprocessing.hf_loader
 hf = ["datasets", "evaluate"]
-# Load pretrained HuggingFace seq2seq models via HuggingFaceTranslator.
-# `accelerate` is required by transformers.Trainer for any PyTorch flow.
+# Load / fine-tune pretrained HuggingFace models across all three families:
+# seq2seq (HuggingFaceTranslator), decoder-only LLMs (HuggingFaceCausalLM) and
+# masked LMs (HuggingFaceMaskedLM). `accelerate` is required by transformers.Trainer
+# for fine-tuning (any PyTorch training flow).
 hf-models = ["transformers", "accelerate>=1.1"]
 wandb = ["wandb"]
 # Deprecated: fairseq was archived on 2026-03-20. Kept for users with existing flows.

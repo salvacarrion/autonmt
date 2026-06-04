@@ -170,7 +170,17 @@ class HuggingFaceTranslator(BaseTranslator):
         self._tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_id)
 
         log.info(f"=> [HF]: Loading model from {self.model_id!r}")
-        self._model = AutoModelForSeq2SeqLM.from_pretrained(self.model_id)
+        try:
+            self._model = AutoModelForSeq2SeqLM.from_pretrained(self.model_id)
+        except (ValueError, KeyError) as e:
+            # AutoModelForSeq2SeqLM rejects decoder-only / encoder-only checkpoints.
+            # Point the user at the right backend instead of HF's cryptic error.
+            raise ValueError(
+                f"{self.model_id!r} is not a sequence-to-sequence (encoder-decoder) model, "
+                f"which is all HuggingFaceTranslator supports. For a decoder-only LLM use "
+                f"autonmt.backends.HuggingFaceCausalLM; for an encoder-only masked LM use "
+                f"HuggingFaceMaskedLM."
+            ) from e
 
         self._resolved_device = self._resolve_device(self.device)
         self._model = self._model.to(self._resolved_device)

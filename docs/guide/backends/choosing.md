@@ -12,6 +12,28 @@ page covers both *which* backend to pick and *how* the abstraction lets you swap
 | **HuggingFace** | `HuggingFaceTranslator` | **fine-tuning or evaluating a pretrained** seq2seq checkpoint (Marian, mBART, NLLB, T5…) | `[hf-models]` |
 | **Fairseq** *(deprecated)* | `FairseqTranslator` | reproducing an **existing Fairseq baseline** | `[fairseq]` |
 
+## Beyond translation: which family runs where { #support-matrix }
+
+The three `BaseTranslator` backends above are all **translation** (encoder–decoder). AutoNMT
+also covers the other two Transformer families — decoder-only **LLMs** and encoder-only
+**masked LMs** — through dedicated trainers that share the same data pipeline and run layout
+but expose their own verbs (`fit` / `evaluate` / `generate` or `fill_mask`). Support by family:
+
+| Model family | Native (in-house) | HuggingFace (pretrained) | Fairseq |
+| --- | --- | --- | --- |
+| **Translation** (encoder–decoder) | `AutonmtTranslator` | `HuggingFaceTranslator` | `FairseqTranslator` *(deprecated)* |
+| **Decoder-only LLM** | [`LMTrainer`](../../how-to/train-language-model.md) + `GPT` | [`HuggingFaceCausalLM`](huggingface.md#language-models) | ❌ |
+| **Encoder-only MLM** | [`MLMTrainer`](../../how-to/pretrain-masked-lm.md) + `MLMTransformer` | [`HuggingFaceMaskedLM`](huggingface.md#language-models) | ❌ |
+
+- **Native** trains in-house models from scratch (research on the architecture itself) — see
+  [LM corpora](../data/lm-corpora.md) and the [model catalog](../models/catalog.md).
+- **HuggingFace** fine-tunes **pretrained** checkpoints from the Hub (GPT-2/Llama for causal,
+  BERT/RoBERTa for masked) — see [HuggingFace → Language models](huggingface.md#language-models).
+- **Fairseq** is translation-only and deprecated; it gains no LM support.
+
+The rest of this page is about the **translation** backends and their shared `BaseTranslator`
+contract.
+
 ## The one-line swap
 
 The same script, three engines — only the translator object changes:

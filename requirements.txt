@@ -4,12 +4,13 @@
 #
 # Optional extras live under [project.optional-dependencies] in pyproject.toml.
 # Install them with:
-#     pip install -e '.[hf]'        # HuggingFace dataset loader
-#     pip install -e '.[wandb]'     # wandb logger
-#     pip install -e '.[comet]'     # comet_ml logger
-#     pip install -e '.[fairseq]'   # FairseqTranslator (deprecated; archived 2026-03-20)
-#     pip install -e '.[dev]'       # pytest + flake8
-#     pip install -e '.[all]'       # everything above
+#     pip install -e '.[hf]'         # HuggingFace dataset loader (datasets, evaluate)
+#     pip install -e '.[hf-models]'  # fine-tune pretrained HF models: seq2seq + causal LLM + masked LM (transformers, accelerate)
+#     pip install -e '.[wandb]'      # wandb logger
+#     pip install -e '.[fairseq]'    # FairseqTranslator (deprecated; archived 2026-03-20)
+#     pip install -e '.[dev]'        # pytest + flake8
+#     pip install -e '.[docs]'       # build the docs site (mkdocs-material)
+#     pip install -e '.[all]'        # everything above
 
 # Deep learning
 torch

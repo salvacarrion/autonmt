@@ -47,6 +47,10 @@ print(trainer.fill_mask("the <mask> sat on the mat", top_k=5))
   [Perplexity & LM evaluation](../guide/evaluation/perplexity.md#masked-language-models).
 - **Scale by editing `MLMTransformer(...)`** and sweep like any other grid by adding axes to
   `encoding` or declaring multiple corpora.
+- **Pretrained instead of from scratch?** To fine-tune a Hub checkpoint (BERT, RoBERTa…)
+  rather than train `MLMTransformer` from zero, swap `MLMTrainer` for
+  [`HuggingFaceMaskedLM`](../guide/backends/huggingface.md#language-models) — same
+  `fit` / `evaluate` / `fill_mask`.
 
 A runnable, offline version is in
 [`examples/03_llm/03_masked_lm.py`](https://github.com/salvacarrion/autonmt/blob/main/examples/03_llm/03_masked_lm.py).

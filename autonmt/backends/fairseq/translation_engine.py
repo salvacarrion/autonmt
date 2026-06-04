@@ -162,6 +162,13 @@ class FairseqTranslator(BaseTranslator):
         Fairseq was archived on 2026-03-20 and is no longer maintained.
         New code should prefer :class:`~autonmt.backends.autonmt.translation_engine.AutonmtTranslator`.
 
+    **Translation only.** This backend wires Fairseq's ``translation`` task and does
+    *not* support language models. For decoder-only LLMs or encoder-only masked LMs
+    use the native engine (:class:`~autonmt.backends.lm.trainer.LMTrainer` /
+    :class:`~autonmt.backends.lm.mlm_trainer.MLMTrainer`) or the HuggingFace LM
+    backends (:class:`~autonmt.backends.huggingface.lm.HuggingFaceCausalLM` /
+    :class:`~autonmt.backends.huggingface.lm.HuggingFaceMaskedLM`).
+
     References
     ----------
     Ott et al. (2019). *fairseq: A Fast, Extensible Toolkit for Sequence

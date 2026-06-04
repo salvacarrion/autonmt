@@ -110,6 +110,53 @@ After training, the best model + tokenizer are saved to the run's `checkpoints/`
     `FitConfig`-derived value, the explicit `hf_training_args` value wins — same "extras
     override" rule the [contract](choosing.md) uses everywhere.
 
+## Language models (decoder-only & encoder-only) { #language-models }
+
+`HuggingFaceTranslator` is encoder–decoder only. For the other two families there are two
+sibling backends that fine-tune **pretrained** LM checkpoints from the Hub inside AutoNMT's
+pipeline. They're *not* `BaseTranslator`s (there's no test set to translate-and-score) — they
+mirror the native [`LMTrainer`](../../how-to/train-language-model.md) /
+[`MLMTrainer`](../../how-to/pretrain-masked-lm.md) verbs and consume an
+[`LMCorpus`](../data/lm-corpora.md) for data, tokenizing with the model's own tokenizer.
+
+=== "Decoder-only (causal)"
+
+    ```python
+    from autonmt.backends import HuggingFaceCausalLM
+
+    trainer = HuggingFaceCausalLM.from_corpus(corpus, run_prefix="ft", model_id="gpt2")
+    trainer.fit(corpus, block_size=512, max_epochs=3, batch_size=8, learning_rate=5e-5)
+    print(trainer.evaluate(corpus)["ppl"])
+    print(trainer.generate("Once upon a time", max_new_tokens=64))
+    ```
+
+    Wraps `AutoModelForCausalLM` (GPT-2, Llama, …). A `mode="text"` corpus is packed for
+    next-token training; a `mode="instruct"` corpus masks the prompt out of the loss (labels
+    set to `-100`). `generate` continues a prompt via `model.generate`.
+
+=== "Encoder-only (masked)"
+
+    ```python
+    from autonmt.backends import HuggingFaceMaskedLM
+
+    trainer = HuggingFaceMaskedLM.from_corpus(corpus, run_prefix="ft",
+                                              model_id="bert-base-uncased", mlm_probability=0.15)
+    trainer.fit(corpus, block_size=256, max_epochs=3, batch_size=16, learning_rate=5e-5)
+    print(trainer.evaluate(corpus)["masked_acc"])
+    print(trainer.fill_mask("the [MASK] fox jumps", top_k=5))   # use the tokenizer's mask token
+    ```
+
+    Wraps `AutoModelForMaskedLM` (BERT, RoBERTa, …). HF's `DataCollatorForLanguageModeling`
+    applies the 80/10/10 masking for you, so you just point it at a `mode="mlm"` (or `"text"`)
+    corpus. `fill_mask` predicts the positions holding the tokenizer's mask token.
+
+Both share the translation backend's plumbing: lazy loading, the `FitConfig` →
+`TrainingArguments` mapping (`hf_training_args=` for HF-only knobs), and saving the fine-tuned
+model to the run's `checkpoints/`. `fit` needs the `[hf-models]` extra (`accelerate`);
+`evaluate` / `generate` / `fill_mask` do not. The native, train-from-scratch counterparts are
+[`GPT`](../models/catalog.md#gpt) and [`MLMTransformer`](../models/catalog.md#mlmtransformer)
+— see the [support matrix](choosing.md#support-matrix).
+
 ## HuggingFace metrics (`hg_*`)
 
 Beyond AutoNMT's built-in metrics, you can request **any** metric from the HuggingFace
