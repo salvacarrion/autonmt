@@ -22,8 +22,8 @@ but expose their own verbs (`fit` / `evaluate` / `generate` or `fill_mask`). Sup
 | Model family | Native (in-house) | HuggingFace (pretrained) | Fairseq |
 | --- | --- | --- | --- |
 | **Translation** (encoder–decoder) | `AutonmtTranslator` | `HuggingFaceTranslator` | `FairseqTranslator` *(deprecated)* |
-| **Decoder-only LLM** | [`LMTrainer`](../../how-to/train-language-model.md) + `GPT` | [`HuggingFaceCausalLM`](huggingface.md#language-models) | ❌ |
-| **Encoder-only MLM** | [`MLMTrainer`](../../how-to/pretrain-masked-lm.md) + `MLMTransformer` | [`HuggingFaceMaskedLM`](huggingface.md#language-models) | ❌ |
+| **Decoder-only LLM** | [`AutonmtCausalLM`](../../how-to/train-language-model.md) + `GPT` | [`HuggingFaceCausalLM`](huggingface.md#language-models) | ❌ |
+| **Encoder-only MLM** | [`AutonmtMaskedLM`](../../how-to/pretrain-masked-lm.md) + `MLMTransformer` | [`HuggingFaceMaskedLM`](huggingface.md#language-models) | ❌ |
 
 - **Native** trains in-house models from scratch (research on the architecture itself) — see
   [LM corpora](../data/lm-corpora.md) and the [model catalog](../models/catalog.md).

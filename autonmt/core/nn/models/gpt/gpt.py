@@ -94,7 +94,7 @@ class GPT(LitLM):
     [arXiv:1608.05859](https://arxiv.org/abs/1608.05859)
     """
 
-    # Parity with the seq2seq models' decoding flag. ``lm_generate`` manages the
+    # Parity with the seq2seq models' decoding flag. ``LMGenerator`` manages the
     # KV cache itself, but this advertises the capability.
     supports_incremental_decoding = True
 

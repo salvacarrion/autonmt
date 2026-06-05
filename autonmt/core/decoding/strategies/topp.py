@@ -1,9 +1,9 @@
 import torch
 
-from autonmt.core.decoding.base_step_search import BaseStepSearch
+from autonmt.core.decoding.strategies.base import BaseStrategy
 
 
-class TopPSampling(BaseStepSearch):
+class TopPSampling(BaseStrategy):
     """Top-p (nucleus) sampling.
 
     At every step, keep the smallest set of tokens whose cumulative probability

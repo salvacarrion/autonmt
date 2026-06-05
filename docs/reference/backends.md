@@ -15,20 +15,20 @@ See [Choosing a backend](../guide/backends/choosing.md) for the narrative versio
 
 ::: autonmt.backends.autonmt.translation_engine.AutonmtTranslator
 
-## LMTrainer
+## AutonmtCausalLM
 
 The trainer for decoder-only language models (`fit` / `evaluate` / `generate`). See
 [Train a language model](../guide/data/lm-corpora.md) and
 [Text generation & sampling](../guide/translation/text-generation.md).
 
-::: autonmt.backends.lm.trainer.LMTrainer
+::: autonmt.backends.autonmt.lm.AutonmtCausalLM
 
-## MLMTrainer
+## AutonmtMaskedLM
 
 The trainer for encoder-only masked language models (`fit` / `evaluate` / `fill_mask`). See
 [Pretrain a masked LM](../how-to/pretrain-masked-lm.md).
 
-::: autonmt.backends.lm.mlm_trainer.MLMTrainer
+::: autonmt.backends.autonmt.lm.AutonmtMaskedLM
 
 ## HuggingFaceTranslator
 

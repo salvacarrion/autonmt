@@ -61,8 +61,9 @@ configured into oblivion:
 
 - Need a new architecture? Subclass the seq2seq base and implement
   [three methods](../guide/models/custom-models.md).
-- Need a different decoding rule? Subclass [`BaseSearch`](../guide/translation/decoding.md)
-  (or the one-method `BaseStepSearch`).
+- Need a different decoding rule? Subclass the one-method
+  [`BaseStrategy`](../guide/translation/decoding.md) (or `BaseSearch` for a multi-hypothesis
+  driver).
 - Need a custom metric? Register a [`MetricBackend`](../guide/evaluation/metrics.md).
 - Need bespoke data cleaning? Pass a **callable hook** (`preprocess_raw_fn`,
   `preprocess_splits_fn`, `preprocess_fn`) — you write a function, AutoNMT calls it at the

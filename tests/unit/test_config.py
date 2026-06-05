@@ -53,20 +53,21 @@ class TestMerge:
         """A BaseSearch instance passed via PredictConfig must survive ``merge_config``
         so the translator can pick it up. ``asdict`` deep-copies the value, so we
         check type + attrs rather than identity."""
-        from autonmt.core.decoding import TopPSampling
-        decoder = TopPSampling(top_p=0.85, temperature=0.7)
+        from autonmt.core.decoding import StepSearch, TopPSampling
+        decoder = StepSearch(TopPSampling(top_p=0.85, temperature=0.7))
         cfg, _ = merge_config(PredictConfig(decoder=decoder), PredictConfig, {})
-        assert isinstance(cfg["decoder"], TopPSampling)
-        assert cfg["decoder"].top_p == 0.85
-        assert cfg["decoder"].temperature == 0.7
+        assert isinstance(cfg["decoder"], StepSearch)
+        assert isinstance(cfg["decoder"].strategy, TopPSampling)
+        assert cfg["decoder"].strategy.top_p == 0.85
+        assert cfg["decoder"].strategy.temperature == 0.7
 
     def test_predict_config_decoder_kwarg_overrides_config(self):
-        from autonmt.core.decoding import GreedySearch, TopKSampling
+        from autonmt.core.decoding import StepSearch, BeamSearch
         cfg, _ = merge_config(
-            PredictConfig(decoder=GreedySearch()), PredictConfig,
-            {"decoder": TopKSampling(top_k=5)},
+            PredictConfig(decoder=StepSearch()), PredictConfig,
+            {"decoder": BeamSearch()},
         )
-        assert isinstance(cfg["decoder"], TopKSampling)
+        assert isinstance(cfg["decoder"], BeamSearch)
 
     def test_precision_defaults_to_fp32(self):
         cfg, _ = merge_config(None, FitConfig, {})

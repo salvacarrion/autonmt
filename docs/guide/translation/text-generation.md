@@ -1,21 +1,21 @@
 # Text generation & sampling
 
 For a language model there's no test set to _translate_ — you give it a prompt and it
-**continues** it. That's what [`LMTrainer.generate`](../../reference/backends.md) does: it
+**continues** it. That's what [`AutonmtCausalLM.generate`](../../reference/backends.md) does: it
 tokenizes the prompt, runs autoregressive decoding with a KV cache, and detokenizes the
 result back to text.
 
 ```python
 from autonmt.core.decoding import GreedySearch, TopPSampling
 
-trainer = LMTrainer.from_corpus(corpus, run_prefix="hello", model=model)
+trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="hello", model=model)
 trainer.fit(corpus, block_size=64, max_epochs=5)
 
 # Deterministic:
-trainer.generate("the quick brown", sampler=GreedySearch(), max_new_tokens=32)
+trainer.generate("the quick brown", strategy=GreedySearch(), max_new_tokens=32)
 
 # Stochastic (nucleus sampling):
-trainer.generate("the quick brown", sampler=TopPSampling(top_p=0.9, temperature=0.8),
+trainer.generate("the quick brown", strategy=TopPSampling(top_p=0.9, temperature=0.8),
                  max_new_tokens=32)
 ```
 
@@ -72,25 +72,25 @@ continue a **specific prompt shape**. Generate with the _same_ shape you trained
 
 ```python
 # trained on pairs like ("reverse: a b c", "c b a")
-trainer.generate("reverse: d e f g", sampler=GreedySearch(), max_new_tokens=16)
+trainer.generate("reverse: d e f g", strategy=GreedySearch(), max_new_tokens=16)
 ```
 
 By default `generate` prepends `<s>` and stops at `</s>` (`add_sos=True`, `stop_at_eos=True`),
 matching how instruct examples were packed.
 
-## The low-level function
+## The low-level driver
 
 `generate` is a thin wrapper over
-[`lm_generate`](../../reference/core.md#autonmt.core.decoding.lm_generate), which takes a model
+[`LMGenerator`](../../reference/core.md#autonmt.core.decoding.lm.generate), which takes a model
 and **token ids** directly — useful when you already hold ids or want to drive batched/custom
 generation yourself:
 
 ```python
-from autonmt.core.decoding.lm_generate import lm_generate
+from autonmt.core.decoding import LMGenerator, TopPSampling
 
 ids = corpus.encode("the quick", add_sos=True)
-out_ids = lm_generate(model, ids, sampler=TopPSampling(top_p=0.9), max_new_tokens=32,
-                      eos_id=corpus.eos_id)
+out_ids = LMGenerator(TopPSampling(top_p=0.9)).generate(
+    model, ids, max_new_tokens=32, eos_id=corpus.eos_id)
 print(corpus.decode(out_ids))
 ```
 
@@ -101,7 +101,7 @@ code.
 
 This page is about **autoregressive** generation (encoder–decoder and decoder-only models). An
 **encoder-only** [masked LM](../data/lm-corpora.md#mlm-mode) is bidirectional and does not
-generate left to right — there is no `generate`. Instead, [`MLMTrainer`](../../reference/backends.md)
+generate left to right — there is no `generate`. Instead, [`AutonmtMaskedLM`](../../reference/backends.md)
 exposes `fill_mask`, which predicts the token(s) at `<mask>` positions:
 
 ```python

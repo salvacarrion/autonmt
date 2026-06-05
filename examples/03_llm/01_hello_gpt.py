@@ -10,7 +10,7 @@ The LM counterpart of `01_hello_autonmt.py`. Same three-block shape, but for a
 
     1. An `LMCorpusBuilder` that trains a tokenizer and packs the text into
        fixed-length token blocks (nanoGPT-style).
-    2. A `GPT` (decoder-only Transformer) trained with an `LMTrainer`.
+    2. A `GPT` (decoder-only Transformer) trained with an `AutonmtCausalLM`.
     3. `evaluate()` (perplexity) + `generate()` (sample a continuation).
 
 What's different vs the translation tutorials
@@ -19,7 +19,7 @@ What's different vs the translation tutorials
   of text. `LMCorpus`/`LMCorpusBuilder` live alongside `Dataset` — they don't
   replace it.
 - The model is a `GPT` (no encoder, no cross-attention). Training reuses the
-  same PyTorch-Lightning machinery via `LMTrainer`.
+  same PyTorch-Lightning machinery via `AutonmtCausalLM`.
 - Evaluation is perplexity, not BLEU.
 
 This script uses a tiny *synthetic* corpus with simple sentence structure so it
@@ -39,7 +39,7 @@ sentences drawn from the template — proof the pipeline learns and generates.
 """
 import random
 
-from autonmt.backends import LMTrainer
+from autonmt.backends import AutonmtCausalLM
 from autonmt.core.decoding import TopPSampling
 from autonmt.core.nn.models import GPT
 from autonmt.datasets.lm_corpus import LMCorpusBuilder
@@ -92,7 +92,7 @@ def main():
         max_seq_len=128, dropout=0.1,
     )
 
-    trainer = LMTrainer.from_corpus(corpus, run_prefix="hello", model=model)
+    trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="hello", model=model)
     trainer.fit(
         corpus,
         block_size=64,
@@ -104,9 +104,9 @@ def main():
     metrics = trainer.evaluate(corpus, block_size=64)
     print(f"\nValidation perplexity: {metrics['ppl']:.2f}\n")
 
-    sampler = TopPSampling(top_p=0.9, temperature=0.8)
+    strategy = TopPSampling(top_p=0.9, temperature=0.8)
     for prompt in ["the quick", "a lazy dog", "the bright moon"]:
-        out = trainer.generate(prompt, sampler=sampler, max_new_tokens=16)
+        out = trainer.generate(prompt, strategy=strategy, max_new_tokens=16)
         print(f"  {prompt!r:22} -> {out!r}")
 
 

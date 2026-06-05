@@ -2,7 +2,7 @@
 
 A translation model is scored against a reference with [BLEU/chrF/COMET](metrics.md). A
 language model has no reference — so its intrinsic metric is **perplexity** on a held-out
-split. [`LMTrainer.evaluate`](../../reference/backends.md) computes it:
+split. [`AutonmtCausalLM.evaluate`](../../reference/backends.md) computes it:
 
 ```python
 metrics = trainer.evaluate(corpus, split="val", block_size=64)
@@ -61,7 +61,7 @@ complements:
 ## Masked language models
 
 An encoder-only [masked LM](../data/lm-corpora.md#mlm-mode) is evaluated differently:
-[`MLMTrainer.evaluate`](../../reference/backends.md) reports **masked-token accuracy** (the
+[`AutonmtMaskedLM.evaluate`](../../reference/backends.md) reports **masked-token accuracy** (the
 fraction of masked positions the model recovers) alongside a pseudo-perplexity over those
 positions:
 

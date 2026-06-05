@@ -56,7 +56,7 @@ See [Decoding strategies](../guide/translation/decoding.md) for the intuition an
 Prompt-conditioned autoregressive generation for decoder-only models, reusing the decoding
 strategies above. See [Text generation & sampling](../guide/translation/text-generation.md).
 
-::: autonmt.core.decoding.lm_generate
+::: autonmt.core.decoding.lm.generate
 
 ## Translation dataset
 

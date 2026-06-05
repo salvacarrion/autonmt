@@ -20,7 +20,7 @@ On-disk layout (under ``base_path/<name>/<size>/``)::
     data/1_splits/     text: {train,val}.txt    | instruct: {train,val}.{prompt,completion}
     data/4_encoded/<sw>/<vs>/  {train,val}.tokens.npy   (+ .sup.npy for instruct)
     vocabs/<sw>/<vs>/  spm.model + spm.vocab
-    models/lm/runs/<run>/...   checkpoints, logs (written by LMTrainer)
+    models/<engine>/runs/<run>/...   checkpoints, logs (engine = backend's ENGINE, e.g. autonmt)
 
 Packing into fixed blocks is a read-time concern handled by
 :class:`~autonmt.core.data.lm_dataset.LMDataset`; this module produces the flat
@@ -60,8 +60,7 @@ class LMCorpus:
     """Identity + on-disk paths for one LM corpus variant (name × size × subword × vocab)."""
 
     def __init__(self, base_path, name, size_name, mode, subword_model, vocab_size,
-                 byte_fallback=False, train_name="train", val_name="val",
-                 engine="lm"):
+                 byte_fallback=False, train_name="train", val_name="val"):
         if mode not in (TEXT, INSTRUCT, MLM):
             raise ValueError(f"Unknown LM corpus mode {mode!r} (expected {TEXT!r}, {INSTRUCT!r} or {MLM!r})")
         sw, sugar_bf = SubwordModel.parse_with_byte_fallback(subword_model, default_byte_fallback=byte_fallback)
@@ -80,7 +79,6 @@ class LMCorpus:
         self.vocab_size = str(vocab_size).lower()
         self.train_name = train_name
         self.val_name = val_name
-        self.engine = engine
 
         # Special-token ids (mirrors the trained SentencePiece model).
         self.unk_id, self.sos_id, self.eos_id, self.pad_id = UNK_ID, SOS_ID, EOS_ID, PAD_ID
@@ -118,8 +116,11 @@ class LMCorpus:
     def get_vocab_path(self, fname=""):
         return self._root("vocabs", *self._vocab_size_id(), fname)
 
-    def get_runs_path(self, fname=""):
-        return self._root("models", self.engine, "runs", fname)
+    def get_runs_path(self, engine, fname=""):
+        # ``engine`` is supplied by the backend (its ENGINE constant), mirroring
+        # Dataset.get_runs_path(toolkit=...) — so models/<engine>/ tracks the
+        # backend that wrote the run (autonmt, huggingface), not the data.
+        return self._root("models", engine, "runs", fname)
 
     def get_run_name(self, run_prefix):
         return f"{run_prefix}_{self._sw_str()}_{self.vocab_size}".lower()

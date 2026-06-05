@@ -117,8 +117,8 @@ After training, the best model + tokenizer are saved to the run's `checkpoints/`
 `HuggingFaceTranslator` is encoder–decoder only. For the other two families there are two
 sibling backends that fine-tune **pretrained** LM checkpoints from the Hub inside AutoNMT's
 pipeline. They're *not* `BaseTranslator`s (there's no test set to translate-and-score) — they
-mirror the native [`LMTrainer`](../../how-to/train-language-model.md) /
-[`MLMTrainer`](../../how-to/pretrain-masked-lm.md) verbs and consume an
+mirror the native [`AutonmtCausalLM`](../../how-to/train-language-model.md) /
+[`AutonmtMaskedLM`](../../how-to/pretrain-masked-lm.md) verbs and consume an
 [`LMCorpus`](../data/lm-corpora.md) for data, tokenizing with the model's own tokenizer.
 
 === "Decoder-only (causal)"

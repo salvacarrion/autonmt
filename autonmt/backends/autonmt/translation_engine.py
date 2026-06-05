@@ -32,7 +32,7 @@ from autonmt.utils.logger import get_logger
 from autonmt.utils.fileio import rename_file, write_file_lines
 from autonmt.core.data.translation_dataset import TranslationDataset
 from autonmt.core.samplers import BucketSampler, RandomSampler, SequentialSampler
-from autonmt.core.decoding import BeamSearch, GreedySearch
+from autonmt.core.decoding import BeamSearch, StepSearch
 from autonmt.backends._base.translation_engine import BaseTranslator
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
 from autonmt.backends._base.precision import to_lightning
@@ -345,12 +345,12 @@ class AutonmtTranslator(BaseTranslator):
 
         self.model = set_model_device(self.model, accelerator=accelerator)
 
-        # If the caller supplied a decoder (e.g. TopPSampling, TopKSampling,
-        # MultinomialSampling, or a custom BeamSearch with non-default
-        # length_penalty), use it as-is. Otherwise fall back to the historical
-        # behaviour: BeamSearch when beam_width > 1, GreedySearch otherwise.
+        # If the caller supplied a decoder (a BaseSearch driver, e.g.
+        # StepSearch(TopPSampling()) for sampling, or BeamSearch with a non-default
+        # length_penalty), use it as-is. Otherwise fall back to the default:
+        # BeamSearch when beam_width > 1, greedy StepSearch otherwise.
         search_algorithm = decoder if decoder is not None else (
-            BeamSearch() if beam_width > 1 else GreedySearch()
+            BeamSearch() if beam_width > 1 else StepSearch()
         )
         predictions, _ = search_algorithm.decode(
             model=self.model, dataset=self.test_tds[filter_idx],

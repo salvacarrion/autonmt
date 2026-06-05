@@ -1,20 +1,26 @@
-from abc import abstractmethod
-
 import torch
 import torch.utils.data as tud
 import tqdm
 
-from autonmt.core.decoding.base_search import BaseSearch
+from autonmt.core.decoding.seq2seq.base_search import BaseSearch
+from autonmt.core.decoding.strategies.greedy import GreedySearch
 
 
-class BaseStepSearch(BaseSearch):
-    """Shared scaffolding for one-token-per-step decoders.
+class StepSearch(BaseSearch):
+    """One-token-per-step *encoder-decoder* decoder.
 
-    Greedy and sampling-based strategies (temperature, top-k, top-p/nucleus)
-    only differ in *how* the next token is picked from the decoder's logits at
-    each step — the rest (DataLoader, encoder call, EOS short-circuit, length
-    cap, output assembly) is identical. Subclasses implement
-    :py:meth:`pick_next_token`; this class drives the loop.
+    Drives the encoder-seeded loop (DataLoader, encoder call, EOS short-circuit,
+    length cap, output assembly) and delegates the per-step token choice to a
+    :class:`~autonmt.core.decoding.strategies.base.BaseStrategy`
+    (greedy / top-k / top-p / multinomial). The strategy is the only thing that
+    varies between greedy and the sampling variants, so it is composed rather
+    than subclassed — the same strategy instance also works with the decoder-only
+    :class:`~autonmt.core.decoding.lm.generate.LMGenerator`.
+
+    Parameters
+    ----------
+    strategy : BaseStrategy, optional
+        Token-selection strategy. Defaults to :class:`GreedySearch`.
 
     If the model exposes ``supports_incremental_decoding = True``, decoding
     switches to KV-cached mode: each step feeds only the last token plus an
@@ -22,15 +28,8 @@ class BaseStepSearch(BaseSearch):
     of O(L^2). Models without the flag get the legacy full-prefix path.
     """
 
-    @abstractmethod
-    def pick_next_token(self, logits):
-        """Choose the next token per sequence.
-
-        ``logits`` has shape ``(B, V)`` (unnormalized scores at the current
-        position). Return a ``LongTensor`` of shape ``(B,)`` with the chosen
-        token id per row.
-        """
-        ...
+    def __init__(self, strategy=None):
+        self.strategy = strategy if strategy is not None else GreedySearch()
 
     def decode(self, model, dataset, sos_id, eos_id, pad_id, batch_size,
                max_tokens, max_len_a, max_len_b, num_workers, **kwargs):
@@ -77,7 +76,7 @@ class BaseStepSearch(BaseSearch):
                     outputs_t, states = model.forward_decoder(
                         y=y_in, y_len=None, states=states, x_pad_mask=x_pad_mask,
                         incremental_state=incremental_state)
-                    next_tok = self.pick_next_token(outputs_t[:, -1, :])
+                    next_tok = self.strategy.pick_next_token(outputs_t[:, -1, :])
                     y_pred[:, i] = next_tok
 
                     eos_mask |= (next_tok == eos_id)

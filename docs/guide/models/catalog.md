@@ -5,7 +5,7 @@ The native engine ships seven encoder–decoder architectures, all under
 [`from_vocabs`](using-a-model.md) constructor and the whole training loop. Pick by the
 research question you're asking. It also ships a decoder-only **[`GPT`](#gpt)** for
 [language modelling](../data/lm-corpora.md) — same engine, a different base (it's trained with
-[`LMTrainer`](../../reference/backends.md) rather than `AutonmtTranslator`).
+[`AutonmtCausalLM`](../../reference/backends.md) rather than `AutonmtTranslator`).
 
 | Class         | Family                         | Reach for it when…                                  |
 | ------------- | ------------------------------ | --------------------------------------------------- |
@@ -105,7 +105,7 @@ A nanoGPT-style **decoder-only** Transformer for language modelling
 ([Radford et al., 2019](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)).
 Unlike the models above, it has no encoder and no cross-attention — a single causal stack
 predicts the next token — so it subclasses the LM base (`LitLM`, not the seq2seq base) and is
-trained with [`LMTrainer`](../../reference/backends.md). Defaults follow the modern
+trained with [`AutonmtCausalLM`](../../reference/backends.md). Defaults follow the modern
 ([LLaMA, Touvron et al., 2023](https://arxiv.org/abs/2302.13971)) recipe:
 
 ```python
@@ -143,7 +143,7 @@ generates, this is **bidirectional** — every position attends to the whole seq
 predicts randomly _masked_ tokens. It reuses PyTorch's `nn.TransformerEncoder` (the same
 bidirectional stack the built-in `Transformer`'s encoder uses), so the only thing new on the
 encoder-only path is the objective, not the attention. Like `GPT` it subclasses an LM base
-(`LitMLM`) and trains with a dedicated trainer ([`MLMTrainer`](../../reference/backends.md)).
+(`LitMLM`) and trains with a dedicated trainer ([`AutonmtMaskedLM`](../../reference/backends.md)).
 
 ```python
 MLMTransformer(
@@ -159,7 +159,7 @@ MLMTransformer(
 ```
 
 - **No generation.** An MLM doesn't decode left to right; instead of `generate` you call
-  `MLMTrainer.fill_mask("the <mask> fox …")` to predict the masked positions.
+  `AutonmtMaskedLM.fill_mask("the <mask> fox …")` to predict the masked positions.
 - **Reserved `<mask>`.** Build it from a [`mode="mlm"` corpus](../data/lm-corpora.md#mlm-mode)
   via `MLMTransformer.from_corpus(corpus, ...)`; the corpus reserves the `<mask>` piece and the
   [`MLMDataset`](../../reference/core.md) applies the dynamic 80/10/10 masking.

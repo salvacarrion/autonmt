@@ -53,7 +53,7 @@ inside those four steps and how to bend each one to your research.
 !!! tip "Training a language model instead?"
     The same loop drives decoder-only LMs. You swap the parallel `DatasetBuilder` for a
     single-stream [`LMCorpusBuilder`](reference/datasets.md), the `Transformer` for a
-    [`GPT`](reference/core.md), and `AutonmtTranslator` for an `LMTrainer` whose verbs are
+    [`GPT`](reference/core.md), and `AutonmtTranslator` for an `AutonmtCausalLM` whose verbs are
     `fit` / `evaluate` / `generate` — pretraining and instruction-tuning share one code
     path. There's also an encoder-only `MLMTransformer` (BERT-style masked LM) on the same
     pipeline, so all three Transformer families are covered. Start at

@@ -1,7 +1,7 @@
-from autonmt.core.decoding.base_step_search import BaseStepSearch
+from autonmt.core.decoding.strategies.base import BaseStrategy
 
 
-class GreedySearch(BaseStepSearch):
+class GreedySearch(BaseStrategy):
     """Argmax (greedy) decoding.
 
     At every step pick the token with the highest logit. Deterministic and

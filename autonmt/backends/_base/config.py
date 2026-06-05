@@ -101,10 +101,10 @@ class PredictConfig:
     preprocess_fn: Optional[Callable] = None
     eval_mode: Union[str, EvalMode] = "same"
     force_overwrite: bool = False
-    # Optional decoder instance (BaseSearch subclass). When None, the backend
-    # picks a default — AutonmtTranslator falls back to GreedySearch / BeamSearch
-    # depending on beam_width. Pass an instance of MultinomialSampling /
-    # TopKSampling / TopPSampling / custom BaseSearch to override.
+    # Optional decoder instance (BaseSearch driver). When None, the backend
+    # picks a default — AutonmtTranslator falls back to StepSearch / BeamSearch
+    # depending on beam_width. Pass StepSearch(strategy) for sampling (e.g.
+    # StepSearch(TopPSampling())) or a custom BaseSearch to override.
     decoder: Optional[Any] = None
 
     def as_kwargs(self) -> dict:

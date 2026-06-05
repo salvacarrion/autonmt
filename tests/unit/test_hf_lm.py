@@ -53,7 +53,7 @@ def test_from_corpus_wires_run_layout():
     m = HuggingFaceCausalLM.from_corpus(corpus, run_prefix="ft", model_id="gpt2", device="cpu")
     assert m.run_name == "ft_bpe_16000"
     assert m.model_id == "gpt2"
-    assert "models/lm/runs/ft_bpe_16000/checkpoints" in m.get_model_checkpoints_path()
+    assert "models/huggingface/runs/ft_bpe_16000/checkpoints" in m.get_model_checkpoints_path()
 
 
 @pytest.mark.skipif(not HAS_TRANSFORMERS, reason="transformers not installed")

@@ -6,9 +6,9 @@ two model families so you can fine-tune real pretrained checkpoints from the Hub
 inside AutoNMT's pipeline:
 
   * :class:`HuggingFaceCausalLM` — ``AutoModelForCausalLM`` (GPT-2, Llama, …).
-    Counterpart of the native :class:`~autonmt.backends.lm.trainer.LMTrainer`.
+    Counterpart of the native :class:`~autonmt.backends.autonmt.lm.AutonmtCausalLM`.
   * :class:`HuggingFaceMaskedLM` — ``AutoModelForMaskedLM`` (BERT, RoBERTa, …).
-    Counterpart of the native :class:`~autonmt.backends.lm.mlm_trainer.MLMTrainer`.
+    Counterpart of the native :class:`~autonmt.backends.autonmt.lm.AutonmtMaskedLM`.
 
 They consume an :class:`~autonmt.datasets.lm_corpus.LMCorpus` for *data* (reading
 its split text), but tokenize with the model's **own** HF tokenizer — the
@@ -98,9 +98,9 @@ class _HuggingFaceLMBase:
 
     @classmethod
     def from_corpus(cls, corpus, *, run_prefix: str, model_id: str, **kwargs):
-        """Bind to ``corpus``'s runs path (mirrors ``LMTrainer.from_corpus``)."""
+        """Bind to ``corpus``'s runs path (mirrors ``AutonmtCausalLM.from_corpus``)."""
         return cls(model_id=model_id, corpus=corpus,
-                   runs_dir=corpus.get_runs_path(),
+                   runs_dir=corpus.get_runs_path(engine=cls.ENGINE),
                    run_name=corpus.get_run_name(run_prefix), **kwargs)
 
     # --- hooks subclasses implement -------------------------------------

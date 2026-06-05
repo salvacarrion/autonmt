@@ -11,7 +11,7 @@ different objective:
 
     1. An `LMCorpusBuilder` with `mode="mlm"` — single-stream text, but it
        reserves a `<mask>` token in the vocabulary.
-    2. An `MLMTransformer` (bidirectional encoder) trained with an `MLMTrainer`.
+    2. An `MLMTransformer` (bidirectional encoder) trained with an `AutonmtMaskedLM`.
     3. `evaluate()` (masked-token accuracy) + `fill_mask()` (predict the token
        at a `<mask>`).
 
@@ -34,7 +34,7 @@ Run
 """
 import random
 
-from autonmt.backends import MLMTrainer
+from autonmt.backends import AutonmtMaskedLM
 from autonmt.core.nn.models import MLMTransformer
 from autonmt.datasets.lm_corpus import LMCorpusBuilder
 
@@ -82,7 +82,7 @@ def main():
     )
 
     # 3. Train (masks ~15% of tokens per batch, dynamically).
-    trainer = MLMTrainer.from_corpus(corpus, run_prefix="mlm", model=model, mlm_prob=0.15)
+    trainer = AutonmtMaskedLM.from_corpus(corpus, run_prefix="mlm", model=model, mlm_prob=0.15)
     trainer.fit(corpus, block_size=32, max_epochs=25, batch_size=64,
                 learning_rate=1e-3, seed=42, accelerator="auto")
 

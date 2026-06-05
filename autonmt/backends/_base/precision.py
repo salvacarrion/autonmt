@@ -3,7 +3,7 @@
 ``FitConfig.precision`` accepts a small canonical vocabulary — ``"fp32"``
 (default), ``"fp16"``, ``"bf16"`` — that each backend renders in its own dialect:
 
-* ``AutonmtTranslator`` / ``LMTrainer`` (PyTorch Lightning) → ``Trainer(precision=...)``
+* ``AutonmtTranslator`` / ``AutonmtCausalLM`` (PyTorch Lightning) → ``Trainer(precision=...)``
 * ``HuggingFaceTranslator`` (``Seq2SeqTrainingArguments``) → ``fp16=`` / ``bf16=``
 * ``FairseqTranslator`` (CLI) → ``--fp16`` / ``--bf16``
 

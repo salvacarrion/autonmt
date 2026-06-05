@@ -1,9 +1,9 @@
 import torch
 
-from autonmt.core.decoding.base_step_search import BaseStepSearch
+from autonmt.core.decoding.strategies.base import BaseStrategy
 
 
-class TopKSampling(BaseStepSearch):
+class TopKSampling(BaseStrategy):
     """Top-k sampling.
 
     At every step, keep the ``top_k`` tokens with the highest logits, zero-out

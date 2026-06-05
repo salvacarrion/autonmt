@@ -14,7 +14,7 @@ rather than to also reproduce the instruction.
 What's different vs 01_hello_gpt
 --------------------------------
 - `mode="instruct"` and `pairs=[(prompt, completion), ...]` instead of `text`.
-- Everything else (the GPT model, `LMTrainer`, `generate`) is identical — the
+- Everything else (the GPT model, `AutonmtCausalLM`, `generate`) is identical — the
   prompt masking is entirely a data-side concern.
 
 The toy task is **sequence reversal**: given `reverse: a b c d` the target is
@@ -33,7 +33,7 @@ completions. After a few epochs the reversals should be mostly correct.
 """
 import random
 
-from autonmt.backends import LMTrainer
+from autonmt.backends import AutonmtCausalLM
 from autonmt.core.decoding import GreedySearch
 from autonmt.core.nn.models import GPT
 from autonmt.datasets.lm_corpus import LMCorpusBuilder
@@ -80,7 +80,7 @@ def main():
         max_seq_len=128, dropout=0.1,
     )
 
-    trainer = LMTrainer.from_corpus(corpus, run_prefix="instruct", model=model)
+    trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="instruct", model=model)
     trainer.fit(
         corpus,
         block_size=64,
@@ -94,7 +94,7 @@ def main():
     # Greedy decoding for a deterministic task. Held-out prompts:
     held_out = ["reverse: a b c", "reverse: d e f g", "reverse: h a h b c"]
     for prompt in held_out:
-        out = trainer.generate(prompt, sampler=GreedySearch(), max_new_tokens=16)
+        out = trainer.generate(prompt, strategy=GreedySearch(), max_new_tokens=16)
         print(f"  {prompt!r:26} -> {out!r}")
 
 

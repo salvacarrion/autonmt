@@ -227,8 +227,8 @@ def main():
     metrics = {"bleu", "chrf"}
     beams = [5]
 
-    # Custom decoder: bias beam search toward longer hypotheses. Try
-    # TopPSampling / TopKSampling / MultinomialSampling for stochastic decoding.
+    # Custom decoder: bias beam search toward longer hypotheses. For stochastic
+    # decoding wrap a strategy in a StepSearch, e.g. StepSearch(TopPSampling(0.9)).
     decoder = BeamSearch(length_penalty=1.2)
 
     # `filter_eval_datasets` runs internally inside predict(); doing it manually

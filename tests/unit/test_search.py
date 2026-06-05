@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from autonmt.core.decoding import (
     BeamSearch,
-    GreedySearch,
+    StepSearch,
     MultinomialSampling,
     TopKSampling,
     TopPSampling,
@@ -85,7 +85,7 @@ def test_greedy_search_breaks_on_eos_and_keeps_eos_token():
     src = torch.tensor([[3, 4, 5]])  # B=1, L=3
     model = _ConstPredModel(vocab_size=10, const_id=eos_id)
 
-    out, _ = GreedySearch().decode(
+    out, _ = StepSearch().decode(
         model=model, dataset=_FixedBatchDataset(src),
         sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
         batch_size=1, max_tokens=None, max_len_a=0, max_len_b=8, num_workers=0,
@@ -105,7 +105,7 @@ def test_greedy_search_includes_final_token_at_length_cap():
     src = torch.tensor([[3, 4]])  # B=1, L=2
     model = _ConstPredModel(vocab_size=10, const_id=predicted)
 
-    out, _ = GreedySearch().decode(
+    out, _ = StepSearch().decode(
         model=model, dataset=_FixedBatchDataset(src),
         sos_id=sos_id, eos_id=eos_id, pad_id=pad_id,
         batch_size=1, max_tokens=None, max_len_a=0, max_len_b=4, num_workers=0,

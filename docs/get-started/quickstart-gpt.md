@@ -31,7 +31,7 @@ Here it is end to end; the sections below unpack each part.
 import random
 
 from autonmt.datasets.lm_corpus import LMCorpusBuilder
-from autonmt.backends import LMTrainer
+from autonmt.backends import AutonmtCausalLM
 from autonmt.core.nn.models import GPT
 from autonmt.core.decoding import TopPSampling
 
@@ -57,12 +57,12 @@ corpus = builder.get_train_ds()[0]
 model = GPT.from_corpus(corpus, embed_dim=128, num_layers=4, num_heads=4, max_seq_len=128)
 
 # 3. Train.
-trainer = LMTrainer.from_corpus(corpus, run_prefix="hello", model=model)
+trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="hello", model=model)
 trainer.fit(corpus, block_size=64, max_epochs=5, batch_size=64, learning_rate=3e-3, seed=42)
 
 # 4. Evaluate (perplexity) and 5. generate.
 print("perplexity:", trainer.evaluate(corpus, block_size=64)["ppl"])
-print(trainer.generate("the quick", sampler=TopPSampling(top_p=0.9, temperature=0.8),
+print(trainer.generate("the quick", strategy=TopPSampling(top_p=0.9, temperature=0.8),
                         max_new_tokens=16))
 ```
 
@@ -117,11 +117,11 @@ repeat them. `max_seq_len` is the longest context the model can attend over; it 
 ### 3 · Train
 
 ```python
-trainer = LMTrainer.from_corpus(corpus, run_prefix="hello", model=model)
+trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="hello", model=model)
 trainer.fit(corpus, block_size=64, max_epochs=5, batch_size=64, learning_rate=3e-3, seed=42)
 ```
 
-[`LMTrainer`](../reference/backends.md) plays the role `AutonmtTranslator` plays for
+[`AutonmtCausalLM`](../reference/backends.md) plays the role `AutonmtTranslator` plays for
 translation, but its verbs are **`fit` / `evaluate` / `generate`** (there's no parallel
 test set to translate-and-score). `from_corpus` wires the run's checkpoints and logs to the
 corpus's on-disk location. `fit` reuses the same PyTorch-Lightning machinery as the
@@ -147,15 +147,15 @@ There's no BLEU here — an LM has no reference to compare against. The intrinsi
 ### 5 · Generate
 
 ```python
-text = trainer.generate("the quick", sampler=TopPSampling(top_p=0.9, temperature=0.8),
+text = trainer.generate("the quick", strategy=TopPSampling(top_p=0.9, temperature=0.8),
                         max_new_tokens=16)
 ```
 
 `generate` tokenizes the prompt, runs **KV-cached** autoregressive decoding, and detokenizes
-the result. The `sampler` is exactly the same family of strategies used for translation —
+the result. The `strategy` is exactly the same family used for translation —
 [greedy, top-k, top-p (nucleus), and multinomial](../guide/translation/decoding.md) — so
-there's nothing new to learn. Pass `GreedySearch()` for deterministic output, or a sampler
-for variety.
+there's nothing new to learn. Pass `GreedySearch()` for deterministic output, or a sampling
+strategy for variety.
 
 ## Instruction-tuning in one step
 
@@ -172,7 +172,7 @@ builder = LMCorpusBuilder(
 ).build()
 ```
 
-Everything else — the `GPT` model, `LMTrainer`, `generate` — is unchanged; prompt masking is
+Everything else — the `GPT` model, `AutonmtCausalLM`, `generate` — is unchanged; prompt masking is
 entirely a data-side concern. A runnable version is in
 [`examples/03_llm/02_instruct.py`](https://github.com/salvacarrion/autonmt/blob/main/examples/03_llm/02_instruct.py).
 

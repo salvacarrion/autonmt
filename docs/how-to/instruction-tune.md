@@ -7,7 +7,7 @@ model, trainer, and generation are identical.
 
 ```python
 from autonmt.datasets.lm_corpus import LMCorpusBuilder
-from autonmt.backends import LMTrainer
+from autonmt.backends import AutonmtCausalLM
 from autonmt.core.nn.models import GPT
 from autonmt.core.decoding import GreedySearch
 
@@ -26,13 +26,13 @@ builder = LMCorpusBuilder(
 ).build()
 corpus = builder.get_train_ds()[0]
 
-# 2-3. Same GPT / LMTrainer as pure LM.
+# 2-3. Same GPT / AutonmtCausalLM as pure LM.
 model = GPT.from_corpus(corpus, embed_dim=256, num_layers=6, num_heads=8, max_seq_len=256)
-trainer = LMTrainer.from_corpus(corpus, run_prefix="ft", model=model)
+trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="ft", model=model)
 trainer.fit(corpus, block_size=256, max_epochs=10, batch_size=32, learning_rate=3e-4, seed=42)
 
 # 4. Generate with the SAME prompt shape used in training.
-print(trainer.generate("Translate to French: good morning", sampler=GreedySearch()))
+print(trainer.generate("Translate to French: good morning", strategy=GreedySearch()))
 ```
 
 ## What's different from pure LM
@@ -54,7 +54,7 @@ before `fit`:
 
 ```python
 model = GPT.from_corpus(corpus, embed_dim=256, num_layers=6, num_heads=8, max_seq_len=256)
-trainer = LMTrainer.from_corpus(corpus, run_prefix="ft", model=model)
+trainer = AutonmtCausalLM.from_corpus(corpus, run_prefix="ft", model=model)
 trainer.load_checkpoint("/path/to/pretrained/best.pt")   # warm start
 trainer.fit(corpus, block_size=256, max_epochs=3, learning_rate=1e-4)
 ```

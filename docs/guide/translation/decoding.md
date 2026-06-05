@@ -29,22 +29,23 @@ We'd love the highest-probability $y$, but there are $V^L$ possible sequences �
 them all is impossible. Every strategy below is a different practical answer to "which
 sequence do we actually return?"
 
-## The contract: `BaseSearch`
+## The contract: driver + strategy
 
-All strategies implement
+Decoding is split in two. A **driver** implements
 [`BaseSearch.decode(...)`](../../reference/core.md#autonmt.core.decoding), returning
-`(token_id_lists, optional_scores)`. Greedy and the sampling strategies share a thinner base,
-`BaseStepSearch`, which implements the whole loop (DataLoader, encoder call, EOS handling,
-length cap) and asks the subclass for just **one** method:
+`(token_id_lists, optional_scores)` — it owns the loop (DataLoader, encoder call, EOS
+handling, length cap). A **strategy** implements `BaseStrategy.pick_next_token`, the *only*
+thing that differs between greedy and the sampling variants:
 
 ```python
 def pick_next_token(self, logits):   # logits: (B, V) at the current step
     return ...                        # → (B,) chosen token id per sequence
 ```
 
-That's why greedy, temperature, top-k, and nucleus sampling are only a few lines each — they
-differ *only* in how they pick from the step's logits. Beam search is structurally different
-(it tracks multiple hypotheses) so it implements `decode` directly.
+The seq2seq driver `StepSearch` *composes* a strategy, so greedy, temperature, top-k, and
+nucleus sampling are only a few lines each — and the very same strategy instance also drives
+decoder-only LMs through `LMGenerator`. Beam search is structurally different (it tracks
+multiple hypotheses), so it is its own `BaseSearch` driver and takes no strategy.
 
 ## Greedy search
 
@@ -186,9 +187,10 @@ one run.
 
 ## Custom decoders
 
-Because decoders are just `BaseSearch` / `BaseStepSearch` subclasses, writing your own (a
-diverse beam search, a constrained decoder, a length-controlled sampler) is a small class —
-see [How-to → Change the decoding strategy](../../how-to/custom-decoding.md).
+Because a new rule is just a `BaseStrategy` (or, for multi-hypothesis search, a `BaseSearch`
+driver), writing your own (a constrained sampler, a length-controlled rule, a diverse beam
+search) is a small class — see
+[How-to → Change the decoding strategy](../../how-to/custom-decoding.md).
 
 ---
 

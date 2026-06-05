@@ -81,7 +81,7 @@ that predicts randomly masked tokens rather than the next one. Unlike instruct, 
 supervise file on disk: masking is **dynamic**, re-sampled every epoch by
 [`MLMDataset`](../../reference/core.md) (the BERT 80/10/10 scheme), so the same packed corpus
 yields a fresh corruption each pass. Train it with an
-[`MLMTrainer`](../../reference/backends.md) and see
+[`AutonmtMaskedLM`](../../reference/backends.md) and see
 [Pretrain a masked LM](../../how-to/pretrain-masked-lm.md).
 
 !!! info "Decoder-only vs encoder-only"
@@ -102,7 +102,7 @@ Sentences vary in length, so batching padded sentences wastes compute on `<pad>`
 into contiguous, fixed-length windows of `block_size` tokens — no padding, every position
 trains the model ([Brown et al., 2020](https://arxiv.org/abs/2005.14165)). The window
 size is a **training-time** choice (`block_size` on
-[`LMTrainer.fit`](../training/training.md)), not a property of the corpus, so one packed
+[`AutonmtCausalLM.fit`](../training/training.md)), not a property of the corpus, so one packed
 corpus can be trained at different context lengths.
 
 `block_size` must be ≤ the model's `max_seq_len`. The torch dataset that does the slicing is
@@ -127,7 +127,7 @@ data/<name>/<size>/
   data/1_splits/                    {train,val}.txt   (split off the last val_size lines)
   data/4_encoded/<sw>/<vs>/         {train,val}.tokens.npy   (+ .sup.npy for instruct)
   vocabs/<sw>/<vs>/                 spm.model + spm.vocab
-  models/lm/runs/<run>/             checkpoints, logs   (written by LMTrainer)
+  models/<engine>/runs/<run>/       checkpoints, logs   (engine = backend's ENGINE: autonmt | huggingface)
 ```
 
 As with the parallel builder, each stage checks `force_overwrite` before rewriting, so

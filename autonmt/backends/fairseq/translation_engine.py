@@ -166,8 +166,8 @@ class FairseqTranslator(BaseTranslator):
 
     **Translation only.** This backend wires Fairseq's ``translation`` task and does
     *not* support language models. For decoder-only LLMs or encoder-only masked LMs
-    use the native engine (:class:`~autonmt.backends.lm.trainer.LMTrainer` /
-    :class:`~autonmt.backends.lm.mlm_trainer.MLMTrainer`) or the HuggingFace LM
+    use the native engine (:class:`~autonmt.backends.autonmt.lm.AutonmtCausalLM` /
+    :class:`~autonmt.backends.autonmt.lm.AutonmtMaskedLM`) or the HuggingFace LM
     backends (:class:`~autonmt.backends.huggingface.lm.HuggingFaceCausalLM` /
     :class:`~autonmt.backends.huggingface.lm.HuggingFaceMaskedLM`).
 

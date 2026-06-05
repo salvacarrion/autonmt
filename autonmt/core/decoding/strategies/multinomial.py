@@ -1,9 +1,9 @@
 import torch
 
-from autonmt.core.decoding.base_step_search import BaseStepSearch
+from autonmt.core.decoding.strategies.base import BaseStrategy
 
 
-class MultinomialSampling(BaseStepSearch):
+class MultinomialSampling(BaseStrategy):
     """Temperature-scaled multinomial sampling.
 
     ``temperature`` rescales the logits before the softmax:

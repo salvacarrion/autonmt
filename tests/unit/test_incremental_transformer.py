@@ -163,10 +163,10 @@ def _tiny_transformer_dataset(B=2, L_src=4, src_v=20, tgt_v=20):
 
 
 def test_greedy_search_incremental_matches_parallel():
-    """End-to-end: ``GreedySearch.decode`` over the real Transformer must
+    """End-to-end: ``StepSearch.decode`` over the real Transformer must
     produce the same token sequence whether the model exposes the
     incremental path or not."""
-    from autonmt.core.decoding import GreedySearch
+    from autonmt.core.decoding import StepSearch
 
     model, dataset = _tiny_transformer_dataset()
 
@@ -178,9 +178,9 @@ def test_greedy_search_incremental_matches_parallel():
     )
 
     model.supports_incremental_decoding = False
-    out_parallel, _ = GreedySearch().decode(**common)
+    out_parallel, _ = StepSearch().decode(**common)
     model.supports_incremental_decoding = True
-    out_incr, _ = GreedySearch().decode(**common)
+    out_incr, _ = StepSearch().decode(**common)
 
     assert out_parallel == out_incr
 
