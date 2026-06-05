@@ -44,7 +44,7 @@ data/mycorpus/es-en/original/data/0_raw/
 With the `[hf]` extra, `download_hf_dataset` writes a Hub corpus straight into the layout:
 
 ```python
-from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
 
 download_hf_dataset(
     hf_id="bentrevett/multi30k", base_path="data",

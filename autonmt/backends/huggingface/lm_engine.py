@@ -6,11 +6,11 @@ two model families so you can fine-tune real pretrained checkpoints from the Hub
 inside AutoNMT's pipeline:
 
   * :class:`HuggingFaceCausalLM` — ``AutoModelForCausalLM`` (GPT-2, Llama, …).
-    Counterpart of the native :class:`~autonmt.backends.autonmt.lm.AutonmtCausalLM`.
+    Counterpart of the native :class:`~autonmt.backends.autonmt.lm_engine.AutonmtCausalLM`.
   * :class:`HuggingFaceMaskedLM` — ``AutoModelForMaskedLM`` (BERT, RoBERTa, …).
-    Counterpart of the native :class:`~autonmt.backends.autonmt.lm.AutonmtMaskedLM`.
+    Counterpart of the native :class:`~autonmt.backends.autonmt.lm_engine.AutonmtMaskedLM`.
 
-They consume an :class:`~autonmt.datasets.lm_corpus.LMCorpus` for *data* (reading
+They consume an :class:`~autonmt.datasets.lm.lm_corpus.LMCorpus` for *data* (reading
 its split text), but tokenize with the model's **own** HF tokenizer — the
 SentencePiece vocab AutoNMT trains is ignored, exactly as in the translation
 backend. Verbs mirror the native LM trainers: ``fit`` / ``evaluate`` /

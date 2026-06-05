@@ -79,7 +79,7 @@ Moses *de*tokenization to restore natural spacing.
 ## How encoding is wired
 
 You don't usually call the encoders directly — the builder does, via
-`autonmt.datasets.encoding`:
+`autonmt.datasets.processing.encoding`:
 
 - `pretokenize_file(...)` — Moses tokenize (for `word`).
 - `encode_file(...)` — SentencePiece-encode (word/char/bpe/unigram), hex-encode (`bytes`),
@@ -92,7 +92,7 @@ The encode/decode round-trip during evaluation is handled automatically by the
 backends — you only pick the `subword_model`; AutoNMT does the rest.
 
 !!! tip "The low-level tokenizer engines"
-    Moses and SentencePiece are wrapped in `autonmt.datasets.tokenizers`. You almost never
+    Moses and SentencePiece are wrapped in `autonmt.datasets.processing.tokenizers`. You almost never
     touch them directly, but if you need to train or apply a tokenizer outside the builder,
     that's where the thin engines live.
 

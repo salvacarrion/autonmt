@@ -6,7 +6,7 @@ only difference from [training a plain LM](train-language-model.md) is the corpu
 model, trainer, and generation are identical.
 
 ```python
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 from autonmt.backends import AutonmtCausalLM
 from autonmt.core.nn.models import GPT
 from autonmt.core.decoding import GreedySearch

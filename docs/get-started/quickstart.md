@@ -19,7 +19,7 @@ Here it is end to end; the sections below unpack each part.
 
 ```python
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer

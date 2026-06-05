@@ -10,8 +10,8 @@ import importlib.util
 import pytest
 import torch
 
-from autonmt.backends.huggingface.lm import _CausalCollator, _HuggingFaceLMBase
-from autonmt.datasets.lm_corpus import LMCorpus
+from autonmt.backends.huggingface.lm_engine import _CausalCollator, _HuggingFaceLMBase
+from autonmt.datasets import LMCorpus
 
 HAS_TRANSFORMERS = importlib.util.find_spec("transformers") is not None
 

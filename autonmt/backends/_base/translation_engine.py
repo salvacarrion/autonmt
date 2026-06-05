@@ -42,7 +42,7 @@ from autonmt.utils.logger import get_logger
 from autonmt.evaluation.metrics import METRIC_BACKENDS, resolve_backends
 from autonmt.reporting.schema import RunMetadata, build_run_report
 from autonmt.utils.seed import manual_seed
-from autonmt.datasets.dataset import Dataset
+from autonmt.datasets.parallel.dataset import Dataset
 from autonmt.backends._base.config import FitConfig, PredictConfig, UNSET, merge_config
 from autonmt.backends._base.run_layout import RunLayout
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline

@@ -1,6 +1,6 @@
 """Path engine for one training run.
 
-Mirrors :class:`~autonmt.datasets.dataset.DatasetLayout` for the run-side
+Mirrors :class:`~autonmt.datasets.parallel.dataset.DatasetLayout` for the run-side
 of the on-disk layout::
 
     runs_dir/<run_name>/checkpoints/

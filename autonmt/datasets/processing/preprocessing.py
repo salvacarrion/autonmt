@@ -3,7 +3,7 @@
 These functions produce the contents of ``2_preprocessed/`` and are independent
 of the subword model choice (same output whether the run uses ``word``, ``bpe``,
 ``unigram``, etc.). Subword-dependent file ops live in
-:mod:`autonmt.datasets.encoding`.
+:mod:`autonmt.datasets.processing.encoding`.
 """
 import collections
 import os
@@ -17,7 +17,7 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 from autonmt.datasets.stats import shuffle_in_order
-from autonmt.datasets import tokenizers
+from autonmt.datasets.processing import tokenizers
 
 log = get_logger(__name__)
 

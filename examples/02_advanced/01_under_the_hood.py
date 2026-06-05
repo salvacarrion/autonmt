@@ -45,9 +45,9 @@ from autonmt.backends import AutonmtTranslator
 from autonmt.core.decoding import BeamSearch
 from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.datasets.leakage import warn_on_leakage
-from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import (
     Report,
     format_summary_table,

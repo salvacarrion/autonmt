@@ -106,7 +106,7 @@ You typically train on each in turn and evaluate against the test variants, lett
 
 ## The `Dataset` object { #the-dataset-object }
 
-Each cell is a [`Dataset`](../../reference/datasets.md#autonmt.datasets.dataset.Dataset). It
+Each cell is a [`Dataset`](../../reference/datasets.md#autonmt.datasets.parallel.dataset.Dataset). It
 is **not** a PyTorch dataset — it's an *identity + path engine*. Given *(name, language
 pair, size, subword model, vocab size)* it computes where every file for that cell lives,
 and exposes disk-inspection and vocab helpers:
@@ -149,7 +149,7 @@ With the `hf` extra installed, `download_hf_dataset` writes a Hub corpus straigh
 AutoNMT layout:
 
 ```python
-from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
 
 download_hf_dataset(
     hf_id="bentrevett/multi30k", base_path="data",

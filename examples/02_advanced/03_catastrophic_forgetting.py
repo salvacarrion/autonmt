@@ -64,8 +64,8 @@ from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.data.translation_dataset import TranslationDataset
 from autonmt.core.nn.models import Transformer
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.hf_loader import download_hf_dataset
-from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
+from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/adv_03_cf"

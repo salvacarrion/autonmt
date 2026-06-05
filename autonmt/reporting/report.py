@@ -7,7 +7,7 @@
   column name. Metric names are resolved generically against the columns that
   actually exist, so HuggingFace (``hg_*``), COMET, BERTScore, etc. all work
   without a hardcoded table.
-- :class:`DatasetReport` wraps a :class:`~autonmt.datasets.dataset.Dataset` and
+- :class:`DatasetReport` wraps a :class:`~autonmt.datasets.parallel.dataset.Dataset` and
   emits the standard corpus-diagnostics figures (length distributions, split
   sizes, vocabulary distribution).
 

@@ -36,7 +36,7 @@ import random
 
 from autonmt.backends import AutonmtMaskedLM
 from autonmt.core.nn.models import MLMTransformer
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 
 BASE_PATH = "datasets/03_masked_lm"
 CORPUS = "toy_lang"

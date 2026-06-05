@@ -6,7 +6,7 @@ Train an encoder-only, BERT-style masked language model: build a `mode="mlm"` co
 the trainer — the data pipeline and PyTorch-Lightning scaffolding are shared.
 
 ```python
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 from autonmt.backends import AutonmtMaskedLM
 from autonmt.core.nn.models import MLMTransformer
 

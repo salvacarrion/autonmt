@@ -21,14 +21,14 @@ The trainer for decoder-only language models (`fit` / `evaluate` / `generate`). 
 [Train a language model](../guide/data/lm-corpora.md) and
 [Text generation & sampling](../guide/translation/text-generation.md).
 
-::: autonmt.backends.autonmt.lm.AutonmtCausalLM
+::: autonmt.backends.autonmt.lm_engine.AutonmtCausalLM
 
 ## AutonmtMaskedLM
 
 The trainer for encoder-only masked language models (`fit` / `evaluate` / `fill_mask`). See
 [Pretrain a masked LM](../how-to/pretrain-masked-lm.md).
 
-::: autonmt.backends.autonmt.lm.AutonmtMaskedLM
+::: autonmt.backends.autonmt.lm_engine.AutonmtMaskedLM
 
 ## HuggingFaceTranslator
 
@@ -39,13 +39,13 @@ The trainer for encoder-only masked language models (`fit` / `evaluate` / `fill_
 Decoder-only HF backend (`AutoModelForCausalLM`). See
 [HuggingFace → Language models](../guide/backends/huggingface.md#language-models).
 
-::: autonmt.backends.huggingface.lm.HuggingFaceCausalLM
+::: autonmt.backends.huggingface.lm_engine.HuggingFaceCausalLM
 
 ## HuggingFaceMaskedLM
 
 Encoder-only HF backend (`AutoModelForMaskedLM`).
 
-::: autonmt.backends.huggingface.lm.HuggingFaceMaskedLM
+::: autonmt.backends.huggingface.lm_engine.HuggingFaceMaskedLM
 
 ## FairseqTranslator
 

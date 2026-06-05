@@ -5,7 +5,7 @@ import torch
 
 from autonmt.core.nn.base import LitBase
 from autonmt.evaluation.metrics import score_sacrebleu
-from autonmt.datasets.encoding import decode_lines
+from autonmt.datasets.processing.encoding import decode_lines
 
 from autonmt.utils.logger import get_logger
 

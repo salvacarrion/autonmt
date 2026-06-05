@@ -8,7 +8,7 @@ tokenizer, then pack the text into fixed-length token blocks ready for a
 path is untouched.
 
 ```python
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 
 builder = LMCorpusBuilder(
     base_path="data",

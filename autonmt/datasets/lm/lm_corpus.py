@@ -1,10 +1,10 @@
 """Single-stream / instruct corpora for language modelling.
 
-Sibling of :class:`~autonmt.datasets.dataset.Dataset` (which is parallel-text,
+Sibling of :class:`~autonmt.datasets.parallel.dataset.Dataset` (which is parallel-text,
 ``xx-yy``-keyed). This deliberately does **not** touch that class: an LM corpus
 has one stream, not a language pair, so it gets its own identity and on-disk
 layout. It *reuses* the v1.0 SentencePiece machinery
-(:func:`autonmt.datasets.tokenizers.spm_train_file` and the ``sentencepiece``
+(:func:`autonmt.datasets.processing.tokenizers.spm_train_file` and the ``sentencepiece``
 runtime) — only the ingest/split/pack stages are LM-specific.
 
 Three modes:
@@ -40,7 +40,7 @@ import os
 
 import numpy as np
 
-from autonmt.datasets import tokenizers
+from autonmt.datasets.processing import tokenizers
 from autonmt.utils.enums import SubwordModel
 from autonmt.utils.fileio import make_dir, read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
@@ -199,7 +199,7 @@ class LMCorpus:
 class LMCorpusBuilder:
     """Unrolls (corpus × subword × vocab) and materialises packed token streams.
 
-    Mirrors :class:`~autonmt.datasets.dataset_builder.DatasetBuilder` for the LM
+    Mirrors :class:`~autonmt.datasets.parallel.dataset_builder.DatasetBuilder` for the LM
     case. Each corpus declaration is a dict::
 
         {"name": "tiny", "mode": "text", "sizes": [("original", None)],

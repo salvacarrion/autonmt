@@ -3,7 +3,7 @@
 These functions produce ``3_pretokenized/`` and ``4_encoded/<subword>/<vocab>/``
 and vary with the subword model choice. For ``word`` runs Moses pretokenization
 *is* the encoding step (``encode_file`` then just copies the file). Subword-
-agnostic preparation lives in :mod:`autonmt.datasets.preprocessing`.
+agnostic preparation lives in :mod:`autonmt.datasets.processing.preprocessing`.
 """
 import os
 import shutil
@@ -12,7 +12,7 @@ from tokenizers.normalizers import NFKC
 
 from autonmt.utils.enums import has_vocab, is_bytes_only
 from autonmt.utils.fileio import read_file_lines, write_file_lines, text2hex
-from autonmt.datasets import tokenizers
+from autonmt.datasets.processing import tokenizers
 
 
 def pretokenize_file(input_file, output_file, lang, force_overwrite, **kwargs):

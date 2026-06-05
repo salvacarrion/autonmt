@@ -42,7 +42,7 @@ import random
 from autonmt.backends import AutonmtCausalLM
 from autonmt.core.decoding import TopPSampling
 from autonmt.core.nn.models import GPT
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 
 BASE_PATH = "datasets/03_hello_gpt"
 CORPUS = "toy_lang"

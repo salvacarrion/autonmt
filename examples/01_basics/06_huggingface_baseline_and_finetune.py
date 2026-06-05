@@ -38,8 +38,8 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.backends import HuggingFaceTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.hf_loader import download_hf_dataset
-from autonmt.datasets.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
+from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
 
 BASE_PATH = "datasets/06_hf"

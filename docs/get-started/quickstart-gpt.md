@@ -30,7 +30,7 @@ Here it is end to end; the sections below unpack each part.
 ```python
 import random
 
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 from autonmt.backends import AutonmtCausalLM
 from autonmt.core.nn.models import GPT
 from autonmt.core.decoding import TopPSampling

@@ -1,8 +1,8 @@
 """Vocabulary-stage helpers: bytes pseudo-vocab, SPM training, frequency export.
 
-Each public function takes a :class:`~autonmt.datasets.dataset.Dataset`
+Each public function takes a :class:`~autonmt.datasets.parallel.dataset.Dataset`
 and is responsible for one disk artifact under ``vocabs/<sw>/<vs>/``. They are
-called by :class:`~autonmt.datasets.dataset_builder.DatasetBuilder` but kept here
+called by :class:`~autonmt.datasets.parallel.dataset_builder.DatasetBuilder` but kept here
 to keep the builder small.
 """
 import os
@@ -13,7 +13,7 @@ from autonmt.utils.enums import SubwordModel
 from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
 from autonmt.datasets.stats import build_counter_low_mem, norm_counter
-from autonmt.datasets import tokenizers
+from autonmt.datasets.processing import tokenizers
 
 log = get_logger(__name__)
 

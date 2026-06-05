@@ -1,5 +1,5 @@
 """Encoding-list unrolling logic for DatasetBuilder."""
-from autonmt.datasets.dataset_builder import DatasetBuilder
+from autonmt.datasets.parallel.dataset_builder import DatasetBuilder
 
 
 def _builder():

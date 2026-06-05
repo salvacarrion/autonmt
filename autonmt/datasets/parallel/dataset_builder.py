@@ -24,8 +24,8 @@ from autonmt.utils.fileio import (
 )
 from autonmt.utils.logger import get_logger
 from autonmt.datasets.stats import parse_split_size, shuffle_in_order
-from autonmt.datasets.dataset import Dataset
-from autonmt.datasets.encoding import encode_file, pretokenize_file
+from autonmt.datasets.parallel.dataset import Dataset
+from autonmt.datasets.processing.encoding import encode_file, pretokenize_file
 from autonmt.vocabularies import vocab_builder
 
 log = get_logger(__name__)
@@ -35,7 +35,7 @@ class DatasetBuilder:
     """Unrolls a (dataset × lang-pair × size × subword × vocab) grid and builds it on disk.
 
     Declare the experiment's data axes once; :meth:`build` materialises every
-    cell as a :class:`~autonmt.datasets.dataset.Dataset` under ``base_path`` in
+    cell as a :class:`~autonmt.datasets.parallel.dataset.Dataset` under ``base_path`` in
     fixed stages (raw → splits → preprocessed → encoded → stats/vocabs).
     :meth:`get_train_ds` / :meth:`get_test_ds` return the lists the experiment
     loop iterates over.

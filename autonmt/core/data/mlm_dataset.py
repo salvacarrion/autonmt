@@ -1,7 +1,7 @@
 """The torch ``Dataset`` for masked language modelling (packed blocks + dynamic masking).
 
 Like :class:`~autonmt.core.data.lm_dataset.LMDataset` it reads a flat, packed
-token stream produced by :class:`~autonmt.datasets.lm_corpus.LMCorpusBuilder`
+token stream produced by :class:`~autonmt.datasets.lm.lm_corpus.LMCorpusBuilder`
 (``mode="mlm"``) and slices it into fixed ``block_size`` windows. But the MLM
 objective is **not** next-token prediction: there is no shift. Instead, each
 item corrupts a random subset of the block and asks the model to recover the

@@ -5,7 +5,7 @@ perplexity, and sample. This is the recipe; for the narrated walkthrough see
 [Quickstart: train a GPT](../get-started/quickstart-gpt.md).
 
 ```python
-from autonmt.datasets.lm_corpus import LMCorpusBuilder
+from autonmt.datasets import LMCorpusBuilder
 from autonmt.backends import AutonmtCausalLM
 from autonmt.core.nn.models import GPT
 from autonmt.core.decoding import TopPSampling

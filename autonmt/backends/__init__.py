@@ -12,13 +12,13 @@ def __getattr__(name):
         from autonmt.backends.autonmt.translation_engine import AutonmtTranslator
         return AutonmtTranslator
     if name == "AutonmtCausalLM":
-        from autonmt.backends.autonmt.lm import AutonmtCausalLM
+        from autonmt.backends.autonmt.lm_engine import AutonmtCausalLM
         return AutonmtCausalLM
     if name == "AutonmtMaskedLM":
-        from autonmt.backends.autonmt.lm import AutonmtMaskedLM
+        from autonmt.backends.autonmt.lm_engine import AutonmtMaskedLM
         return AutonmtMaskedLM
     if name in ("HuggingFaceCausalLM", "HuggingFaceMaskedLM"):
-        from autonmt.backends.huggingface import lm as _hf_lm
+        from autonmt.backends.huggingface import lm_engine as _hf_lm
         return getattr(_hf_lm, name)
     if name == "FairseqTranslator":
         from autonmt.backends.fairseq.translation_engine import FairseqTranslator

@@ -2,7 +2,7 @@
 
 Convenience for new users so they can do::
 
-    from autonmt.datasets.hf_loader import download_hf_dataset
+    from autonmt.datasets.sources.hf_loader import download_hf_dataset
 
     download_hf_dataset(
         hf_id="bentrevett/multi30k",

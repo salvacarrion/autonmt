@@ -15,7 +15,7 @@ preprocessing runs **once** per split (`2_preprocessed/`), and only the encoding
 
 ## The `2_preprocessed` stage
 
-`autonmt.datasets.preprocessing` provides composable cleanup functions. You usually reach
+`autonmt.datasets.processing.preprocessing` provides composable cleanup functions. You usually reach
 them through the builder's [hooks](#hooks); the building blocks are:
 
 | Function | What it does |
@@ -64,7 +64,7 @@ normalization through all of them:
 ```python
 from tokenizers.normalizers import NFKC, Strip
 from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.preprocessing import normalize_lines, preprocess_pairs, preprocess_lines
+from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_pairs, preprocess_lines
 
 def normalize(lines):
     return normalize_lines(lines, seq=[NFKC(), Strip()])

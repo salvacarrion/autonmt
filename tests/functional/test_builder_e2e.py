@@ -19,7 +19,7 @@ pytest.importorskip("sentencepiece")
 pytest.importorskip("sacremoses")
 pytest.importorskip("tokenizers")
 
-from autonmt.datasets.dataset_builder import DatasetBuilder  # noqa: E402
+from autonmt.datasets.parallel.dataset_builder import DatasetBuilder  # noqa: E402
 
 
 SRC_SENTENCES = [
