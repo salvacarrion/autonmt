@@ -2,7 +2,7 @@
 
 Unlike :class:`~autonmt.core.data.translation_dataset.TranslationDataset` (one
 padded sentence pair per item), this reads a *flat* token-id stream produced by
-:class:`~autonmt.datasets.lm.lm_corpus.LMCorpusBuilder`, concatenated across
+:class:`~autonmt.datasets.lm.builder.LMCorpusBuilder`, concatenated across
 documents, and slices it into fixed ``block_size`` windows (nanoGPT-style
 packing). No padding, no bucketing — every item is exactly ``block_size`` long,
 so a plain ``DataLoader`` with the default collate stacks them into

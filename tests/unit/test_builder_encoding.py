@@ -1,10 +1,10 @@
-"""Encoding-list unrolling logic for DatasetBuilder."""
-from autonmt.datasets.parallel.dataset_builder import DatasetBuilder
+"""Encoding-list unrolling logic for ParallelCorpusBuilder."""
+from autonmt.datasets.parallel.builder import ParallelCorpusBuilder
 
 
 def _builder():
     # Empty datasets list -> no disk access; we only exercise _unroll_encoding.
-    return DatasetBuilder(base_path="/tmp", datasets=[])
+    return ParallelCorpusBuilder(base_path="/tmp", datasets=[])
 
 
 class TestEncodingSugar:

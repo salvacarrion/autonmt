@@ -16,7 +16,7 @@ but *doesn't lock you* to that engine or try to be exhaustive — anything speci
 ```mermaid
 flowchart LR
     subgraph IN["Input side — shared"]
-        DB["DatasetBuilder<br/><i>datasets/</i>"] --> DS["Dataset variants<br/><i>datasets/</i>"]
+        DB["ParallelCorpusBuilder<br/><i>datasets/</i>"] --> DS["ParallelCorpus variants<br/><i>datasets/</i>"]
         DS --> VB["Vocabulary<br/><i>vocabularies/</i>"]
     end
     subgraph MID["Interchangeable middle"]
@@ -45,12 +45,12 @@ Three groups, mapping exactly to how the documentation is organized:
 
 | Package          | Role | Key types |
 | ---------------- | ---- | --------- |
-| `datasets/`      | Corpus prep: unroll the grid, clean/split/encode, compute paths | `DatasetBuilder`, `Dataset`, `preprocessing`, `encoding` |
+| `datasets/`      | Corpus prep: unroll the grid, clean/split/encode, compute paths | `ParallelCorpusBuilder`, `ParallelCorpus`, `preprocessing`, `encoding` |
 | `vocabularies/`  | Vocab artifacts and lookup | `Vocabulary`, `BaseVocabulary`, `vocab_builder` |
 | `backends/`      | The translator contract + concrete toolkits | `BaseTranslator`, `AutonmtTranslator`, `HuggingFaceTranslator`, `FairseqTranslator` |
 | `core/`          | AutoNMT's native neural engine | `LitSeq2Seq`, `nn/models`, `nn/layers`, `decoding/`, `samplers/`, `TranslationDataset` |
 | `evaluation/`    | Metric backends + significance | `MetricBackend`, `METRIC_BACKENDS`, `paired_bootstrap_bleu` |
-| `reporting/`     | Report classes + plot primitives | `Report`, `DatasetReport`, `schema`, `plots` |
+| `reporting/`     | Report classes + plot primitives | `Report`, `CorpusReport`, `schema`, `plots` |
 | `utils/`         | Generic helpers | `fileio`, `logger`, `seed`, `enums` |
 
 A useful distinction: **`backends/` is the abstraction; `core/` is one implementation of

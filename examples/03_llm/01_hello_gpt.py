@@ -16,8 +16,8 @@ The LM counterpart of `01_hello_autonmt.py`. Same three-block shape, but for a
 What's different vs the translation tutorials
 ---------------------------------------------
 - There is no language pair and no parallel target: an LM corpus is one stream
-  of text. `LMCorpus`/`LMCorpusBuilder` live alongside `Dataset` — they don't
-  replace it.
+  of text. `LMCorpus`/`LMCorpusBuilder` live alongside `ParallelCorpus` — they
+  don't replace it.
 - The model is a `GPT` (no encoder, no cross-attention). Training reuses the
   same PyTorch-Lightning machinery via `AutonmtCausalLM`.
 - Evaluation is perplexity, not BLEU.

@@ -7,7 +7,7 @@
   column name. Metric names are resolved generically against the columns that
   actually exist, so HuggingFace (``hg_*``), COMET, BERTScore, etc. all work
   without a hardcoded table.
-- :class:`DatasetReport` wraps a :class:`~autonmt.datasets.parallel.dataset.Dataset` and
+- :class:`CorpusReport` wraps a :class:`~autonmt.datasets.parallel.corpus.ParallelCorpus` and
   emits the standard corpus-diagnostics figures (length distributions, split
   sizes, vocabulary distribution).
 
@@ -25,7 +25,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from autonmt.datasets import stats
+from autonmt.datasets.analysis import stats
 from autonmt.utils import fileio
 from autonmt.utils.logger import get_logger
 from autonmt.reporting.plots import (
@@ -378,7 +378,7 @@ class Report:
 
 
 # ---------------------------------------------------------------------------
-# DatasetReport: corpus diagnostics
+# CorpusReport: corpus diagnostics
 # ---------------------------------------------------------------------------
 
 _SUBWORD_DISPLAY = {"word": "Words", "bpe": "BPE", "char": "Chars", "bytes": "Bytes"}
@@ -400,8 +400,8 @@ def _maybe_titled(ds_title: str, body: str, add_dataset_title: bool) -> str:
     return f"{ds_title}:\n{body}" if add_dataset_title else body
 
 
-class DatasetReport:
-    """Corpus-diagnostics reporter for one preprocessed :class:`Dataset`.
+class CorpusReport:
+    """Corpus-diagnostics reporter for one preprocessed :class:`ParallelCorpus`.
 
     Figures are written under ``ds.get_plots_path()``. Call :meth:`generate` for
     the full set (and the per-split stats JSON), or the granular ``plot_*``
@@ -413,7 +413,7 @@ class DatasetReport:
         self.style = style
 
     def generate(self, *, merge_vocabs: bool, vocab_top_k: Iterable[int] = (256,),
-                 add_dataset_title: bool = True) -> "DatasetReport":
+                 add_dataset_title: bool = True) -> "CorpusReport":
         """Emit all standard diagnostic figures + the per-split stats JSON."""
         ds = self.ds
         out_dir = ds.get_plots_path()

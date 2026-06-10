@@ -7,7 +7,7 @@ What you'll learn
 -----------------
 The three blocks every AutoNMT experiment is made of:
 
-    1. A `DatasetBuilder` that prepares files on disk (splits, vocab, encoded text).
+    1. A `ParallelCorpusBuilder` that prepares files on disk (splits, vocab, encoded text).
     2. A `Translator` that wraps a model and runs `fit()` + `predict()`.
     3. A `Report` that turns the scores into JSON/CSV + a table.
 
@@ -37,7 +37,7 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
@@ -74,7 +74,7 @@ def main():
 
     # 2. Build the dataset: trains a SentencePiece BPE-4000 tokenizer and
     #    encodes the splits. Re-running skips stages that already exist on disk.
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,
@@ -88,7 +88,7 @@ def main():
     ).build(force_overwrite=False)
 
     # The builder unrolls the cross-product (1 cell here). `get_train_ds` /
-    # `get_test_ds` return the Dataset objects we iterate over.
+    # `get_test_ds` return the ParallelCorpus objects we iterate over.
     train_ds = builder.get_train_ds()[0]
     test_datasets = builder.get_test_ds()
 

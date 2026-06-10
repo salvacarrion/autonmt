@@ -1,6 +1,6 @@
 # On-disk layout
 
-AutoNMT is **path-driven**: nothing is held only in memory between stages. A `Dataset`
+AutoNMT is **path-driven**: nothing is held only in memory between stages. A `ParallelCorpus`
 *computes* where every artifact belongs, each stage writes to a fixed, numbered folder, and
 re-running an experiment reconstructs only what's missing. That single design choice is what
 makes AutoNMT [reproducible by construction](reproducibility.md) — this page is the complete
@@ -58,7 +58,7 @@ de/train.txt               ❌  not how AutoNMT works
 ```
 
 This is consistent everywhere — splits, encoded files, and the `src.txt`/`ref.txt`/`hyp.txt`
-evaluation artifacts. A `Dataset` derives the extensions from its `lang_pair`, so you rarely
+evaluation artifacts. A `ParallelCorpus` derives the extensions from its `lang_pair`, so you rarely
 type them yourself.
 
 ## Stage skipping: why re-runs are cheap

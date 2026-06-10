@@ -36,7 +36,7 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
@@ -67,7 +67,7 @@ def main():
 
     # Declare the grid. With one dataset × one lang pair × one size × one
     # subword model × three vocab sizes, the builder unrolls to 3 cells.
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,

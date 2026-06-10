@@ -1,12 +1,12 @@
 # Reporting
 
-The `Report` / `DatasetReport` classes, the per-run report schema, and the
+The `Report` / `CorpusReport` classes, the per-run report schema, and the
 low-level plot primitives. See [Reports & plots](../guide/evaluation/reports.md)
 for usage.
 
 ## Report
 
-`Report` (experiment results) and `DatasetReport` (corpus diagnostics), plus the
+`Report` (experiment results) and `CorpusReport` (corpus diagnostics), plus the
 thin score transforms they wrap.
 
 ::: autonmt.reporting.report

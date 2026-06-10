@@ -4,8 +4,8 @@ If you remember one diagram from these docs, make it this one.
 
 ```mermaid
 flowchart LR
-    A["<b>Grid declaration</b><br/>datasets × pairs<br/>× subword × vocab"] --> B["<b>DatasetBuilder</b><br/>unroll + prepare<br/>on disk"]
-    B --> C["<b>Dataset variants</b><br/>one per cell"]
+    A["<b>Grid declaration</b><br/>datasets × pairs<br/>× subword × vocab"] --> B["<b>ParallelCorpusBuilder</b><br/>unroll + prepare<br/>on disk"]
+    B --> C["<b>ParallelCorpus variants</b><br/>one per cell"]
     C --> D["<b>Translator</b><br/>fit · predict<br/>(backend of choice)"]
     D --> E["<b>Scores</b><br/>per run × eval set"]
     E --> F["<b>Report</b><br/>json · csv · plots"]
@@ -20,19 +20,19 @@ translator's scores become a report.**
 ### 1. The grid → dataset variants
 
 You declare the **axes** of your experiment. The
-[`DatasetBuilder`](../guide/data/datasets.md) computes the cross-product and turns each
-cell into a [`Dataset`](../guide/data/datasets.md#the-dataset-object) object. A `Dataset`
+[`ParallelCorpusBuilder`](../guide/data/datasets.md) computes the cross-product and turns each
+cell into a [`ParallelCorpus`](../guide/data/datasets.md#the-corpus-object) object. A `ParallelCorpus`
 is not a PyTorch dataset — it's an **identity + a path engine**. Given *(name, language
 pair, size, subword model, vocab size)* it knows where every file for that cell lives on
 disk, and the builder materializes those files (clean → split → encode → build vocab).
 
 ```python
-builder = DatasetBuilder(base_path="data", datasets=[...], encoding=[...]).build()
-train_variants = builder.get_train_ds()   # list of Dataset, one per cell
+builder = ParallelCorpusBuilder(base_path="data", datasets=[...], encoding=[...]).build()
+train_variants = builder.get_train_ds()   # list of ParallelCorpus, one per cell
 test_variants  = builder.get_test_ds()
 ```
 
-### 2. Dataset variants → translator
+### 2. ParallelCorpus variants → translator
 
 A [translator](../guide/backends/choosing.md) is the thing that turns a dataset variant into
 a trained model and then into translations. It exposes exactly two verbs:

@@ -2,9 +2,9 @@
 
 Translation needs a _parallel_ corpus — source and target, line-aligned. A **language
 model** needs only one stream of text. `LMCorpusBuilder` is the single-stream sibling of the
-[`DatasetBuilder`](datasets.md): it owns the input side of the **LM** pipeline — train a
+[`ParallelCorpusBuilder`](datasets.md): it owns the input side of the **LM** pipeline — train a
 tokenizer, then pack the text into fixed-length token blocks ready for a
-[`GPT`](../models/catalog.md#gpt). It does **not** replace `DatasetBuilder`; the parallel
+[`GPT`](../models/catalog.md#gpt). It does **not** replace `ParallelCorpusBuilder`; the parallel
 path is untouched.
 
 ```python

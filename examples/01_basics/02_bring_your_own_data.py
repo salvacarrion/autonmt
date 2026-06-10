@@ -5,7 +5,7 @@
 
 What you'll learn
 -----------------
-The on-disk layout AutoNMT relies on. Every Translator and the DatasetBuilder
+The on-disk layout AutoNMT relies on. Every Translator and the ParallelCorpusBuilder
 are path-driven: stages live in numbered subfolders and re-runs skip stages
 that are already materialised.
 
@@ -46,7 +46,7 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
 
@@ -104,10 +104,10 @@ def preprocess_predict(data, ds):
 def main():
     bootstrap_local_data()
 
-    # Same DatasetBuilder call as tutorial 01 — the only difference is that the
+    # Same ParallelCorpusBuilder call as tutorial 01 — the only difference is that the
     # files at `<BASE_PATH>/<dataset>/<lang>/<size>/data/1_splits/` were written
     # by us, not by `download_hf_dataset`.
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,

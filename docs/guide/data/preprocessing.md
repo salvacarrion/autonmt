@@ -63,7 +63,7 @@ normalization through all of them:
 
 ```python
 from tokenizers.normalizers import NFKC, Strip
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_pairs, preprocess_lines
 
 def normalize(lines):
@@ -78,7 +78,7 @@ def clean_pairs(data, ds):                 # for preprocess_raw_fn / preprocess_
 def clean_source(data, ds):                # for the predict-time preprocess_fn
     return preprocess_lines(data["lines"], normalize_fn=normalize)
 
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data", datasets=[...], encoding=[...],
     preprocess_raw_fn=clean_pairs,
     preprocess_splits_fn=clean_pairs,

@@ -4,7 +4,7 @@ Catches the most common contamination: identical sentences appearing in both
 train and test. Default is exact string match; pass ``key_fn=`` to relax it
 (lowercase, NFKC-normalize, drop punctuation...) or plug in your own scheme.
 
-Intentionally a stand-alone utility — not wired into ``DatasetBuilder`` — so
+Intentionally a stand-alone utility — not wired into ``ParallelCorpusBuilder`` — so
 you call it on whatever lines you care about, with whatever policy you want
 (warn / raise / filter). For paired (src, tgt) matching, join the two sides
 into one string and pass that as the line.

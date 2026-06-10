@@ -1,14 +1,14 @@
-"""Dataset variants: on-disk layout + builder-time state.
+"""Parallel-corpus variants: on-disk layout + builder-time state.
 
-``DatasetLayout`` is a path engine — given an identity (name / lang-pair / size
-/ subword model / vocab size) it computes every directory the framework writes
-into. It has no I/O and no preprocessing knowledge, so it can be used in tests
-without touching disk.
+``ParallelCorpusLayout`` is a path engine — given an identity (name / lang-pair
+/ size / subword model / vocab size) it computes every directory the framework
+writes into. It has no I/O and no preprocessing knowledge, so it can be used in
+tests without touching disk.
 
-``Dataset`` extends the layout with the per-variant state the rest of the
+``ParallelCorpus`` extends the layout with the per-variant state the rest of the
 pipeline needs: target line count, split sizes, the preprocessing callbacks
 the user provided, and the disk-inspection helpers (``has_raw_files``,
-``get_stats`` …).
+``get_stats`` …). Single-stream sibling: :class:`autonmt.datasets.lm.corpus.LMCorpus`.
 """
 import os
 from typing import List, Optional, Sequence, Tuple
@@ -16,15 +16,15 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 
 from autonmt.utils.fileio import read_file_lines
-from autonmt.datasets.stats import basic_stats, count_tokens_per_sentence
+from autonmt.datasets.analysis.stats import basic_stats, count_tokens_per_sentence
 from autonmt.utils.enums import SubwordModel, has_vocab, is_bytes_only, is_no_model
 from autonmt.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 
-class DatasetLayout:
-    """Pure path computer for a dataset variant.
+class ParallelCorpusLayout:
+    """Pure path computer for a parallel-corpus variant.
 
     On-disk layout (everything under ``base_path/<dataset>/<lang-pair>/<size>/``)::
 
@@ -199,12 +199,12 @@ class DatasetLayout:
         return [f"{self.raw_preprocessed_name}.{ext}" for ext in self.langs]
 
 
-class Dataset(DatasetLayout):
-    """A dataset variant: identity + state + on-disk stage checks.
+class ParallelCorpus(ParallelCorpusLayout):
+    """A parallel-corpus variant: identity + state + on-disk stage checks.
 
-    Extends :class:`DatasetLayout` (the pure path engine) with the per-variant
-    state the pipeline mutates / consumes: the target line count, split sizes,
-    user preprocessing callbacks, and disk-inspection helpers.
+    Extends :class:`ParallelCorpusLayout` (the pure path engine) with the
+    per-variant state the pipeline mutates / consumes: the target line count,
+    split sizes, user preprocessing callbacks, and disk-inspection helpers.
     """
 
     def __init__(self, base_path, parent_ds, dataset_name, dataset_lang_pair, dataset_size_name,
@@ -229,7 +229,7 @@ class Dataset(DatasetLayout):
         self.preprocess_splits_fn = preprocess_splits_fn
         self.preprocess_predict_fn = preprocess_predict_fn
 
-        self.source_data = None  # set later by DatasetBuilder
+        self.source_data = None  # set later by ParallelCorpusBuilder
 
     def __str__(self) -> str:
         parts = list(self.base_id())

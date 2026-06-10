@@ -7,7 +7,7 @@
 # from autonmt.core.nn.models.transformer import Transformer
 # from autonmt.backends.autonmt.translation_engine import AutonmtTranslator
 # from autonmt.backends.fairseq.translation_engine import FairseqTranslator
-# from autonmt.datasets.parallel.dataset_builder import DatasetBuilder
+# from autonmt.datasets.parallel.builder import ParallelCorpusBuilder
 # from autonmt.reporting.report import Report
 #
 # import pytest
@@ -82,7 +82,7 @@
 #     # Add the -s flag to see the prints
 #
 #     # Create preprocessing for training
-#     builder = DatasetBuilder(
+#     builder = ParallelCorpusBuilder(
 #         base_path=datasets_dir,
 #         datasets=[
 #             {"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]},

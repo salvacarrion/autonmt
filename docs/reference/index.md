@@ -11,7 +11,7 @@ parameters, contracts; for how-and-why, follow the links back into the User guid
 
     ---
 
-    `DatasetBuilder`, `Dataset`, preprocessing, encoding, the HuggingFace loader, and the
+    `ParallelCorpusBuilder`, `ParallelCorpus`, preprocessing, encoding, the HuggingFace loader, and the
     leakage checker.
 
 -   :material-format-list-bulleted:{ .lg .middle } **[Vocabularies](vocabularies.md)**
@@ -43,7 +43,7 @@ parameters, contracts; for how-and-why, follow the links back into the User guid
 
     ---
 
-    `Report`, `DatasetReport`, the report schema, and plot primitives.
+    `Report`, `CorpusReport`, the report schema, and plot primitives.
 
 </div>
 

@@ -196,16 +196,16 @@ report.plot_matrix("bleu", rows="train_dataset", cols="test_dataset")
   in-domain; off-diagonal cells read as "how well does a model trained on A do on B?".</figcaption>
 </figure>
 
-### Dataset diagnostics { #dataset-diagnostics }
+### Corpus diagnostics { #corpus-diagnostics }
 
 Independent of any model, plot the **data itself** — sentence-length distributions, split
 sizes, and the vocabulary frequency distribution — for any prepared dataset variant:
 
 ```python
-from autonmt.reporting.report import DatasetReport
+from autonmt.reporting.report import CorpusReport
 
 for ds in builder.get_train_ds():
-    DatasetReport(ds).generate(merge_vocabs=False)   # writes into ds.get_plots_path()
+    CorpusReport(ds).generate(merge_vocabs=False)   # writes into ds.get_plots_path()
 ```
 
 `generate()` emits three families of figure per variant:
@@ -232,7 +232,7 @@ for ds in builder.get_train_ds():
   chart. The long Zipfian tail is the expected shape for a healthy subword vocabulary.</figcaption>
 </figure>
 
-This is intentionally **not** part of `DatasetBuilder.build()` (plotting isn't a build
+This is intentionally **not** part of `ParallelCorpusBuilder.build()` (plotting isn't a build
 responsibility) — call it after building when you want the figures. They're useful for
 sanity-checking preprocessing before you spend GPU time.
 

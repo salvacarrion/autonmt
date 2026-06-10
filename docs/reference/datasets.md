@@ -1,26 +1,37 @@
 # Datasets
 
-Corpus preparation: the builder, the dataset/identity holder, and the
-subword-agnostic / subword-dependent preprocessing layers.
+Corpus preparation, in two tiers: the **corpus types** (`parallel/`, `lm/`) —
+each an identity/path holder plus a cross-product builder — and the **machinery**
+that operates on any corpus (`processing/`, `sources/`, `analysis/`).
 
-## DatasetBuilder
+## ParallelCorpusBuilder
 
-::: autonmt.datasets.parallel.dataset_builder.DatasetBuilder
+::: autonmt.datasets.parallel.builder.ParallelCorpusBuilder
 
-## Dataset
+### merge_corpora
 
-::: autonmt.datasets.parallel.dataset.Dataset
+::: autonmt.datasets.parallel.builder.merge_corpora
+
+## ParallelCorpus
+
+The per-cell identity + path engine. `ParallelCorpus` extends
+`ParallelCorpusLayout` (the pure path computer) with builder-time state and
+disk-inspection helpers.
+
+::: autonmt.datasets.parallel.corpus.ParallelCorpus
+
+::: autonmt.datasets.parallel.corpus.ParallelCorpusLayout
 
 ## LMCorpusBuilder
 
-The single-stream / instruct sibling of `DatasetBuilder`. See
+The single-stream / instruct sibling of `ParallelCorpusBuilder`. See
 [LM corpora](../guide/data/lm-corpora.md).
 
-::: autonmt.datasets.lm.lm_corpus.LMCorpusBuilder
+::: autonmt.datasets.lm.builder.LMCorpusBuilder
 
 ## LMCorpus
 
-::: autonmt.datasets.lm.lm_corpus.LMCorpus
+::: autonmt.datasets.lm.corpus.LMCorpus
 
 ## Preprocessing
 
@@ -34,14 +45,21 @@ Subword-dependent: Moses pretokenize, SentencePiece / bytes encode & decode.
 
 ::: autonmt.datasets.processing.encoding
 
+## Splits
+
+Split-preparation helpers: resolve a variant's size spec and co-shuffle the two
+sides of a parallel split in lockstep.
+
+::: autonmt.datasets.processing.splits
+
 ## HuggingFace loader
 
 ::: autonmt.datasets.sources.hf_loader
 
 ## Leakage checks
 
-::: autonmt.datasets.leakage
+::: autonmt.datasets.analysis.leakage
 
 ## Statistics
 
-::: autonmt.datasets.stats
+::: autonmt.datasets.analysis.stats

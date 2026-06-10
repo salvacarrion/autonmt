@@ -38,7 +38,7 @@ class SourceData(_StrEnum):
 
 class SubwordModel(_StrEnum):
     """Tokenization scheme. Byte fallback is a separate, orthogonal flag
-    (see ``Dataset(byte_fallback=...)``) — not encoded into this enum."""
+    (see ``ParallelCorpus(byte_fallback=...)``) — not encoded into this enum."""
     NONE = "none"
     WORD = "word"
     CHAR = "char"

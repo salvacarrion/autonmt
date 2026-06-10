@@ -44,9 +44,9 @@ from tokenizers.normalizers import NFKC, Strip
 from autonmt.backends import AutonmtTranslator
 from autonmt.core.decoding import BeamSearch
 from autonmt.core.nn.models import Transformer
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
-from autonmt.datasets.leakage import warn_on_leakage
+from autonmt.datasets.analysis.leakage import warn_on_leakage
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import (
     Report,
@@ -94,7 +94,7 @@ def main():
         src_field="de", tgt_field="en",
     )
 
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,

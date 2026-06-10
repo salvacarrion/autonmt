@@ -4,7 +4,7 @@ Generate the example figures + report artifacts embedded in the documentation.
 These are produced from *synthetic but plausible* scores — no models are
 trained. The point is to render the exact figures AutoNMT's reporting layer
 emits (`Report.plot_comparison` / `plot_sweep` / `plot_matrix` and the
-`DatasetReport` diagnostics), so the docs can show real outputs without a GPU.
+`CorpusReport` diagnostics), so the docs can show real outputs without a GPU.
 
 The numbers are hand-picked to tell a believable story (subword beats word-level,
 the Transformer beats RNN/Conv, BLEU plateaus as the vocab grows, in-domain beats
@@ -18,7 +18,7 @@ Design notes
   homogeneous across the gallery.
 - The sentence-length histogram caps its bin count at the token-count range, so
   integer counts never produce empty sub-unit bins (the "gaps" artifact). This
-  mirrors the fix in `DatasetReport.plot_length_distribution`.
+  mirrors the fix in `CorpusReport.plot_length_distribution`.
 
 Run:
     python tools/gen_doc_figures.py
@@ -198,7 +198,7 @@ def fig_matrix():
 
 
 # ---------------------------------------------------------------------------
-# Figure — dataset diagnostics (same primitives DatasetReport uses)
+# Figure — dataset diagnostics (same primitives CorpusReport uses)
 # ---------------------------------------------------------------------------
 
 def fig_dataset_diagnostics():
@@ -207,7 +207,7 @@ def fig_dataset_diagnostics():
     # (1) Sentence-length distribution: right-skewed, ~13 tokens/sentence mean.
     # Token counts are integers, so cap the bins at the value range — otherwise
     # 100 bins over a ~50-token range leave empty sub-unit bins ("gaps"). This
-    # mirrors DatasetReport.plot_length_distribution.
+    # mirrors CorpusReport.plot_length_distribution.
     lengths = np.clip(rng.lognormal(mean=2.5, sigma=0.45, size=29_000), 1, None).astype(int)
     n_bins = min(100, int(lengths.max() - lengths.min())) or 1
     df_len = pd.DataFrame(lengths, columns=["frequency"])
@@ -237,7 +237,7 @@ def fig_dataset_diagnostics():
         style=STYLE, figsize=(7.5, 4.6), font_scale=FONT_SCALE,
     ).render(BUILD_DIR, "dataset_split_sizes")
 
-    # (3) Vocabulary distribution: Zipfian frequencies, sampled like DatasetReport.
+    # (3) Vocabulary distribution: Zipfian frequencies, sampled like CorpusReport.
     vocab_n = 8000
     ranks = np.arange(1, vocab_n + 1)
     freqs = (3_000_000 / ranks ** 1.07).astype(int) + 1

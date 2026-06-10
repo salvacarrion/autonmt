@@ -11,12 +11,12 @@ picture behind it, see [Concepts → The mental model](../../concepts/mental-mod
 ## 1 · Declare the grid
 
 You don't loop over datasets and hyper-parameters; you **declare the axes** and let the
-[`DatasetBuilder`](../data/datasets.md) own the cross-product.
+[`ParallelCorpusBuilder`](../data/datasets.md) own the cross-product.
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[                                    # data axes: corpus, language pairs, sizes
         {"name": "multi30k", "languages": ["de-en", "fr-en"],
@@ -35,15 +35,15 @@ already present.
 
 ## 2 · Unroll into variants
 
-The builder hands back the variants as flat lists — one [`Dataset`](../data/datasets.md#the-dataset-object)
+The builder hands back the variants as flat lists — one [`ParallelCorpus`](../data/datasets.md#the-corpus-object)
 per cell:
 
 ```python
-train_variants = builder.get_train_ds()   # list[Dataset], one per cell
+train_variants = builder.get_train_ds()   # list[ParallelCorpus], one per cell
 test_variants  = builder.get_test_ds()
 ```
 
-A `Dataset` is not a PyTorch dataset — it's an **identity plus a path engine**. Given
+A `ParallelCorpus` is not a PyTorch dataset — it's an **identity plus a path engine**. Given
 *(name, language pair, size, subword model, vocab size)* it knows where every file for that
 cell lives, so you never compute paths yourself.
 

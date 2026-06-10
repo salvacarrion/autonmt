@@ -4,7 +4,7 @@ Reads the already-encoded ``<prefix>.<src>`` / ``<prefix>.<tgt>`` files into
 memory as raw strings; ``collate_fn`` does the per-batch vocab encoding and
 padding (so vocab choice / max_tokens stay a DataLoader-time concern, not a
 read-time one). The matching path engine is
-:class:`~autonmt.datasets.parallel.dataset.DatasetLayout`.
+:class:`~autonmt.datasets.parallel.corpus.ParallelCorpusLayout`.
 """
 import functools
 import torch

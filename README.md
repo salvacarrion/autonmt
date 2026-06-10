@@ -52,8 +52,8 @@ See the [installation guide](https://salvacarrion.github.io/autonmt/get-started/
 Fetch a dataset from HuggingFace, train a small Transformer, and score it - in one script:
 
 ```python
-from autonmt.datasets import DatasetBuilder
-from autonmt.datasets.hf_loader import download_hf_dataset
+from autonmt.datasets import ParallelCorpusBuilder
+from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
@@ -65,7 +65,7 @@ download_hf_dataset(
 )
 
 # 2. Declare the grid (one cell here) and materialize it: clean, tokenize, encode.
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="datasets/quickstart",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],

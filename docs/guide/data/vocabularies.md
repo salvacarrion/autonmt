@@ -11,7 +11,7 @@ translator.
 | --- | --- |
 | [`BaseVocabulary`](../../reference/vocabularies.md) | Abstract base: the four special tokens + `encode`/`decode` contract |
 | [`Vocabulary`](../../reference/vocabularies.md) | The concrete whitespace-backed vocabulary used everywhere |
-| `vocab_builder` | Creates the on-disk vocab artifacts during `DatasetBuilder.build()` |
+| `vocab_builder` | Creates the on-disk vocab artifacts during `ParallelCorpusBuilder.build()` |
 
 Every vocabulary shares **four special tokens** with fixed default ids:
 
@@ -34,7 +34,7 @@ These ids are part of the contract — models read `vocab.pad_id`, decoders read
 ## Building vocabularies
 
 The artifacts (`.model` / `.vocab` / `.vocabf` files) are produced during
-`DatasetBuilder.build()`. You then *load* them for a cell with one call:
+`ParallelCorpusBuilder.build()`. You then *load* them for a cell with one call:
 
 ```python
 src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)
@@ -52,7 +52,7 @@ By default, source and target get **separate** vocabularies. Set `merge_vocabs=T
 builder to learn a **single shared** vocabulary over both languages:
 
 ```python
-DatasetBuilder(..., merge_vocabs=True)
+ParallelCorpusBuilder(..., merge_vocabs=True)
 ```
 
 ```python
@@ -101,14 +101,14 @@ src_vocab.get_tokens()[:10]  # the first pieces, in id order
 ```
 
 The `.vocabf` file alongside the vocab stores **token frequencies**, which the
-[dataset diagnostics](../evaluation/reports.md#dataset-diagnostics) use to plot the vocab
+[corpus diagnostics](../evaluation/reports.md#corpus-diagnostics) use to plot the vocab
 distribution — a long Zipfian tail is the healthy shape (a handful of very frequent pieces,
 many rare ones):
 
 <figure markdown="span">
   ![Zipfian token-frequency bar chart for a BPE vocabulary](../../images/reports/dataset_vocab_distribution.svg){ width="620" }
   <figcaption>Sampled token frequencies from a <code>.vocabf</code> file (illustrative).
-  Rendered by <code>DatasetReport.plot_vocab_distribution</code>.</figcaption>
+  Rendered by <code>CorpusReport.plot_vocab_distribution</code>.</figcaption>
 </figure>
 
 ## Custom vocabularies

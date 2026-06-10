@@ -25,7 +25,7 @@ AutoNMT inverts that. You **declare the axes** of your experiment as data, and t
 framework owns the cross-product:
 
 ```python
-DatasetBuilder(
+ParallelCorpusBuilder(
     base_path="data",
     datasets=[                                    # data axes
         {"name": "multi30k", "languages": ["de-en", "fr-en"], "sizes": [("original", None), ("50k", 50000)]},
@@ -37,7 +37,7 @@ DatasetBuilder(
 ```
 
 That single declaration describes **2 language pairs × 2 sizes × 2 subword models × 2
-vocab sizes = 16** dataset variants. AutoNMT unrolls them into 16 `Dataset` objects, each
+vocab sizes = 16** dataset variants. AutoNMT unrolls them into 16 `ParallelCorpus` objects, each
 knowing exactly where its files live on disk. Your experiment loop becomes a flat
 iteration — `for ds in builder.get_train_ds(): ...` — with no nesting and no path
 arithmetic.
@@ -110,7 +110,7 @@ way no matter the backend; only the middle swaps.**
 Reproducibility in AutoNMT isn't a checklist you remember to follow — it's a side effect
 of how the pipeline is built:
 
-- **Everything is path-driven.** A `Dataset` *computes* where each stage lives. Stages are
+- **Everything is path-driven.** A `ParallelCorpus` *computes* where each stage lives. Stages are
   written to numbered folders (`0_raw`, `1_splits`, `2_preprocessed`, `4_encoded/…`), and
   each stage checks before rewriting — so a re-run **skips** completed work and a half-built
   experiment resumes instead of starting over.

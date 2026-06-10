@@ -1,6 +1,6 @@
 # Use a custom dataset
 
-The [`DatasetBuilder`](../guide/data/datasets.md) reads parallel text from disk; how the
+The [`ParallelCorpusBuilder`](../guide/data/datasets.md) reads parallel text from disk; how the
 files *got* there is up to you. The only contract is the **layout** and the **language-code
 extension**.
 
@@ -17,9 +17,9 @@ data/mycorpus/es-en/original/data/1_splits/
 ```
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "mycorpus", "languages": ["es-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [8000]}],
@@ -64,7 +64,7 @@ Inject custom normalization/filtering with the builder's [hooks](../guide/data/p
 — no subclassing:
 
 ```python
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data", datasets=[...], encoding=[...],
     preprocess_raw_fn=clean_pairs,       # fn(data, ds) -> (src_lines, tgt_lines)
     preprocess_splits_fn=clean_pairs,
@@ -75,7 +75,7 @@ builder = DatasetBuilder(
     Overlap between train and test silently inflates scores. Run the cheap checker before
     spending GPU hours:
     ```python
-    from autonmt.datasets.leakage import warn_on_leakage
+    from autonmt.datasets.analysis.leakage import warn_on_leakage
     warn_on_leakage(train_lines, test_lines, key_fn=str.lower, label="es-en tgt")
     ```
 

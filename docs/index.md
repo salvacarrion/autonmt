@@ -20,13 +20,13 @@ trains AutoNMT's own PyTorch Lightning models, fine-tunes a HuggingFace checkpoi
 shells out to Fairseq.
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
 
 # 1. Declare the grid → AutoNMT unrolls it into dataset variants on disk.
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
@@ -51,7 +51,7 @@ backend, `fit`, `predict`.** Everything in these docs is about understanding wha
 inside those four steps and how to bend each one to your research.
 
 !!! tip "Training a language model instead?"
-    The same loop drives decoder-only LMs. You swap the parallel `DatasetBuilder` for a
+    The same loop drives decoder-only LMs. You swap the parallel `ParallelCorpusBuilder` for a
     single-stream [`LMCorpusBuilder`](reference/datasets.md), the `Transformer` for a
     [`GPT`](reference/core.md), and `AutonmtTranslator` for an `AutonmtCausalLM` whose verbs are
     `fit` / `evaluate` / `generate` — pretraining and instruction-tuning share one code

@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from autonmt.backends._base.run_layout import RunLayout
-from autonmt.datasets.parallel.dataset import Dataset
+from autonmt.datasets.parallel.corpus import ParallelCorpus
 from autonmt.datasets.processing.encoding import decode_file, encode_file
 from autonmt.datasets.processing.preprocessing import preprocess_predict_file
 from autonmt.utils.fileio import count_file_lines, make_dir, read_file_lines, write_file_lines
@@ -79,7 +79,7 @@ class SPMTranslatePipeline:
 
     # --- Public entry point ---------------------------------------------
 
-    def run(self, eval_ds: Dataset, beams: List[int],
+    def run(self, eval_ds: ParallelCorpus, beams: List[int],
             preprocess_fn: Optional[Callable],
             force_overwrite: bool,
             translate_fn: Callable[..., None],
@@ -89,8 +89,8 @@ class SPMTranslatePipeline:
 
         Parameters
         ----------
-        eval_ds : Dataset
-            Dataset to translate.
+        eval_ds : ParallelCorpus
+            ParallelCorpus to translate.
         beams : list of int
             Beam widths to run.
         preprocess_fn : callable or None

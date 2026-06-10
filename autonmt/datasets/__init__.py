@@ -1,14 +1,18 @@
-"""Public dataset API.
+"""Public corpus API.
 
-Organized by role: ``parallel/`` (translation datasets), ``lm/`` (single-stream
-corpora), ``processing/`` (preprocess / encode / tokenize), ``sources/`` (loaders);
-``stats`` and ``leakage`` are cross-cutting helpers. The headline builders and
-identity classes are re-exported here so ``from autonmt.datasets import DatasetBuilder``
-stays the entry point.
+Two tiers live under here. **Corpus types** (the nouns): ``parallel/``
+(translation, ``xx-yy``-keyed) and ``lm/`` (single-stream / instruct corpora),
+each a ``corpus.py`` + ``builder.py`` pair. **Machinery** that operates on any
+corpus: ``processing/`` (preprocess / encode / tokenize / split), ``sources/``
+(loaders), and ``analysis/`` (descriptive stats + leakage detection).
+
+The headline corpus + builder classes are re-exported here, so
+``from autonmt.datasets import ParallelCorpusBuilder`` stays the entry point.
 """
-from autonmt.datasets.parallel.dataset import Dataset, DatasetLayout
-from autonmt.datasets.parallel.dataset_builder import DatasetBuilder, merge_datasets
-from autonmt.datasets.lm.lm_corpus import LMCorpus, LMCorpusBuilder
+from autonmt.datasets.parallel.corpus import ParallelCorpus, ParallelCorpusLayout
+from autonmt.datasets.parallel.builder import ParallelCorpusBuilder, merge_corpora
+from autonmt.datasets.lm.corpus import LMCorpus
+from autonmt.datasets.lm.builder import LMCorpusBuilder
 
-__all__ = ["Dataset", "DatasetLayout", "DatasetBuilder", "merge_datasets",
-           "LMCorpus", "LMCorpusBuilder"]
+__all__ = ["ParallelCorpus", "ParallelCorpusLayout", "ParallelCorpusBuilder",
+           "merge_corpora", "LMCorpus", "LMCorpusBuilder"]

@@ -2,7 +2,7 @@
 
 This is the **input side** of the pipeline. Before any model trains, AutoNMT has to turn
 raw parallel text into clean, split, encoded files with matching vocabularies — once per
-cell of your grid. The [`DatasetBuilder`](../../reference/datasets.md) owns that, and it's
+cell of your grid. The [`ParallelCorpusBuilder`](../../reference/datasets.md) owns that, and it's
 where the [grid-first idea](../../concepts/philosophy.md#grid-first) becomes real code.
 
 ## Declaring the grid
@@ -11,9 +11,9 @@ You describe **two axes groups** — the *data* axes (`datasets`) and the *encod
 (`encoding`) — and the builder takes their cross-product:
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[                                    # data axes: what corpus, which pairs, how much
         {
@@ -70,7 +70,7 @@ flowchart LR
 
 Each stage is **skipped if already present** (unless `force_overwrite=True`), so re-running
 a grid only builds what's new. Plotting is intentionally *not* part of `build()` — call
-`autonmt.reporting.report.DatasetReport(ds).generate(...)` afterward if you want
+`autonmt.reporting.report.CorpusReport(ds).generate(...)` afterward if you want
 sentence-length and vocab-distribution figures (a quick sanity check before spending GPU
 time):
 
@@ -94,19 +94,19 @@ time):
 After `build()`, the builder hands you the lists your experiment loop walks:
 
 ```python
-for train_ds in builder.get_train_ds():     # one Dataset per cell
+for train_ds in builder.get_train_ds():     # one ParallelCorpus per cell
     ...
 test_variants = builder.get_test_ds()        # evaluate against these
 ```
 
-`get_train_ds()` and `get_test_ds()` return the **full cross-product** of `Dataset`
+`get_train_ds()` and `get_test_ds()` return the **full cross-product** of `ParallelCorpus`
 objects (the same list — they're aliases for the variant list, named for how you use them).
 You typically train on each in turn and evaluate against the test variants, letting
 [`eval_mode`](../translation/generating.md#eval-mode) pick the relevant test sets per model.
 
-## The `Dataset` object { #the-dataset-object }
+## The `ParallelCorpus` object { #the-corpus-object }
 
-Each cell is a [`Dataset`](../../reference/datasets.md#autonmt.datasets.parallel.dataset.Dataset). It
+Each cell is a [`ParallelCorpus`](../../reference/datasets.md#autonmt.datasets.parallel.corpus.ParallelCorpus). It
 is **not** a PyTorch dataset — it's an *identity + path engine*. Given *(name, language
 pair, size, subword model, vocab size)* it computes where every file for that cell lives,
 and exposes disk-inspection and vocab helpers:
@@ -123,7 +123,7 @@ ds.get_vocab_path()               # → .../vocabs/bpe/4000/
 ds.build_vocabs(max_tokens=8000)  # → (src_vocab, tgt_vocab)
 ```
 
-Because the `Dataset` knows its own paths, the rest of the framework never does string
+Because the `ParallelCorpus` knows its own paths, the rest of the framework never does string
 surgery on directories — you pass the object around and ask it where things are. (The torch
 `Dataset` used at train time is a separate class,
 [`TranslationDataset`](../training/bucketing.md), built from these paths.)
@@ -176,7 +176,7 @@ data/mycorpus/es-en/original/data/1_splits/
 ```
 
 ```python
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "mycorpus", "languages": ["es-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [8000]}],
@@ -190,7 +190,7 @@ the builder will create the splits for you.
     Sentences that appear in both train and test silently inflate scores — common with
     web-scraped or accidentally-overlapping corpora. AutoNMT ships a cheap checker:
     ```python
-    from autonmt.datasets.leakage import warn_on_leakage
+    from autonmt.datasets.analysis.leakage import warn_on_leakage
     warn_on_leakage(train_lines, test_lines, key_fn=str.lower, label="es-en tgt")
     ```
     It only *logs* the overlaps and returns the list — you decide whether to filter, abort,

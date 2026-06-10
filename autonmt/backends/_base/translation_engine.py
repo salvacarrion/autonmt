@@ -42,7 +42,7 @@ from autonmt.utils.logger import get_logger
 from autonmt.evaluation.metrics import METRIC_BACKENDS, resolve_backends
 from autonmt.reporting.schema import RunMetadata, build_run_report
 from autonmt.utils.seed import manual_seed
-from autonmt.datasets.parallel.dataset import Dataset
+from autonmt.datasets.parallel.corpus import ParallelCorpus
 from autonmt.backends._base.config import FitConfig, PredictConfig, UNSET, merge_config
 from autonmt.backends._base.run_layout import RunLayout
 from autonmt.backends._base.spm_pipeline import SPMTranslatePipeline
@@ -64,12 +64,12 @@ def _all_supported_metric_names() -> Set[str]:
     return {m for b in METRIC_BACKENDS.values() for m in b.metrics}
 
 
-def _check_datasets(train_ds: Optional[Dataset] = None, eval_ds: Optional[Dataset] = None) -> None:
-    if train_ds and not isinstance(train_ds, Dataset):
-        raise TypeError("'train_ds' must be an instance of 'Dataset' so that we can know the layout of the trained "
+def _check_datasets(train_ds: Optional[ParallelCorpus] = None, eval_ds: Optional[ParallelCorpus] = None) -> None:
+    if train_ds and not isinstance(train_ds, ParallelCorpus):
+        raise TypeError("'train_ds' must be an instance of 'ParallelCorpus' so that we can know the layout of the trained "
                         "model (e.g. checkpoints available, subword model, vocabularies, etc")
-    if eval_ds and not isinstance(eval_ds, Dataset):
-        raise TypeError("'eval_ds' must be an instance of 'Dataset' so that we can know the layout of the dataset "
+    if eval_ds and not isinstance(eval_ds, ParallelCorpus):
+        raise TypeError("'eval_ds' must be an instance of 'ParallelCorpus' so that we can know the layout of the dataset "
                         "and get the corresponding data (e.g. splits, pretokenized, encoded, stc)")
 
     if train_ds and eval_ds and ((train_ds.src_lang != eval_ds.src_lang)
@@ -136,7 +136,7 @@ class BaseTranslator(ABC):
     ENGINE: str = "base"
 
     @classmethod
-    def from_dataset(cls, train_ds: Dataset, *, run_prefix: str, **kwargs) -> "BaseTranslator":
+    def from_dataset(cls, train_ds: ParallelCorpus, *, run_prefix: str, **kwargs) -> "BaseTranslator":
         """Build a translator bound to ``train_ds``'s runs path.
 
         Resolves ``runs_dir`` and ``run_name`` from the dataset variant and
@@ -171,7 +171,7 @@ class BaseTranslator(ABC):
         self.tgt_vocab = tgt_vocab
         self.from_checkpoint = None
         self.safe_seconds = safe_seconds
-        self.trained_ds: List[Dataset] = []
+        self.trained_ds: List[ParallelCorpus] = []
 
         # Subsets: a list of (name, callable) entries. Each entry produces one
         # translate/score pass, useful when the user wants to slice the test set
@@ -242,12 +242,12 @@ class BaseTranslator(ABC):
 
     # --- fit ------------------------------------------------------------
 
-    def fit(self, train_ds: Dataset, config: Optional[FitConfig] = None, **kwargs) -> None:
+    def fit(self, train_ds: ParallelCorpus, config: Optional[FitConfig] = None, **kwargs) -> None:
         """Train the model on a dataset variant.
 
         Parameters
         ----------
-        train_ds : Dataset
+        train_ds : ParallelCorpus
             The dataset variant to train on (one cell of the builder grid).
         config : FitConfig, optional
             Training configuration. Any field may instead be passed directly as
@@ -270,7 +270,7 @@ class BaseTranslator(ABC):
 
     # --- predict --------------------------------------------------------
 
-    def predict(self, eval_datasets: Iterable[Dataset],
+    def predict(self, eval_datasets: Iterable[ParallelCorpus],
                 config: Optional[PredictConfig] = None, **kwargs) -> List[dict]:
         """Translate and score one or more evaluation datasets.
 
@@ -279,7 +279,7 @@ class BaseTranslator(ABC):
 
         Parameters
         ----------
-        eval_datasets : Iterable[Dataset]
+        eval_datasets : Iterable[ParallelCorpus]
             Candidate test sets; filtered by ``eval_mode`` to those compatible
             with the trained model.
         config : PredictConfig, optional
@@ -437,7 +437,7 @@ class BaseTranslator(ABC):
 
     # --- score_translations + parse_metrics -----------------------------
 
-    def score_translations(self, eval_ds: Dataset, beams: List[int], metrics: Set[str],
+    def score_translations(self, eval_ds: ParallelCorpus, beams: List[int], metrics: Set[str],
                            force_overwrite, **kwargs):
         log.info(f"=> [Scoring translations]: Started. (Model: {self.run_name} | Test: {str(eval_ds)})")
         _check_datasets(eval_ds=eval_ds)

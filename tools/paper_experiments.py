@@ -283,7 +283,7 @@ def _seed_parallel_corpus(base_path, name, lang_pair, src_lines, tgt_lines, size
 
 
 def _nmt_preprocess_fns():
-    """The normalize / preprocess callbacks used by the DatasetBuilder + predict."""
+    """The normalize / preprocess callbacks used by the ParallelCorpusBuilder + predict."""
     from tokenizers.normalizers import NFKC, Strip
     from autonmt.datasets.preprocessing import (
         normalize_lines, preprocess_lines, preprocess_pairs)
@@ -356,11 +356,11 @@ def task_models(profile: Profile, outdir: str):
     only assert that each public class still builds from a real vocab/corpus and
     has trainable parameters — the thing most likely to rot across a refactor.
     """
-    from autonmt.datasets.dataset_builder import DatasetBuilder
+    from autonmt.datasets import ParallelCorpusBuilder
     from autonmt.core.nn.models import (
         MLP, SimpleRNN, ContextRNN, BahdanauRNN, LuongRNN, ConvS2S, Transformer,
         GPT, MLMTransformer)
-    from autonmt.datasets.lm_corpus import LMCorpusBuilder
+    from autonmt.datasets import LMCorpusBuilder
 
     base = os.path.join(outdir, "_models")
     rng = random.Random(profile.seed)
@@ -371,7 +371,7 @@ def task_models(profile: Profile, outdir: str):
     # --- encoder-decoder catalog: build a tiny parallel ds, then from_vocabs ---
     src, tgt = _synthetic_parallel(800)
     _seed_parallel_corpus(base, "toy", "en-es", src, tgt)
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=base,
         datasets=[{"name": "toy", "languages": ["en-es"],
                    "sizes": [("original", None)], "split_sizes": (None, 60, 60)}],
@@ -427,7 +427,7 @@ def task_models(profile: Profile, outdir: str):
 def task_nmt(profile: Profile, outdir: str):
     from autonmt.backends import AutonmtTranslator
     from autonmt.backends._base.config import FitConfig, PredictConfig
-    from autonmt.datasets.dataset_builder import DatasetBuilder
+    from autonmt.datasets import ParallelCorpusBuilder
     from autonmt.reporting.report import Report
 
     _seed_everything(profile.seed)
@@ -440,7 +440,7 @@ def task_nmt(profile: Profile, outdir: str):
         _seed_parallel_corpus(base, "toy", "en-es", src, tgt)
         datasets = [{"name": "toy", "languages": ["en-es"],
                      "sizes": [("original", None)], "split_sizes": (None, 60, 60)}]
-        builder = DatasetBuilder(
+        builder = ParallelCorpusBuilder(
             base_path=base, datasets=datasets,
             encoding=[{"subword_models": ["bpe"], "vocab_sizes": [profile.nmt_vocab]}],
             preprocess_raw_fn=pre_train, preprocess_splits_fn=pre_train,
@@ -448,11 +448,11 @@ def task_nmt(profile: Profile, outdir: str):
         ).build(force_overwrite=False)
     else:
         _require("datasets")
-        from autonmt.datasets.hf_loader import download_hf_dataset
+        from autonmt.datasets.sources.hf_loader import download_hf_dataset
         download_hf_dataset(hf_id="bentrevett/multi30k", base_path=base,
                             dataset_name="multi30k", lang_pair="de-en",
                             src_field="de", tgt_field="en")
-        builder = DatasetBuilder(
+        builder = ParallelCorpusBuilder(
             base_path=base,
             datasets=[{"name": "multi30k", "languages": ["de-en"],
                        "sizes": [("original", None)]}],
@@ -493,7 +493,7 @@ def task_lm(profile: Profile, outdir: str):
     from autonmt.backends import LMTrainer
     from autonmt.core.decoding import TopPSampling
     from autonmt.core.nn.models import GPT
-    from autonmt.datasets.lm_corpus import LMCorpusBuilder
+    from autonmt.datasets import LMCorpusBuilder
 
     _seed_everything(profile.seed)
     base = os.path.join(outdir, "_lm")
@@ -541,7 +541,7 @@ def task_lm(profile: Profile, outdir: str):
 def task_mlm(profile: Profile, outdir: str):
     from autonmt.backends import MLMTrainer
     from autonmt.core.nn.models import MLMTransformer
-    from autonmt.datasets.lm_corpus import LMCorpusBuilder
+    from autonmt.datasets import LMCorpusBuilder
 
     _seed_everything(profile.seed)
     base = os.path.join(outdir, "_mlm")
@@ -587,8 +587,8 @@ def task_sweep(profile: Profile, outdir: str):
     from autonmt.backends import AutonmtTranslator, LMTrainer
     from autonmt.backends._base.config import FitConfig, PredictConfig
     from autonmt.core.nn.models import GPT
-    from autonmt.datasets.dataset_builder import DatasetBuilder
-    from autonmt.datasets.lm_corpus import LMCorpusBuilder
+    from autonmt.datasets import ParallelCorpusBuilder
+    from autonmt.datasets import LMCorpusBuilder
 
     _seed_everything(profile.seed)
     pre_train, pre_predict = _nmt_preprocess_fns()
@@ -604,7 +604,7 @@ def task_sweep(profile: Profile, outdir: str):
         name = "toy"
     else:
         _require("datasets")
-        from autonmt.datasets.hf_loader import download_hf_dataset
+        from autonmt.datasets.sources.hf_loader import download_hf_dataset
         download_hf_dataset(hf_id="bentrevett/multi30k", base_path=base,
                             dataset_name="multi30k", lang_pair="de-en",
                             src_field="de", tgt_field="en")
@@ -612,7 +612,7 @@ def task_sweep(profile: Profile, outdir: str):
                     "sizes": [("original", None)]}]
         name = "multi30k de-en"
 
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=base, datasets=ds_decl,
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": list(profile.nmt_vocab_sweep)}],
         preprocess_raw_fn=pre_train, preprocess_splits_fn=pre_train, merge_vocabs=False,
@@ -682,7 +682,7 @@ def task_sweep(profile: Profile, outdir: str):
 def task_parity(profile: Profile, outdir: str):
     from autonmt.backends import AutonmtTranslator, HuggingFaceTranslator
     from autonmt.backends._base.config import FitConfig, PredictConfig
-    from autonmt.datasets.dataset_builder import DatasetBuilder
+    from autonmt.datasets import ParallelCorpusBuilder
 
     smoke = profile.name == "smoke"
     if smoke:
@@ -693,11 +693,11 @@ def task_parity(profile: Profile, outdir: str):
     pre_train, pre_predict = _nmt_preprocess_fns()
     base = os.path.join(outdir, "_parity")
 
-    from autonmt.datasets.hf_loader import download_hf_dataset
+    from autonmt.datasets.sources.hf_loader import download_hf_dataset
     download_hf_dataset(hf_id="bentrevett/multi30k", base_path=base,
                         dataset_name="multi30k", lang_pair="de-en",
                         src_field="de", tgt_field="en")
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=base,
         datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": [profile.nmt_vocab]}],
@@ -744,8 +744,8 @@ def task_decoding(profile: Profile, outdir: str):
     from autonmt.core.decoding import (GreedySearch, TopKSampling, TopPSampling,
                                        MultinomialSampling)
     from autonmt.core.nn.models import GPT
-    from autonmt.datasets.dataset_builder import DatasetBuilder
-    from autonmt.datasets.lm_corpus import LMCorpusBuilder
+    from autonmt.datasets import ParallelCorpusBuilder
+    from autonmt.datasets import LMCorpusBuilder
 
     _seed_everything(profile.seed)
     pre_train, pre_predict = _nmt_preprocess_fns()
@@ -760,13 +760,13 @@ def task_decoding(profile: Profile, outdir: str):
                     "sizes": [("original", None)], "split_sizes": (None, 80, 80)}]
     else:
         _require("datasets")
-        from autonmt.datasets.hf_loader import download_hf_dataset
+        from autonmt.datasets.sources.hf_loader import download_hf_dataset
         download_hf_dataset(hf_id="bentrevett/multi30k", base_path=base,
                             dataset_name="multi30k", lang_pair="de-en",
                             src_field="de", tgt_field="en")
         ds_decl = [{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}]
 
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=base, datasets=ds_decl,
         encoding=[{"subword_models": ["bpe"], "vocab_sizes": [profile.nmt_vocab]}],
         preprocess_raw_fn=pre_train, preprocess_splits_fn=pre_train, merge_vocabs=False,

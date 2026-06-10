@@ -1,12 +1,12 @@
-"""Cross-product unroller + stage orchestrator for dataset variants.
+"""Cross-product unroller + stage orchestrator for parallel-corpus variants.
 
 Each user-declared (dataset × lang-pair × size × subword × vocab_size) cell
-becomes one :class:`Dataset`. The builder unrolls the grid, materialises files
+becomes one :class:`ParallelCorpus`. The builder unrolls the grid, materialises files
 on disk in fixed stages (raw → splits → preprocessed → encoded → stats), and
 caches enough state to iterate cleanly over the variants.
 
 Plotting is intentionally NOT a builder responsibility: call
-``autonmt.reporting.report.DatasetReport(ds).generate(...)`` after ``build()``
+``autonmt.reporting.report.CorpusReport(ds).generate(...)`` after ``build()``
 if you want diagnostic plots.
 """
 import os
@@ -23,19 +23,19 @@ from autonmt.utils.fileio import (
     write_file_lines,
 )
 from autonmt.utils.logger import get_logger
-from autonmt.datasets.stats import parse_split_size, shuffle_in_order
-from autonmt.datasets.parallel.dataset import Dataset
+from autonmt.datasets.processing.splits import parse_split_size, shuffle_in_order
+from autonmt.datasets.parallel.corpus import ParallelCorpus
 from autonmt.datasets.processing.encoding import encode_file, pretokenize_file
 from autonmt.vocabularies import vocab_builder
 
 log = get_logger(__name__)
 
 
-class DatasetBuilder:
+class ParallelCorpusBuilder:
     """Unrolls a (dataset × lang-pair × size × subword × vocab) grid and builds it on disk.
 
     Declare the experiment's data axes once; :meth:`build` materialises every
-    cell as a :class:`~autonmt.datasets.parallel.dataset.Dataset` under ``base_path`` in
+    cell as a :class:`~autonmt.datasets.parallel.corpus.ParallelCorpus` under ``base_path`` in
     fixed stages (raw → splits → preprocessed → encoded → stats/vocabs).
     :meth:`get_train_ds` / :meth:`get_test_ds` return the lists the experiment
     loop iterates over.
@@ -188,7 +188,7 @@ class DatasetBuilder:
                         parent_ds=parent_ds,
                     )
                     for enc in encs:
-                        ds_unrolled.append(Dataset(**base, **enc))
+                        ds_unrolled.append(ParallelCorpus(**base, **enc))
         return ds_unrolled
 
     # --- Public entrypoint ---------------------------------------------
@@ -527,19 +527,19 @@ class DatasetBuilder:
                 log.info(json.dumps(stats, indent=4))
 
 
-def merge_datasets(builder: DatasetBuilder, name, language_pair="xx-yy",
-                   dataset_size_name="original", shuffle_lines=False,
-                   use_preprocessed_splits=False, preprocess_fn=None,
-                   force_overwrite=False):
-    """Concatenate every train_ds inside ``builder`` into one synthetic dataset.
+def merge_corpora(builder: ParallelCorpusBuilder, name, language_pair="xx-yy",
+                  dataset_size_name="original", shuffle_lines=False,
+                  use_preprocessed_splits=False, preprocess_fn=None,
+                  force_overwrite=False):
+    """Concatenate every train_ds inside ``builder`` into one synthetic corpus.
 
     Used to assemble a multi-corpus baseline (e.g. all Europarl pairs into one
-    file). Lives outside ``DatasetBuilder`` because it only depends on the
+    file). Lives outside ``ParallelCorpusBuilder`` because it only depends on the
     builder's accessors, not its internal state.
     """
-    log.info(f"=> Merging datasets... (base_path={builder.base_path})")
+    log.info(f"=> Merging corpora... (base_path={builder.base_path})")
 
-    ds = Dataset(
+    ds = ParallelCorpus(
         base_path=builder.base_path, parent_ds=None,
         dataset_name=name, dataset_lang_pair=language_pair,
         dataset_size_name=dataset_size_name, dataset_lines=None,

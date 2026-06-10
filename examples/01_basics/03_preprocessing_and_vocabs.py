@@ -42,10 +42,10 @@ from tokenizers.normalizers import NFKC, Lowercase, Strip
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
 from autonmt.core.nn.models import Transformer
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
-from autonmt.reporting.report import DatasetReport, Report
+from autonmt.reporting.report import CorpusReport, Report
 
 BASE_PATH = "datasets/03_preproc"
 DATASET = "multi30k"
@@ -90,7 +90,7 @@ def main():
         src_field="de", tgt_field="en",
     )
 
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,
@@ -122,11 +122,11 @@ def main():
     print(f"[info] Encoded splits at:   {train_ds.get_encoded_path()}\n")
 
     # Visualise the *data itself* before training: sentence-length distributions,
-    # split sizes, and the vocabulary frequency distribution. `DatasetReport` is
+    # split sizes, and the vocabulary frequency distribution. `CorpusReport` is
     # the corpus-diagnostics sibling of `Report`; it writes figures under
     # `train_ds.get_plots_path()`. A quick way to sanity-check a subword choice
     # before spending GPU time. (`merge_vocabs=False` matches the builder above.)
-    DatasetReport(train_ds).generate(merge_vocabs=False)
+    CorpusReport(train_ds).generate(merge_vocabs=False)
     print(f"[info] Diagnostic plots at: {train_ds.get_plots_path()}\n")
 
     src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=150)

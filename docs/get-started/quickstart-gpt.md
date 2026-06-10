@@ -87,7 +87,7 @@ corpus = builder.get_train_ds()[0]
 ```
 
 [`LMCorpusBuilder`](../reference/datasets.md) is the single-stream sibling of the parallel
-[`DatasetBuilder`](../guide/data/datasets.md) — it doesn't replace it. It trains a
+[`ParallelCorpusBuilder`](../guide/data/datasets.md) — it doesn't replace it. It trains a
 [SentencePiece tokenizer](../guide/data/tokenization.md) on the text and writes a flat,
 **packed** token stream to disk. The `text=[...]` field is an inline convenience: drop in
 the lines of your own corpus (one document per line) and everything downstream is identical.

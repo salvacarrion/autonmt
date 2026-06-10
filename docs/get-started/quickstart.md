@@ -18,7 +18,7 @@ small, well-behaved dataset that trains in minutes on CPU.
 Here it is end to end; the sections below unpack each part.
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
@@ -33,7 +33,7 @@ download_hf_dataset(
 )
 
 # 2. Declare the (tiny) grid and materialize it.
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
@@ -97,7 +97,7 @@ skip this step entirely (see [Bring your own data](../guide/data/datasets.md#bri
 ### 2 · Declare and build the grid
 
 ```python
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [4000]}],
@@ -127,7 +127,7 @@ src_vocab, tgt_vocab = train_ds.build_vocabs(max_tokens=8000)
 ```
 
 `get_train_ds()` returns the list of dataset variants (here, length 1). Each
-[`Dataset`](../guide/data/datasets.md#the-dataset-object) knows where its encoded files and
+[`ParallelCorpus`](../guide/data/datasets.md#the-corpus-object) knows where its encoded files and
 vocab artifacts live. `build_vocabs` loads the source/target
 [vocabularies](../guide/data/vocabularies.md); `max_tokens` caps how many tokens a single
 sentence contributes when encoding batches later.

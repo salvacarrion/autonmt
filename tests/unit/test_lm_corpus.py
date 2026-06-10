@@ -10,7 +10,7 @@ import random
 import numpy as np
 import pytest
 
-from autonmt.datasets.lm.lm_corpus import LMCorpusBuilder, TEXT, INSTRUCT, MLM
+from autonmt.datasets.lm import LMCorpusBuilder, TEXT, INSTRUCT, MLM
 
 
 WORDS = ("the quick brown fox jumps over lazy dog cat runs fast slow under "

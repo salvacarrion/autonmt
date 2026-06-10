@@ -16,7 +16,7 @@ from tokenizers.normalizers import NFKC, Strip
 
 from autonmt.utils.fileio import read_file_lines, write_file_lines
 from autonmt.utils.logger import get_logger
-from autonmt.datasets.stats import shuffle_in_order
+from autonmt.datasets.processing.splits import shuffle_in_order
 from autonmt.datasets.processing import tokenizers
 
 log = get_logger(__name__)

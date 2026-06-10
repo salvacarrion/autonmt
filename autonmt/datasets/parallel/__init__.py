@@ -1,3 +1,4 @@
-"""Parallel (translation) corpora: the ``Dataset`` identity/path holder and the
-``DatasetBuilder`` cross-product unroller. Sibling of :mod:`autonmt.datasets.lm`.
+"""Parallel (translation) corpora: the ``ParallelCorpus`` identity/path holder
+(``corpus.py``) and the ``ParallelCorpusBuilder`` cross-product unroller
+(``builder.py``). Sibling of :mod:`autonmt.datasets.lm`.
 """

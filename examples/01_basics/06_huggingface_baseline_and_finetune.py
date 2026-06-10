@@ -17,7 +17,7 @@ you've used so far works with HuggingFace seq2seq checkpoints via
 What's new vs tutorial 05
 -------------------------
 - We import `HuggingFaceTranslator` instead of `AutonmtTranslator`. Everything
-  else stays the same: `DatasetBuilder`, `FitConfig`, `PredictConfig`,
+  else stays the same: `ParallelCorpusBuilder`, `FitConfig`, `PredictConfig`,
   `Report`.
 - The HF backend brings its own tokenizer, so the `subword_models`/`vocab_sizes`
   declared in `encoding=` are only used for the AutoNMT-side dataset stats and
@@ -37,7 +37,7 @@ from tokenizers.normalizers import NFKC, Strip
 
 from autonmt.backends import HuggingFaceTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.datasets.processing.preprocessing import normalize_lines, preprocess_lines, preprocess_pairs
 from autonmt.reporting.report import Report
@@ -70,11 +70,11 @@ def main():
         src_field="de", tgt_field="en",
     )
 
-    # Even though HF brings its own tokenizer, the DatasetBuilder still owns
+    # Even though HF brings its own tokenizer, the ParallelCorpusBuilder still owns
     # the on-disk layout, stats, and the AutoNMT-side eval flow — so we build
     # exactly like in the previous tutorials. The subword model here is just
     # bookkeeping for the dataset's identity.
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=BASE_PATH,
         datasets=[{
             "name": DATASET,

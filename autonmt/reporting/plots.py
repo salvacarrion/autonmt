@@ -5,7 +5,7 @@ DataFrame plus the bare-minimum styling and handles one concern: produce one
 figure, save it in one or more formats, and close it. Anything domain-specific
 (which columns to read, how to label NMT runs, etc.) belongs in the report
 classes (:class:`autonmt.reporting.report.Report` /
-:class:`~autonmt.reporting.report.DatasetReport`), not here.
+:class:`~autonmt.reporting.report.CorpusReport`), not here.
 
 Design — template method:
 

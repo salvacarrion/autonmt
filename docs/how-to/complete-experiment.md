@@ -6,7 +6,7 @@ walkthrough of the same shape, see the [Quickstart](../get-started/quickstart.md
 concepts, [The experiment workflow](../guide/experiments/workflow.md).)
 
 ```python
-from autonmt.datasets import DatasetBuilder
+from autonmt.datasets import ParallelCorpusBuilder
 from autonmt.datasets.sources.hf_loader import download_hf_dataset
 from autonmt.backends import AutonmtTranslator
 from autonmt.backends._base.config import FitConfig, PredictConfig
@@ -19,7 +19,7 @@ download_hf_dataset(
     dataset_name="multi30k", lang_pair="de-en", src_field="de", tgt_field="en",
 )
 
-builder = DatasetBuilder(
+builder = ParallelCorpusBuilder(
     base_path="data",
     datasets=[{"name": "multi30k", "languages": ["de-en"], "sizes": [("original", None)]}],
     encoding=[{"subword_models": ["bpe"], "vocab_sizes": [8000]}],

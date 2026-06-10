@@ -19,7 +19,7 @@ pytest.importorskip("sentencepiece")
 pytest.importorskip("sacremoses")
 pytest.importorskip("tokenizers")
 
-from autonmt.datasets.parallel.dataset_builder import DatasetBuilder  # noqa: E402
+from autonmt.datasets.parallel.builder import ParallelCorpusBuilder  # noqa: E402
 
 
 SRC_SENTENCES = [
@@ -66,7 +66,7 @@ def tiny_corpus():
 
 
 def test_builder_runs_full_pipeline(tiny_corpus):
-    builder = DatasetBuilder(
+    builder = ParallelCorpusBuilder(
         base_path=tiny_corpus,
         datasets=[{
             "name": "tiny",
@@ -100,7 +100,7 @@ def test_builder_runs_full_pipeline(tiny_corpus):
         assert os.path.exists(ds.get_encoded_path(fname)), f"missing encoded file: {fname}"
 
     # Re-running with force_overwrite=False is a no-op (idempotent stage skipping)
-    DatasetBuilder(
+    ParallelCorpusBuilder(
         base_path=tiny_corpus,
         datasets=[{
             "name": "tiny",

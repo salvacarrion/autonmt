@@ -13,7 +13,7 @@ Convenience for new users so they can do::
         tgt_field="en",
     )
 
-…and immediately point a ``DatasetBuilder`` at ``datasets/multi30k``.
+…and immediately point a ``ParallelCorpusBuilder`` at ``datasets/multi30k``.
 
 The ``datasets`` package is an optional dependency; this module imports it
 lazily so the rest of the framework keeps working without it installed.

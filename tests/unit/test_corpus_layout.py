@@ -5,12 +5,12 @@ existing experiment folder, so the layout is pinned here.
 import pytest
 
 from autonmt.utils.enums import SubwordModel
-from autonmt.datasets.parallel.dataset import Dataset, DatasetLayout
+from autonmt.datasets.parallel.corpus import ParallelCorpus, ParallelCorpusLayout
 
 
 @pytest.fixture
 def ds_bpe():
-    return Dataset(
+    return ParallelCorpus(
         base_path="/tmp/x", parent_ds=False,
         dataset_name="multi30k", dataset_lang_pair="de-en",
         dataset_size_name="small", dataset_lines=None,
@@ -47,7 +47,7 @@ class TestDatasetPaths:
 
 class TestSubwordModelEdgeCases:
     def test_bytes_uses_singleton_vocab_segment(self):
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model="bytes", vocab_size=None, merge_vocabs=False,
@@ -56,7 +56,7 @@ class TestSubwordModelEdgeCases:
         assert ds.get_encoded_path("train.es") == "/x/d/es-en/s/data/4_encoded/bytes/train.es"
 
     def test_none_falls_back_to_preprocessed(self):
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model=None, vocab_size=None, merge_vocabs=False,
@@ -65,7 +65,7 @@ class TestSubwordModelEdgeCases:
         assert ds.get_encoded_path("train.es") == "/x/d/es-en/s/data/2_preprocessed/train.es"
 
     def test_word_triggers_pretokenization(self):
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model="word", vocab_size=4000, merge_vocabs=False,
@@ -73,11 +73,11 @@ class TestSubwordModelEdgeCases:
         assert ds.pretok_flag is True
 
 
-class TestDatasetLayoutStandalone:
-    """DatasetLayout can be used without a full Dataset for path inspection."""
+class TestParallelCorpusLayoutStandalone:
+    """ParallelCorpusLayout can be used without a full ParallelCorpus for path inspection."""
 
     def test_basic_construction(self):
-        lay = DatasetLayout(
+        lay = ParallelCorpusLayout(
             base_path="/tmp", dataset_name="x", dataset_lang_pair="de-en",
             dataset_size_name="100k",
             subword_model=SubwordModel.UNIGRAM, vocab_size="4000",
@@ -91,7 +91,7 @@ class TestByteFallback:
     must show up in on-disk paths so vocabs with/without fallback don't collide."""
 
     def test_path_segment_gets_bytes_suffix(self):
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model="unigram", vocab_size=8000, byte_fallback=True, merge_vocabs=False,
@@ -102,7 +102,7 @@ class TestByteFallback:
         assert ds.get_vocab_file(lang="es") == "/x/d/es-en/s/vocabs/unigram+bytes/8000/es"
 
     def test_default_off(self):
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model="bpe", vocab_size=8000, merge_vocabs=False,
@@ -115,13 +115,13 @@ class TestByteFallback:
                       dataset_lang_pair="es-en", dataset_size_name="s",
                       dataset_lines=None, splits_sizes=(None, 10, 10),
                       subword_model="bpe", vocab_size=8000, merge_vocabs=False)
-        plain = Dataset(**common)
-        fb = Dataset(**common, byte_fallback=True)
+        plain = ParallelCorpus(**common)
+        fb = ParallelCorpus(**common, byte_fallback=True)
         assert plain.get_run_name("m") != fb.get_run_name("m")
 
     def test_plus_bytes_string_sugar(self):
         # "bpe+bytes" as subword_model is sugar for (subword_model="bpe", byte_fallback=True).
-        ds = Dataset(
+        ds = ParallelCorpus(
             base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
             dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
             subword_model="bpe+bytes", vocab_size=8000, merge_vocabs=False,
@@ -133,7 +133,7 @@ class TestByteFallback:
     def test_byte_fallback_rejected_for_bytes_only(self):
         # bytes-only is its own scheme; byte_fallback would be meaningless.
         with pytest.raises(ValueError, match="byte_fallback=True is incompatible"):
-            Dataset(
+            ParallelCorpus(
                 base_path="/x", parent_ds=False, dataset_name="d", dataset_lang_pair="es-en",
                 dataset_size_name="s", dataset_lines=None, splits_sizes=(None, 10, 10),
                 subword_model="bytes", vocab_size=None, byte_fallback=True, merge_vocabs=False,
